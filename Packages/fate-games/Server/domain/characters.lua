@@ -154,7 +154,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
 
         -- Nom bouchon. Le vrai nom viendra du Vestibule, et c'est lui que le monde
         -- retiendra : voir la section sur la legende dans UNIVERS.md.
-        local first_name = "Baihuan"
+        local first_name = "Player"
         local last_name  = tostring(id)
 
         DB.Execute(
