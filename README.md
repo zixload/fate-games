@@ -50,15 +50,3 @@ tests/               banc hors-jeu, bouchons du moteur
 .lua-stubs/          annotations de l'API pour l'éditeur
 ```
 
-## Règles héritées
-
-Le noyau vient de `zix-medieval` et en garde les règles, qui ne sont pas négociables ici non
-plus :
-
-* le client envoie une **intention**, jamais un résultat — le serveur revalide tout ;
-* aucune requête SQL bloquante une fois le serveur démarré ;
-* l'état volatil s'écrit en différé, jamais à chaque changement ;
-* injection de dépendances explicite, aucune globale entre modules ;
-* et une règle propre aux jeux à information cachée : **le serveur ne transmet jamais à un
-  client une information que ce client n'a pas le droit de connaître.** Ses propres cartes,
-  oui. La table des rôles, jamais.
