@@ -1,0 +1,12 @@
+{
+    "Lua.runtime.version": "Lua 5.4",
+    "Lua.workspace.library": [
+        ".lua-stubs"
+    ],
+    "Lua.workspace.checkThirdParty": false,
+    "Lua.diagnostics.globals": [
+        "Package",
+        "jit"
+    ],
+    "files.eol": "\n"
+}

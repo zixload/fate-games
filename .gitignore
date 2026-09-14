@@ -1,0 +1,31 @@
+# --- Binaires et fichiers generes par le serveur dedie ---
+NanosWorldServer.exe
+NanosWorldServer.sh
+NanosWorldServer*
+steamapps/
+steam_appid.txt
+*.dll
+*.so
+
+# Sorties d'execution
+Logs/
+Cache/
+Saves/
+*.log
+
+# Assets volumineux (asset packs telecharges, pas versionnes)
+Assets/
+
+# Config locale : contient le mot de passe et les chemins de la machine
+Config.toml
+
+# Bases SQLite de developpement
+*.db
+*.db-journal
+*.db-wal
+
+# --- Divers ---
+.idea/
+*.tmp
+Thumbs.db
+desktop.ini
