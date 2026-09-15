@@ -20,18 +20,6 @@ Plusieurs dépôts partagent la même installation de serveur (`C:\nanos-world-s
 `dev.ps1` s'assure avant chaque démarrage que c'est **ce** package qui est monté et chargé :
 lancer le script depuis un autre dépôt bascule automatiquement.
 
-Rechargement à chaud, dans la console du serveur :
-
-```text
-package reload all
-```
-
-Les tests exigent Lua 5.4, la même version que la VM du moteur :
-
-```powershell
-winget install --id DEVCOM.Lua --exact
-```
-
 ## Structure
 
 ```
