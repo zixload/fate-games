@@ -1,11 +1,24 @@
 # fate-games
 
+[![tests](https://github.com/zixload/fate-games/actions/workflows/tests.yml/badge.svg)](https://github.com/zixload/fate-games/actions/workflows/tests.yml)
+
 Serveur de mini-jeux sur nanos world. Premier jeu : **loup-garou**.
 
 Le parti pris tient en une phrase : **tout se joue dans le monde, pas à l'écran**. Les cartes
 sont des objets tenus en main, le vote consiste à viser quelqu'un, la nuit est un vrai
 changement de lumière. L'interface se limite à une invite d'interaction et à une zone de
 message transitoire pour ce qui ne peut pas être physique.
+
+## Où ça en est
+
+| | |
+| --- | --- |
+| Socle serveur | architecture modulaire, base SQLite avec migrations, comptes et personnages persistants |
+| Autorité serveur | le client envoie une intention, jamais un résultat — tout est revalidé |
+| Interaction | visée côté client, revalidation de distance côté serveur, journal d'audit |
+| Tests | 74, exécutés hors-jeu contre des bouchons du moteur |
+| Loup-garou | conception faite, logique à écrire |
+| Testé avec de vrais joueurs | **pas encore** — en attente d'accès au client |
 
 ## Développement
 
