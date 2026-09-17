@@ -71,6 +71,7 @@ local suites = {
     "characters",
     "interactables",
     "liars_deck",
+    "liars_revolver",
 }
 
 print(("banc de test fate-games (%s)"):format(_VERSION))
