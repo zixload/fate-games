@@ -66,6 +66,39 @@ return function(H, Stubs)
             end
         end)
 
+        H.it("consomme le hasard a chaque position du paquet", function()
+            local Deck = make_deck(config)
+            local appels = 0
+
+            -- rng qui rend n : j == i, donc chaque echange est neutre, mais le
+            -- tirage a bien lieu. Un Shuffle qui ne fait rien n'appellerait jamais.
+            local cards = Deck.Shuffle(Deck.Build(), function(n)
+                appels = appels + 1
+                return n
+            end)
+
+            -- Fisher-Yates parcourt de #cards a 2 : 19 tirages pour 20 cartes.
+            H.assert_eq(appels, 19, "nombre de tirages")
+            H.assert_eq(#cards, 20, "taille conservee")
+        end)
+
+        H.it("reordonne reellement les cartes", function()
+            local Deck = make_deck(config)
+
+            local attendu = Deck.Build()
+            local apres   = Deck.Shuffle(Deck.Build(), function(_) return 1 end)
+
+            local identique = true
+            for i = 1, #apres do
+                if apres[i] ~= attendu[i] then
+                    identique = false
+                    break
+                end
+            end
+
+            H.assert_false(identique, "un melange doit changer l'ordre")
+        end)
+
         H.it("fait correspondre la valeur de table et le joker, rien d'autre", function()
             local Deck = make_deck(config)
 
