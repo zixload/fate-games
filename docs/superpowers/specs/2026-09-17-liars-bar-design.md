@@ -7,9 +7,8 @@
 Ce document couvre la **logique serveur** d'une partie de Liar's Bar : composition du paquet,
 distribution, poses cachées, contestation, roulette russe, élimination et victoire.
 
-Il ne couvre pas la carte, ni le choix d'apparence des personnages — ce dernier appartient au
-vestibule et non au jeu, et fera l'objet de sa propre conception. L'interface se limite, par choix
-de design, à l'invite d'interaction et à une zone de message transitoire.
+Il ne couvre pas la carte. L'interface se limite, par choix de design, à l'invite d'interaction et
+à une zone de message transitoire.
 
 Liar's Bar est le **premier module de jeu** de fate-games. Il définit donc la forme du dossier
 `Server/games/`, que le loup-garou reprendra.
@@ -164,6 +163,22 @@ Vérifiée **après chaque résolution de tir, jamais ailleurs**. Le dernier jou
 
 **Trois joueurs minimum, six places maximum**, la table canonique étant de quatre.
 
+### Les apparences
+
+**Attribuées au hasard au début de la partie, et distinctes entre elles.** Chaque joueur reçoit une
+des dix apparences de `Shared/appearances.lua`, tirée **sans remise** — la distinction est donc
+garantie par construction, et non par la chance.
+
+Il y a dix apparences pour six places au maximum, donc le tirage ne peut jamais échouer.
+
+Aucun choix, aucun menu, aucun vestibule : c'est la conséquence directe du parti pris « pas
+d'interface ». Et ce qui compte réellement dans un jeu de bluff n'est pas de choisir sa tête, c'est
+de **pouvoir distinguer les autres** — ce que l'attribution sans remise assure mieux qu'un choix
+libre, où deux joueurs prendraient la même.
+
+Le tirage utilise le hasard injecté, donc il est reproductible au banc de test. Rien n'est persisté :
+une nouvelle partie redistribue les apparences.
+
 ### Durée attendue
 
 À quatre joueurs il faut trois morts. La balle étant à une position uniforme parmi six, un joueur
@@ -179,6 +194,7 @@ Le contrat entre le moteur et l'adaptateur. `effects.lua` les construit et les v
 
 | Effet | Champs | Traduction |
 | --- | --- | --- |
+| `appearance` | player, body, head, worn | montage du personnage : `AddStaticMeshAttached` pour la tête, `AddSkeletalMeshAttached` pour les vêtements |
 | `deal` | player, cards | envoi privé **au seul destinataire** |
 | `table_card` | rank | annonce publique de la manche |
 | `cards_played` | player, **count** | N dos glissent vers le dépôt |
@@ -274,7 +290,8 @@ Toute la logique se teste hors-jeu, sans bouchon, puisqu'elle ne connaît aucune
 trois cartes, indices réellement en main, c'est bien le tour du demandeur ; dépouillement d'une
 contestation dans les deux sens ; traitement du Joker ; progression du barillet et mort certaine au
 sixième tir ; condition de manche nulle ; ouverture de la manche suivante dans les trois cas ;
-élimination ; victoire aux bornes ; déconnexion.
+élimination ; victoire aux bornes ; déconnexion ; **attribution d'apparences distinctes** à
+toutes les tailles de table.
 
 **Le test central** : jouer une **partie entière** avec une horloge factice et un hasard injecté, et
 vérifier qu'on atteint un vainqueur. Puis des parties scénarisées — victoire par élimination, manche
@@ -306,11 +323,6 @@ Tous disponibles, aucun rigging requis pour le mobilier et les objets :
 ---
 
 ## Hors de cette version
-
-**Le choix d'apparence.** Les dix apparences sont écrites, mais la façon de choisir reste à
-concevoir : menu à la connexion, ou antichambre où les apparences sont incarnées sur des mannequins
-qu'on active à la touche E. Cela appartient au vestibule, pas au jeu, et mérite sa propre
-conception.
 
 **La salle.** Liar's Bar n'a pas besoin d'une carte égyptienne de 856 Mo. Quatre joueurs assis
 voient une pièce, quatre murs et une lumière. Une petite salle dédiée coûterait quelques
