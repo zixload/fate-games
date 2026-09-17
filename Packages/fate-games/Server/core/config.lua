@@ -34,7 +34,7 @@ return {
 
     -- Apparence par defaut des personnages. Le pack doit etre monte via `assets`
     -- dans Config.toml, sinon le mesh est introuvable a l'execution.
-    character_mesh = "gknight::SK_GothicKnight_VA",
+    character_mesh = "nanos-world::SK_Male",
 
     interaction = {
         -- Portee par defaut en centimetres. Le serveur revalide toujours la
@@ -53,9 +53,9 @@ return {
     -- enregistre. Provisoire : le canon veut que le lieu d'arrivee depende du
     -- profil du joueur (voir SYSTEME-EPREUVE.md).
     spawn = {
-        x   = 0,
-        y   = 0,
-        z   = 200,
-        yaw = 0,
+        x   = -3469.4,
+        y   = 15.3,
+        z   = 505.0,   -- le sol de la plateforme est a 404.9 : on tombe d'un metre
+        yaw = -52.4,
     },
 }
