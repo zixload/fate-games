@@ -73,6 +73,7 @@ local suites = {
     "liars_deck",
     "liars_revolver",
     "liars_challenge",
+    "liars_round",
 }
 
 print(("banc de test fate-games (%s)"):format(_VERSION))
