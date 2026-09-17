@@ -74,12 +74,20 @@ return function(config, Deck)
 
     -- Prochaine place vivante AVEC des cartes, en partant de round.turn et en
     -- bouclant. Rend nil s'il n'y en a aucune.
+    --
+    -- round.turn peut nommer une place ABSENTE de seats : c'est le cas juste
+    -- apres l'elimination du joueur dont c'etait le tour. On repart alors de la
+    -- place qu'il occupait dans l'ordre de la table, sinon le tour reviendrait
+    -- au debut et sauterait ses voisins.
     function Round.NextTurn(round, seats)
         local depart = 0
         for rank, seat in ipairs(seats) do
             if seat == round.turn then
                 depart = rank
                 break
+            end
+            if seat < round.turn then
+                depart = rank
             end
         end
 

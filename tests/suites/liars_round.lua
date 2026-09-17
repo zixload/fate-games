@@ -120,5 +120,26 @@ return function(H, Stubs)
             poser_main(round, 1, {})
             H.assert_false(Round.HasCards(round, 1), "main vide")
         end)
+
+        H.it("ne declare pas la manche epuisee a deux places avec des cartes", function()
+            local Round = build()
+            local round = Round.Start({ 1, 2, 3 }, 1, rng_fixe)
+            poser_main(round, 1, {})
+
+            -- Deux places gardent des cartes : la manche continue. C'est la borne
+            -- exacte de la regle "moins de deux", et un `<= 2` la franchirait ici.
+            H.assert_false(Round.Exhausted(round, { 1, 2, 3 }), "deux places avec des cartes")
+        end)
+
+        H.it("reprend apres la place disparue et non au debut de la table", function()
+            local Round = build()
+            local round = Round.Start({ 1, 2, 3, 4 }, 1, rng_fixe)
+
+            -- La place 2 vient d'etre eliminee alors que c'etait son tour : elle
+            -- ne figure plus parmi les vivants. Le tour doit passer a la place 3,
+            -- pas revenir a la place 1.
+            round.turn = 2
+            H.assert_eq(Round.NextTurn(round, { 1, 3, 4 }), 3, "place suivante en ordre de table")
+        end)
     end)
 end
