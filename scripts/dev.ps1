@@ -3,6 +3,7 @@
 
     Usage :
         .\scripts\dev.ps1 start      demarre en capturant la sortie dans .dev\server.log
+        .\scripts\dev.ps1 start -NoWait   demarre sans attendre, rend la main aussitot
         .\scripts\dev.ps1 console    demarre dans une fenetre interactive
         .\scripts\dev.ps1 stop       arrete le serveur
         .\scripts\dev.ps1 restart    redemarre en mode capture
@@ -35,6 +36,8 @@ param(
     [string]$Action = "status",
 
     [int]$Lines = 40,
+    [int]$Timeout = 60,
+    [switch]$NoWait,
     [switch]$Follow
 )
 
@@ -45,6 +48,13 @@ $Exe       = Join-Path $ServerDir "NanosWorldServer.exe"
 $DevDir    = Join-Path $ServerDir ".dev"
 $OutFile   = Join-Path $DevDir "server.log"
 $Config    = Join-Path $ServerDir "Config.toml"
+
+# Le client dont on dispose est l'app Steam "nanos world Playtest". Sans
+# --playtest le serveur demarre sur l'app id "game" et ce client ne peut pas
+# le rejoindre : la connexion expire en 5003 sans que rien n'atteigne le
+# serveur. Le demarrage journalise "Running Playtest App ID!" quand le
+# drapeau est pris en compte -- c'est la ligne a verifier en cas de doute.
+$ServerArgs = @("--playtest")
 
 $Repo = Split-Path $PSScriptRoot -Parent
 
@@ -111,11 +121,20 @@ function Start-Captured {
     if (-not (Test-Path $DevDir)) { New-Item -ItemType Directory $DevDir | Out-Null }
 
     $proc = Start-Process -FilePath $Exe -WorkingDirectory $ServerDir `
+        -ArgumentList $ServerArgs `
         -PassThru -WindowStyle Hidden -RedirectStandardOutput $OutFile
     Write-Host "demarre en mode capture, PID $($proc.Id)"
 
-    for ($i = 0; $i -lt 40; $i++) {
+    if ($NoWait) {
+        Write-Host "rend la main tout de suite ; suivre avec 'dev.ps1 logs -Follow'" -ForegroundColor Cyan
+        return
+    }
+
+    for ($i = 0; $i -lt $Timeout; $i++) {
         Start-Sleep -Seconds 1
+        if (($i -gt 0) -and ($i % 15 -eq 0)) {
+            Write-Host "  ... $i s, mise en cache des asset packs en cours" -ForegroundColor DarkGray
+        }
         if ($proc.HasExited) {
             Write-Host "le serveur s'est arrete (code $($proc.ExitCode))" -ForegroundColor Red
             Show-Logs -Count 20
@@ -133,7 +152,7 @@ function Start-Captured {
         }
     }
 
-    Write-Host "pas de 'Server started' apres 40s" -ForegroundColor Yellow
+    Write-Host "pas de 'Server started' apres $Timeout s" -ForegroundColor Yellow
     Show-Logs -Count $Lines
 }
 
@@ -142,7 +161,8 @@ function Start-Console {
     Assert-Binary
     Use-ThisPackage
 
-    $proc = Start-Process -FilePath $Exe -WorkingDirectory $ServerDir -PassThru
+    $proc = Start-Process -FilePath $Exe -WorkingDirectory $ServerDir `
+        -ArgumentList $ServerArgs -PassThru
     Write-Host "demarre en console interactive, PID $($proc.Id)"
     Write-Host "rechargement a chaud : taper 'package reload all' dans la fenetre" -ForegroundColor Cyan
 }
