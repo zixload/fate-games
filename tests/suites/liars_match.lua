@@ -122,5 +122,30 @@ return function(H, Stubs)
             M.Eliminate(match, 2)
             H.assert_eq(M.NextAlive(match, 1), 3, "on saute un elimine")
         end)
+
+        H.it("enregistre l'ordre des morts", function()
+            local M = build()
+            local match = M.New({ "p1", "p2", "p3", "p4" }, rng_croissant())
+
+            M.Eliminate(match, 3)
+            M.Eliminate(match, 1)
+
+            -- La tache 9 lit ce champ a l'envers pour classer : le dernier tombe
+            -- est deuxieme, l'avant-dernier troisieme. L'ordre est donc porteur.
+            H.assert_eq(#match.dead_order, 2, "nombre de morts")
+            H.assert_eq(match.dead_order[1], 3, "premier tombe")
+            H.assert_eq(match.dead_order[2], 1, "second tombe")
+        end)
+
+        H.it("n'enregistre pas deux fois la meme mort", function()
+            local M = build()
+            local match = M.New({ "p1", "p2", "p3" }, rng_croissant())
+
+            M.Eliminate(match, 2)
+            M.Eliminate(match, 2)
+
+            H.assert_eq(#match.dead_order, 1, "une seule entree")
+            H.assert_eq(match.dead_order[1], 2, "la bonne place")
+        end)
     end)
 end
