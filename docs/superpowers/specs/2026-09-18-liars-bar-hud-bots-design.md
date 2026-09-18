@@ -109,7 +109,8 @@ dit.
 
 **Touches**, réglables dans `Shared/config.lua` sous `liars_hud`, noms tirés de la doc Input :
 
-* `One` à `Five` : choisir ou retirer une carte, seulement pendant son tour ;
+* `W` `X` `C` `V` `B` : choisir ou retirer une carte, seulement pendant son tour. Des lettres et
+  non des chiffres : en AZERTY, la touche 1 s'appelle `Ampersand` pour Unreal ;
 * `P` : envoyer `liars_play` avec les indices choisis, puis vider la sélection. Pas `Enter`, qui
   risque de servir au chat ; le HUD ignore aussi ses touches tant que le chat est ouvert ;
 * `M` : envoyer `liars_challenge` ;

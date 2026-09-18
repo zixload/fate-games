@@ -35,31 +35,40 @@ return function(config, Journal, send_intent)
     Chat.Subscribe("Open", function() chat_ouvert = true end)
     Chat.Subscribe("Close", function() chat_ouvert = false end)
 
+    -- Pendant mon tour, une touche du HUD est retenue (retour false, doc
+    -- Input) : elle ne doit pas aussi declencher son action native. Hors de
+    -- mon tour, on ne touche a rien.
     Input.Subscribe("KeyPress", function(key_name)
-        if chat_ouvert then return end
+        if chat_ouvert or not journal:IsMyTurn() then return end
         local keys = config.keys
 
         for i, noms in ipairs(keys.select) do
             for _, k in ipairs(noms) do
                 if key_name == k then
                     journal:Toggle(i)
-                    return
+                    return false
                 end
             end
         end
 
         if key_name == keys.play then
             local indices = journal:Selection()
-            if #indices > 0 and journal:IsMyTurn() then
+            if #indices > 0 then
                 journal:MarkPending(indices)
                 send_intent("liars_play", { indices = indices })
             end
+            return false
         elseif key_name == keys.accuse then
-            if journal:IsMyTurn() then
-                send_intent("liars_challenge", {})
-            end
+            send_intent("liars_challenge", {})
+            return false
         end
     end)
+
+    -- L'etiquette d'une carte : le premier nom de sa touche.
+    local function touche(i)
+        local noms = config.keys.select[i]
+        return noms and noms[1] or tostring(i)
+    end
 
     ---------------------------------------------------------------- dessin
 
@@ -108,12 +117,16 @@ return function(config, Journal, send_intent)
         if #journal.hand > 0 then
             local cartes = {}
             for i, c in ipairs(journal.hand) do
-                local nom = ("[%d] %s"):format(i, Journal.RankName(c))
+                local nom = ("[%s] %s"):format(touche(i), Journal.RankName(c))
                 cartes[i] = journal:IsSelected(i) and ("> " .. nom .. " <") or nom
             end
             texte(self, table.concat(cartes, "    "), width / 2, height - 110, 24, Color.WHITE, true)
             if journal:IsMyTurn() then
-                texte(self, "1-5 choisir   ·   P poser   ·   M accuser", width / 2, height - 76, 16, JAUNE, true)
+                local choix = {}
+                for i = 1, #journal.hand do choix[i] = touche(i) end
+                texte(self, ("%s choisir   ·   %s poser   ·   %s accuser"):format(
+                    table.concat(choix, " "), config.keys.play, config.keys.accuse),
+                    width / 2, height - 76, 16, JAUNE, true)
             end
         end
     end)
