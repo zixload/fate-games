@@ -66,7 +66,8 @@ return {
                 "my-asset-pack::SK_Shoe_Slippers_005",
             },
             scale      = 0.8,    -- le corps du pack mesure ~190 cm, un peu grand
-            walk_speed = 450,    -- cm/s, a accorder avec le Blend Space
+            walk_speed = 150,    -- cm/s, marche : le point Walk du Blend Space
+            run_speed  = 450,    -- cm/s, Maj enfoncee : le point Run du Blend Space
             rotation_rate = 540, -- degres par seconde, corps oriente vers le mouvement
             eye_height = 60.0,   -- hauteur de la camera depuis le centre du corps
             arm_length = 250.0,  -- recul de la camera ; 0 = premiere personne

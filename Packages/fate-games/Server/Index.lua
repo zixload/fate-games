@@ -107,6 +107,12 @@ if essai and essai.enabled then
         end
         return false
     end)
+
+    -- Maj pour courir. Hors du pipeline des intentions : un reglage de
+    -- vitesse sans enjeu de jeu ne merite pas une ligne d'audit par appui.
+    Events.SubscribeRemote("zix:course", function(player, course)
+        Characters.SetRunning(player:GetID(), course == true)
+    end)
 end
 
 Player.Subscribe("Ready", function(player)

@@ -221,6 +221,18 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         return true
     end
 
+    -- Maj pour courir (ESSAI). Assis, la vitesse reste bloquee.
+    function Characters.SetRunning(player_id, course)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) or session.assis then
+            return false
+        end
+        local e = session.essai
+        local vitesse = course and e.run_speed or e.walk_speed
+        session.character:SetSpeedSettings(vitesse, e.walk_speed / 2)
+        return true
+    end
+
     function Characters.Stand(player_id)
         local session = sessions[player_id]
         if not (session and session.assis and session.character) then return false end
