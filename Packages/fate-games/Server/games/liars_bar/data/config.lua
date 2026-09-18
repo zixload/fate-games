@@ -20,6 +20,14 @@ return {
     -- deconnecte ou reste inerte : sans lui la partie se bloque
     shoot_timeout = 15.0,
 
+    -- Bots de test (voir bots.lua). Ils ne jouent que si dev.liars_bots est
+    -- vrai dans Server/core/config.lua.
+    bots = {
+        delay          = 1.5,   -- secondes avant qu'un bot joue
+        accuse_percent = 30,    -- chance d'accuser quand une pose le permet
+        body_offset    = 60.0,  -- recul du corps derriere sa chaise, en cm
+    },
+
     -- Reperes mesures dans MapEgypt avec des cubes Unreal. Les meubles sont
     -- cuits dans la carte : le serveur ne doit creer que les volumes
     -- interactifs et le revolver mobile.
