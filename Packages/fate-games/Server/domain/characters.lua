@@ -116,6 +116,9 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         for i, piece in ipairs(essai.parts or {}) do
             character:AddSkeletalMeshAttached("essai_" .. i, piece)
         end
+        if essai.scale and essai.scale ~= 1 then
+            character:SetScale(Vector(essai.scale, essai.scale, essai.scale))
+        end
         character:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
         character:SetSpringArmSettings(Vector(0, 0, essai.eye_height), essai.arm_length)
         return character

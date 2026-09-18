@@ -65,6 +65,7 @@ return {
                 "my-asset-pack::SK_Costume_10_001",
                 "my-asset-pack::SK_Shoe_Slippers_005",
             },
+            scale      = 0.8,    -- le corps du pack mesure ~190 cm, un peu grand
             walk_speed = 450,    -- cm/s, a accorder avec le Blend Space
             eye_height = 60.0,   -- hauteur de la camera depuis le centre du corps
             arm_length = 250.0,  -- recul de la camera ; 0 = premiere personne
