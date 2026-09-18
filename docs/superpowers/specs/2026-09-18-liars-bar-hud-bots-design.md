@@ -56,7 +56,7 @@ choses :
 3. sinon `nil`.
 
 **Déclenchement.** Après chaque lot d'effets, l'adaptateur incrémente un compteur de génération. Si
-l'effet `turn` ou `designated` vise un bot, il arme un `Timer.SetTimeout` de `bots.delay` secondes
+la place attendue, donnée par `Bots.Awaited(state)` (le tireur désigné, sinon le tour), est un bot, il arme un `Timer.SetTimeout` de `bots.delay` secondes
 (1,5 par défaut). À l'échéance, le minuteur ne fait rien si la génération a changé. Sinon il
 demande `Bots.Decide` sur l'état **courant** et passe l'acte par `Adapter.Act`, comme un joueur. Un
 minuteur périmé ne peut donc jamais jouer deux fois.
@@ -100,15 +100,18 @@ Les refus de pose et d'accusation arrivent déjà par `zix:intent_result` ; le H
 
 * **le journal**, sur le côté : les `journal_lines` dernières étapes (8 par défaut), en phrases
   courtes. Par exemple : « zix s'assoit, chaise 1 », « Partie lancée : 4 joueurs », « Carte de
-  table : Roi », « Chaise 2 pose 2 cartes », « Chaise 3 accuse chaise 2 », « Révélé : Roi, Dame →
-  mensonge », « Chaise 2 tire… à blanc », « Victoire : chaise 4 ». Les refus s'affichent en rouge ;
+  table : Roi », « Chaise 2 pose 2 cartes », « Chaise 3 accuse chaise 2 », « Révélé chez Bot 2 : Roi, Dame », « Bot 2 doit tirer », « Chaise 2 tire… à blanc », « Victoire : chaise 4 ». Les refus s'affichent en rouge ;
 * **l'état**, en haut : ma chaise, la carte de table, le tour, et « À toi ! » quand c'est le mien ;
 * **ma main**, en bas, seulement si j'en ai une : `[1] Roi [2] Dame [3] As`, sélection marquée.
+
+Le HUD ne juge pas une révélation : c'est le serveur qui désigne le tireur, et la ligne suivante le
+dit.
 
 **Touches**, réglables dans `Shared/config.lua` sous `liars_hud`, noms tirés de la doc Input :
 
 * `One` à `Five` : choisir ou retirer une carte, seulement pendant son tour ;
-* `Enter` : envoyer `liars_play` avec les indices choisis, puis vider la sélection ;
+* `P` : envoyer `liars_play` avec les indices choisis, puis vider la sélection. Pas `Enter`, qui
+  risque de servir au chat ; le HUD ignore aussi ses touches tant que le chat est ouvert ;
 * `M` : envoyer `liars_challenge` ;
 * E sur le revolver : lancer et tirer, sans changement.
 
@@ -136,8 +139,9 @@ Les raisons de refus connues sont traduites en français. Une raison inconnue s'
 
 ## Hors de cette version
 
-* L'éventail 3D et les cartes physiques. Les assets sont en préparation : un modèle `SM_Carte`
-  avec un emplacement de face et un de dos, et cinq matériaux (Roi, Dame, As, Joker, dos).
+* L'éventail 3D et les cartes physiques. Les assets sont en préparation : les Rois, Dames et As
+  d'un jeu de 52 cartes, importés en modèles statiques (une carte = un modèle), plus un Joker à
+  fabriquer, car ce jeu n'en a pas.
 * L'animation assise, le blocage du joueur sur sa chaise, et la caméra de table.
 * Un HUD limité aux joueurs proches de la table : pour l'instant, tous les connectés le voient.
 * Les messages d'erreur du moteur qui citent des numéros de place moteur au lieu des chaises.
