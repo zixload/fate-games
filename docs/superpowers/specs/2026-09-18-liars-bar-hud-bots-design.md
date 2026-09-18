@@ -57,7 +57,7 @@ choses :
 
 **Déclenchement.** Après chaque lot d'effets, l'adaptateur incrémente un compteur de génération. Si
 la place attendue, donnée par `Bots.Awaited(state)` (le tireur désigné, sinon le tour), est un bot, il arme un `Timer.SetTimeout` de `bots.delay` secondes
-(1,5 par défaut). À l'échéance, le minuteur ne fait rien si la génération a changé. Sinon il
+(3 par défaut). À l'échéance, le minuteur ne fait rien si la génération a changé. Sinon il
 demande `Bots.Decide` sur l'état **courant** et passe l'acte par `Adapter.Act`, comme un joueur. Un
 minuteur périmé ne peut donc jamais jouer deux fois.
 
@@ -102,7 +102,7 @@ Les refus de pose et d'accusation arrivent déjà par `zix:intent_result` ; le H
   courtes. Par exemple : « zix s'assoit, chaise 1 », « Partie lancée : 4 joueurs », « Carte de
   table : Roi », « Chaise 2 pose 2 cartes », « Chaise 3 accuse chaise 2 », « Révélé chez Bot 2 : Roi, Dame », « Bot 2 doit tirer », « Chaise 2 tire… à blanc », « Victoire : chaise 4 ». Les refus s'affichent en rouge ;
 * **l'état**, en haut : ma chaise, la carte de table, le tour, et « À toi ! » quand c'est le mien ;
-* **ma main**, en bas, seulement si j'en ai une : `[1] Roi [2] Dame [3] As`, sélection marquée.
+* **ma main**, en bas, seulement si j'en ai une : `[W] Roi [X] Dame [C] As`, sélection marquée.
 
 Le HUD ne juge pas une révélation : c'est le serveur qui désigne le tireur, et la ligne suivante le
 dit.
