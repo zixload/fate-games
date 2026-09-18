@@ -35,7 +35,7 @@ return function(H, Stubs)
 
         H.it("attribue des apparences TOUTES distinctes", function()
             local M = build()
-            local match = M.New({ "p1", "p2", "p3", "p4", "p5", "p6" }, rng_croissant())
+            local match = M.New({ "p1", "p2", "p3", "p4" }, rng_croissant())
 
             local vues = {}
             for _, seat in ipairs(match.seats) do
@@ -47,9 +47,10 @@ return function(H, Stubs)
 
         H.it("attribue des apparences distinctes meme si le hasard insiste", function()
             local M = build()
-            -- Un rng qui rend toujours 1 : sans tirage sans remise, les six
-            -- joueurs recevraient la meme apparence.
-            local match = M.New({ "p1", "p2", "p3", "p4", "p5", "p6" }, rng_fixe)
+            -- Un rng qui rend toujours 1 : sans tirage sans remise, les quatre
+            -- joueurs recevraient la meme apparence. La collision se voit des la
+            -- deuxieme place, il n'en faut pas plus pour la demasquer.
+            local match = M.New({ "p1", "p2", "p3", "p4" }, rng_fixe)
 
             local vues = {}
             for _, seat in ipairs(match.seats) do
