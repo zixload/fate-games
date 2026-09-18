@@ -59,11 +59,37 @@ return function(H, Stubs)
         return n
     end
 
+    -- Controle independant de ceux du moteur : il ne s'appuie ni sur
+    -- AssertNoLeak ni sur Validate, qui pourraient s'affaiblir ensemble. Un
+    -- effet public ne porte que des valeurs simples, sauf la revelation, dont
+    -- c'est le but, et la fin de partie, dont le resume ne contient que le
+    -- nombre de manches et la liste des morts.
+    local function controler_publics(H, effects, contexte)
+        for _, e in ipairs(effects) do
+            if e.audience == "all" and e.kind ~= "reveal" then
+                for champ, valeur in pairs(e) do
+                    if e.kind == "match_ended" and champ == "summary" then
+                        for cle in pairs(valeur) do
+                            H.assert_true(cle == "rounds" or cle == "dead",
+                                ("resume de fin de partie : cle %s, %s"):format(
+                                    tostring(cle), contexte))
+                        end
+                    else
+                        H.assert_true(type(valeur) ~= "table",
+                            ("effet public %s : le champ %s est une table, %s"):format(
+                                tostring(e.kind), tostring(champ), contexte))
+                    end
+                end
+            end
+        end
+    end
+
     -- Joue une partie entiere en pilote automatique : le joueur actif pose
     -- toujours une carte, sauf s'il ne peut que contester.
     local function jouer_partie(Engine, Effects, graine, H)
         local state, effects = Engine.Start({ "p1", "p2", "p3", "p4" }, rng_graine(graine))
         Effects.AssertNoLeak(effects)
+        controler_publics(H, effects, "graine " .. graine .. ", demarrage")
         verifier_distributions(H, state, effects, "graine " .. graine .. ", demarrage")
 
         local tours = 0
@@ -92,6 +118,7 @@ return function(H, Stubs)
             local out
             state, out = Engine.Apply(state, act)
             Effects.AssertNoLeak(out)
+            controler_publics(H, out, "graine " .. graine .. ", tour " .. tours)
             verifier_distributions(H, state, out, "graine " .. graine .. ", tour " .. tours)
         end
 
@@ -122,8 +149,8 @@ return function(H, Stubs)
 
         H.it("ne laisse jamais fuiter une carte sur une partie entiere", function()
             local Engine, Effects = build()
-            -- jouer_partie appelle AssertNoLeak sur chaque lot d'effets ; si une
-            -- fuite existait, ce test echouerait avec le message de la fuite.
+            -- jouer_partie controle chaque lot d'effets par lui-meme, sans se fier
+            -- a AssertNoLeak : une fuite ferait echouer ce test avec son contexte.
             local state = jouer_partie(Engine, Effects, 42, H)
             H.assert_true(state.finished, "partie terminee")
         end)
