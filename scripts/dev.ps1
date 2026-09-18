@@ -7,7 +7,7 @@
         .\scripts\dev.ps1 console    demarre dans une fenetre interactive
         .\scripts\dev.ps1 stop       arrete le serveur
         .\scripts\dev.ps1 restart    redemarre en mode capture
-        .\scripts\dev.ps1 status     etat du processus et du package monte
+        .\scripts\dev.ps1 status     etat du processus, du package monte et adresse de connexion
         .\scripts\dev.ps1 use        monte ce depot sur le serveur, sans demarrer
         .\scripts\dev.ps1 logs       40 dernieres lignes
         .\scripts\dev.ps1 logs -Follow   suit la sortie en continu
@@ -109,6 +109,32 @@ function Show-Logs {
     if ($Wait) { Get-Content $OutFile -Tail $Count -Wait } else { Get-Content $OutFile -Tail $Count }
 }
 
+#   L'adresse que le serveur annonce a Steam. En P2P (dedicated_server = false)
+#   c'est une fausse IP du relais Steam, en 169.254.x.x, qui CHANGE a chaque
+#   demarrage : c'est elle qu'il faut donner aux joueurs.
+function Get-ServerAddress {
+    if (-not (Test-Path $OutFile)) { return $null }
+    try {
+        $hit = Select-String -Path $OutFile -Pattern "connected to Steam.*IP '([^']+)'" |
+            Select-Object -Last 1
+    } catch { return $null }
+    if ($hit) { return $hit.Matches[0].Groups[1].Value }
+    return $null
+}
+
+function Show-Address {
+    $address = Get-ServerAddress
+    if (-not $address) {
+        Write-Host "adresse pas encore annoncee : relancer 'dev.ps1 status' dans quelques secondes" -ForegroundColor Yellow
+        return
+    }
+    Write-Host ""
+    Write-Host "adresse de connexion : $address" -ForegroundColor Cyan
+    if ($address -like "169.254.*") {
+        Write-Host "  (P2P, relais Steam : elle change a chaque demarrage)" -ForegroundColor DarkGray
+    }
+}
+
 function Assert-Binary {
     if (-not (Test-Path $Exe)) { throw "binaire introuvable : $Exe" }
 }
@@ -147,7 +173,10 @@ function Start-Captured {
         }
         if ($started) {
             Write-Host "serveur pret en $($i + 1)s" -ForegroundColor Green
+            # L'annonce a Steam suit "Server started" d'une seconde environ.
+            for ($j = 0; ($j -lt 10) -and -not (Get-ServerAddress); $j++) { Start-Sleep -Seconds 1 }
             Show-Logs -Count $Lines
+            Show-Address
             return
         }
     }
@@ -174,6 +203,7 @@ function Show-Status {
         foreach ($p in $procs) {
             Write-Host "en cours : PID $($p.Id), demarre a $($p.StartTime)" -ForegroundColor Green
         }
+        Show-Address
     } else {
         Write-Host "arrete"
     }
