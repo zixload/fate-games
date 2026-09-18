@@ -34,7 +34,7 @@ return {
     layout = {
         -- Calibration : les quatre reperes sont visibles pour verifier en jeu
         -- qu'ils recouvrent leur chaise. Mettre false une fois verifie.
-        debug_visible = true,
+        debug_visible = false,
 
         chairs = {
             -- ordre du tour : Cube2, Cube, Cube4, Cube3
