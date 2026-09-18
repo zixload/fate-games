@@ -16,6 +16,12 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     -- touche rien et aucune partie ne peut demarrer.
     local REVOLVER_CUIT = false
 
+    -- Les dix apparences attendent leur pack (voir Shared/appearances.lua).
+    -- Tant que ce drapeau est faux, l'apparence est journalisee et rien
+    -- d'autre : habiller un personnage de references absentes le laisserait
+    -- sans corps ni tete.
+    local APPARENCES_CUITES = false
+
     -- Les references d'assets, rassemblees ici et nulle part ailleurs. Une
     -- reference de mesh invalide echoue EN SILENCE cote Lua : le prop est quand
     -- meme cree et seul le log serveur signale "Asset Pack not found". Les
@@ -52,7 +58,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     local chair_of       = {}    -- place moteur -> chaise, le temps d'une partie
     local started_at     = nil
 
-    local shoot_timer    = nil
+    local shoot_timer      = nil
+    local shoot_timer_seat = nil   -- la place pour laquelle ce delai court
 
     -- Mobilier retenu par Init, pour faire glisser le revolver.
     local revolver_prop  = nil
@@ -118,6 +125,12 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     local TRANSLATORS = {}
 
     TRANSLATORS.appearance = function(e)
+        if not APPARENCES_CUITES then
+            Log.Info("liars", ("apparence %s pour la chaise %s : pack non cuit, rien applique")
+                :format(tostring(e.look), tostring(chair(e.seat))))
+            return
+        end
+
         local character = character_of(e.seat)
         if not character then
             Log.Warn("liars", ("apparence : aucun personnage a la chaise %s")
@@ -244,6 +257,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         end
 
         send(e.audience, "liars:match_ended", chaise_gagnante)
+        for _, entry in ipairs(releve.seated) do
+            send("all", "liars:unseated", entry.chair)
+        end
         placer_revolver(revolver_home)
 
         Log.Info("liars", ("partie terminee, vainqueur chaise %s"):format(tostring(chaise_gagnante)))
@@ -328,21 +344,34 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     -- Le hasard etait fixe a la creation du barillet : resoudre sans lui ne lui
     -- retire rien.
     function Adapter.ArmShootTimeout()
+        local designe = state and state.pending and state.pending.seat or nil
+
+        -- Le delai court deja pour ce tireur : on le laisse courir. Le rearmer a
+        -- chaque acte accepte pendant l'attente repousserait l'echeance.
+        if shoot_timer and designe == shoot_timer_seat then return end
+
         if shoot_timer then
             Timer.ClearTimeout(shoot_timer)
-            shoot_timer = nil
+            shoot_timer, shoot_timer_seat = nil, nil
         end
-        if not state or not state.pending then return end
+        if not designe then return end
 
-        local designe = state.pending.seat
+        shoot_timer_seat = designe
         shoot_timer = Timer.SetTimeout(function()
-            shoot_timer = nil
+            shoot_timer, shoot_timer_seat = nil, nil
             if state and state.pending and state.pending.seat == designe then
                 Log.Info("liars", ("tir resolu d'office pour la chaise %s")
                     :format(tostring(chair_of[designe])))
                 Adapter.Act({ kind = "shoot", seat = designe })
             end
         end, math.floor(config.shoot_timeout * 1000))
+    end
+
+    -- Le texte d'une erreur Lua sans le prefixe "fichier:ligne: " qu'error()
+    -- y ajoute : le chemin des sources du serveur ne regarde pas le client.
+    local function message_seul(err)
+        local texte = tostring(err)
+        return texte:match("^.-:%d+: (.*)$") or texte
     end
 
     function Adapter.Act(act, cid)
@@ -356,9 +385,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         local ok, nouveau, effects = pcall(Engine.Apply, state, act)
         if not ok then
             -- Un acte refuse est une information, pas une panne : le moteur leve
-            -- une erreur nommee, on la journalise et on la rend au client.
+            -- une erreur nommee. Le journal garde le texte complet, le client
+            -- n'en recoit que le message.
             Log.Info("liars", "acte refuse : " .. tostring(nouveau), cid)
-            return false, tostring(nouveau)
+            return false, message_seul(nouveau)
         end
 
         state = nouveau
@@ -384,6 +414,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             for i = #seated, 1, -1 do
                 if seated[i].chair == ancienne then table.remove(seated, i) end
             end
+            send("all", "liars:unseated", ancienne)
         end
 
         player_by_seat[chair_n] = player
@@ -402,9 +433,14 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         return true
     end
 
-    function Adapter.Begin(cid)
+    function Adapter.Begin(player, cid)
         if state then
             return false, "partie_en_cours"
+        end
+        -- Seul un joueur assis lance la partie : un passant qui touche le
+        -- revolver ne la declenche pas pour les autres.
+        if not (player and seat_by_player[player:GetID()]) then
+            return false, "pas_assis"
         end
         if #seated < config.min_players then
             return false, "pas_assez_de_joueurs"
@@ -510,7 +546,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             label = "Prendre le revolver",
             on_interact = function(player, session, entry, cid)
                 if not state then
-                    return Adapter.Begin(cid)
+                    return Adapter.Begin(player, cid)
                 end
                 local seat = seat_by_player[player:GetID()]
                 if seat then
