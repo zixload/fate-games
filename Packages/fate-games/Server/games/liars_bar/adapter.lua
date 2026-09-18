@@ -11,6 +11,11 @@
 return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appearances, config, spawn)
     local Adapter = {}
 
+    -- Le Nagant M1895 n'est pas encore cuit. Tant que ce drapeau est faux, un
+    -- maillage integre sert de revolver : sans maillage, la trace du client ne
+    -- touche rien et aucune partie ne peut demarrer.
+    local REVOLVER_CUIT = false
+
     -- Les references d'assets, rassemblees ici et nulle part ailleurs. Une
     -- reference de mesh invalide echoue EN SILENCE cote Lua : le prop est quand
     -- meme cree et seul le log serveur signale "Asset Pack not found". Les
@@ -19,10 +24,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         table = "nanos-world::SM_WoodenTable",   -- integre au jeu
         chair = "nanos-world::SM_WoodenChair",   -- integre, meme famille de textures
 
-        -- Le Nagant M1895 attend sa cuisson. Tant que le pack n'existe pas, le
-        -- prop est invisible — mais le jeu reste fonctionnel, parce que c'est le
-        -- REGISTRE qui fait autorite pour l'interaction, pas le maillage.
-        revolver = "liars-props::SM_Nagant_M1895",
+        revolver = REVOLVER_CUIT and "liars-props::SM_Nagant_M1895"
+            or "nanos-world::SM_Bottle_01",
     }
 
     -- Les cinq FBX Mixamo attendent leur retargeting dans l'ADK. Tant que ces
@@ -50,6 +53,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     local started_at     = nil
 
     local shoot_timer    = nil
+
+    -- Mobilier retenu par Init, pour faire glisser le revolver.
+    local revolver_prop  = nil
+    local revolver_home  = nil   -- au centre de la table
+    local devant_chaise  = {}    -- chaise -> position du revolver devant elle
 
     ---------------------------------------------------------------- envois
 
@@ -90,6 +98,12 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     local function character_of(seat)
         local player = player_by_seat[seat]
         return player and player:GetControlledCharacter() or nil
+    end
+
+    local function placer_revolver(position)
+        if revolver_prop and position then
+            revolver_prop:SetLocation(position)
+        end
     end
 
     ---------------------------------------------------------------- remise a zero
@@ -142,7 +156,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         send(e.audience, "liars:deal", e.cards)
     end
 
+    -- Chaque manche s'ouvre sur sa carte de table : le revolver revient au
+    -- centre, d'ou qu'il soit parti.
     TRANSLATORS.table_card = function(e)
+        placer_revolver(revolver_home)
         send(e.audience, "liars:table_card", e.rank)
     end
 
@@ -162,8 +179,16 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         send(e.audience, "liars:round_ended", e.reason)
     end
 
+    -- "Le perdant est designe, le revolver glisse devant lui."
+    TRANSLATORS.designated = function(e)
+        local c = chair(e.seat)
+        send(e.audience, "liars:designated", c)
+        placer_revolver(devant_chaise[c])
+    end
+
     TRANSLATORS.shoot = function(e)
         send(e.audience, "liars:shoot", chair(e.seat), e.chamber, e.fatal)
+        placer_revolver(revolver_home)
     end
 
     TRANSLATORS.accuse = function(e)
@@ -219,6 +244,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         end
 
         send(e.audience, "liars:match_ended", chaise_gagnante)
+        placer_revolver(revolver_home)
 
         Log.Info("liars", ("partie terminee, vainqueur chaise %s"):format(tostring(chaise_gagnante)))
     end
@@ -443,7 +469,14 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
 
         Prop(Vector(cx, cy, cz), Rotator(0, 0, 0), ASSETS.table)
 
-        local rayon = 120.0
+        -- Le revolver repose a hauteur de plateau. Designe, il glisse vers la
+        -- chaise du tireur jusqu'a mi-chemin du bord : chacun voit qui doit
+        -- tirer, et il reste sur la table. Distances a regler en jeu.
+        local hauteur      = cz + 60.0
+        local rayon        = 120.0
+        local rayon_devant = 60.0
+        revolver_home = Vector(cx, cy, hauteur)
+
         for chair_n = 1, config.max_seats do
             local angle = (chair_n - 1) * (360.0 / config.max_seats)
             local rad   = math.rad(angle)
@@ -456,6 +489,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
                 ASSETS.chair
             )
 
+            devant_chaise[chair_n] = Vector(
+                cx + math.cos(rad) * rayon_devant,
+                cy + math.sin(rad) * rayon_devant,
+                hauteur)
+
             Interactables.Register(prop, {
                 label = ("S'asseoir (place %d)"):format(chair_n),
                 on_interact = function(player, session, entry, cid)
@@ -466,13 +504,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
 
         -- Le revolver au centre porte deux actes : lancer la partie, et tirer.
         -- C'est le meme objet parce que c'est le meme geste — on y pose la main.
-        local revolver = Prop(
-            Vector(cx, cy, cz + 60.0),
-            Rotator(0, 0, 0),
-            ASSETS.revolver
-        )
+        revolver_prop = Prop(revolver_home, Rotator(0, 0, 0), ASSETS.revolver)
 
-        Interactables.Register(revolver, {
+        Interactables.Register(revolver_prop, {
             label = "Prendre le revolver",
             on_interact = function(player, session, entry, cid)
                 if not state then
