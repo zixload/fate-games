@@ -27,8 +27,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     -- meme cree et seul le log serveur signale "Asset Pack not found". Les
     -- avoir au meme endroit rend ce diagnostic possible.
     local ASSETS = {
-        table = "nanos-world::SM_WoodenTable",   -- integre au jeu
-        chair = "nanos-world::SM_WoodenChair",   -- integre, meme famille de textures
+        seat_marker = "nanos-world::SM_Cube",
 
         revolver = REVOLVER_CUIT and "liars-props::SM_Nagant_M1895"
             or "nanos-world::SM_Bottle_01",
@@ -499,48 +498,59 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     ---------------------------------------------------------------- init
 
     function Adapter.Init()
-        -- Decale du point d'apparition : characters.lua y fait apparaitre les
-        -- nouveaux personnages, qui se materialiseraient dans la table.
-        local cx, cy, cz = spawn.x + 250.0, spawn.y, spawn.z
+        local layout = config.layout
+        local home = layout.revolver_home
+        revolver_home = Vector(home.x, home.y, home.z)
 
-        Prop(Vector(cx, cy, cz), Rotator(0, 0, 0), ASSETS.table)
+        for chair_n, marker in ipairs(layout.chairs) do
+            local loc = marker.location
 
-        -- Le revolver repose a hauteur de plateau. Designe, il glisse vers la
-        -- chaise du tireur jusqu'a mi-chemin du bord : chacun voit qui doit
-        -- tirer, et il reste sur la table. Distances a regler en jeu.
-        local hauteur      = cz + 60.0
-        local rayon        = 120.0
-        local rayon_devant = 60.0
-        revolver_home = Vector(cx, cy, hauteur)
-
-        for chair_n = 1, config.max_seats do
-            local angle = (chair_n - 1) * (360.0 / config.max_seats)
-            local rad   = math.rad(angle)
-
-            local prop = Prop(
-                Vector(cx + math.cos(rad) * rayon,
-                       cy + math.sin(rad) * rayon,
-                       cz),
-                Rotator(0, angle + 180.0, 0),   -- tournee vers la table
-                ASSETS.chair
-            )
-
+            -- Le revolver s'arrete aux deux tiers du chemin vers la chaise et
+            -- reste a hauteur du plateau.
             devant_chaise[chair_n] = Vector(
-                cx + math.cos(rad) * rayon_devant,
-                cy + math.sin(rad) * rayon_devant,
-                hauteur)
+                home.x + (loc.x - home.x) * 0.66,
+                home.y + (loc.y - home.y) * 0.66,
+                home.z)
 
-            Interactables.Register(prop, {
-                label = ("S'asseoir (place %d)"):format(chair_n),
-                on_interact = function(player, session, entry, cid)
-                    Adapter.Seat(player, chair_n, cid)
-                end,
-            })
+            local debug_chair = layout.debug_visible_chair
+            if debug_chair == nil or debug_chair == chair_n then
+                -- IgnoreOnlyPawn laisse traverser le volume par le personnage
+                -- tout en le gardant detectable par la trace d'interaction.
+                -- Un petit Prop est saisissable par defaut, et la saisie
+                -- emporterait le repere loin de sa chaise : on l'interdit.
+                local prop = Prop(
+                    Vector(loc.x, loc.y, loc.z),
+                    Rotator(0, marker.yaw, 0),
+                    ASSETS.seat_marker,
+                    CollisionType.IgnoreOnlyPawn,
+                    false,
+                    GrabMode.Disabled
+                )
+                prop:SetScale(Vector(marker.scale.x, marker.scale.y, marker.scale.z))
+
+                if debug_chair == nil then
+                    prop:SetVisibility(false)
+                end
+
+                Interactables.Register(prop, {
+                    label = ("S'asseoir (place %d)"):format(chair_n),
+                    on_interact = function(player, session, entry, cid)
+                        Adapter.Seat(player, chair_n, cid)
+                    end,
+                })
+            end
         end
 
         -- Le revolver au centre porte deux actes : lancer la partie, et tirer.
         -- C'est le meme objet parce que c'est le meme geste — on y pose la main.
-        revolver_prop = Prop(revolver_home, Rotator(0, 0, 0), ASSETS.revolver)
+        revolver_prop = Prop(
+            revolver_home,
+            Rotator(0, 0, 0),
+            ASSETS.revolver,
+            CollisionType.IgnoreOnlyPawn,
+            false,
+            GrabMode.Disabled
+        )
 
         Interactables.Register(revolver_prop, {
             label = "Prendre le revolver",
@@ -600,7 +610,12 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             end,
         })
 
-        Log.Info("liars", ("table posee : %d places"):format(config.max_seats))
+        if layout.debug_visible_chair then
+            Log.Info("liars", ("calibration : place %d visible")
+                :format(layout.debug_visible_chair))
+        else
+            Log.Info("liars", ("table initialisee : %d places"):format(config.max_seats))
+        end
     end
 
     -- Un joueur qui part compte comme elimine si une partie tourne. Mais il faut

@@ -111,6 +111,10 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
             MESH
         )
 
+        -- Premiere personne : la trace de visee part de la camera, donc des
+        -- yeux. En troisieme personne elle partait de derriere le personnage.
+        character:SetCameraMode(CameraMode.FPSOnly)
+
         session.character = character
         session.saved     = transform   -- nil si le personnage est neuf
 

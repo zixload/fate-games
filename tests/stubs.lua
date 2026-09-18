@@ -259,6 +259,8 @@ function Stubs.install()
         return { Pitch = pitch, Yaw = yaw, Roll = roll }
     end
 
+    _G.CameraMode = { FPSTPS = 0, FPSOnly = 1, TPSOnly = 2 }
+
     -- Entite Character du moteur. On la rend deplacable pour pouvoir simuler
     -- un joueur qui bouge entre deux tours de roue.
     _G.Character = function(location, rotation, mesh)
@@ -272,6 +274,7 @@ function Stubs.install()
         function character:GetLocation() return self.location end
         function character:GetRotation() return self.rotation end
         function character:SetLocation(v) self.location = v end
+        function character:SetCameraMode(mode) self.camera_mode = mode end
         function character:Destroy() self.destroyed = true end
 
         -- Aide de test : deplace le personnage.
