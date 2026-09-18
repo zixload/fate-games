@@ -86,17 +86,22 @@ if ServerConfig.dev and ServerConfig.dev.liars_bots then
     Log.Info("liars", "bots de test actifs : /bots N dans le chat")
 end
 
--- ESSAI : regler la camera assise en direct, "/cam <avant> <haut>" en cm,
+-- ESSAI : regler la camera assise en direct, "/cam <avant> <haut> [cote]"
+-- en cm (cote positif = vers la droite),
 -- tant que le personnage d'essai est actif. Les bonnes valeurs vont ensuite
 -- dans dev.creative_character.seated_camera.
 local essai = ServerConfig.dev and ServerConfig.dev.creative_character
 if essai and essai.enabled then
     Chat.Subscribe("PlayerSubmit", function(message, player)
-        local avant, haut = tostring(message):match("^/cam%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s*$")
+        local texte = tostring(message)
+        local avant, haut, cote = texte:match("^/cam%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s*$")
+        if not avant then
+            avant, haut = texte:match("^/cam%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s*$")
+        end
         if not avant then return end
 
-        if Characters.SetSeatedCamera(player:GetID(), tonumber(avant), tonumber(haut)) then
-            Chat.SendMessage(player, ("camera assise : avant %s, haut %s"):format(avant, haut))
+        if Characters.SetSeatedCamera(player:GetID(), tonumber(avant), tonumber(haut), tonumber(cote or 0)) then
+            Chat.SendMessage(player, ("camera assise : avant %s, haut %s, cote %s"):format(avant, haut, cote or 0))
         else
             Chat.SendMessage(player, "pas de personnage d'essai a regler")
         end

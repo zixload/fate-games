@@ -190,18 +190,18 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         -- Premiere personne a hauteur des yeux : derriere, le bras de la camera
         -- butait sur le dossier et rentrait dans le corps.
         local cam = session.essai.seated_camera
-        c:SetSpringArmSettings(Vector(cam.forward, 0, cam.up), 0)
+        c:SetSpringArmSettings(Vector(cam.forward, cam.side or 0, cam.up), 0)
         return true
     end
 
     -- Reglage en jeu de la camera assise (commande /cam, mode dev). Modifie
     -- la config d'essai partagee et reapplique tout de suite si on est assis.
-    function Characters.SetSeatedCamera(player_id, forward, up)
+    function Characters.SetSeatedCamera(player_id, forward, up, side)
         local session = sessions[player_id]
         if not (session and session.essai) then return false end
-        session.essai.seated_camera = { forward = forward, up = up }
+        session.essai.seated_camera = { forward = forward, up = up, side = side or 0 }
         if session.assis and session.character then
-            session.character:SetSpringArmSettings(Vector(forward, 0, up), 0)
+            session.character:SetSpringArmSettings(Vector(forward, side or 0, up), 0)
         end
         return true
     end

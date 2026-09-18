@@ -69,9 +69,9 @@ return {
             walk_speed = 450,    -- cm/s, a accorder avec le Blend Space
             eye_height = 60.0,   -- hauteur de la camera depuis le centre du corps
             arm_length = 250.0,  -- recul de la camera ; 0 = premiere personne
-            -- Camera assise, en premiere personne, depuis le centre du corps :
-            -- estimation pour un personnage a 80 %, a regler en jeu.
-            seated_camera = { forward = 10.0, up = 35.0 },
+            -- Camera assise, en premiere personne. Reglee en jeu avec /cam le
+            -- 18/09 : l'origine est aux pieds, d'ou la hauteur. side > 0 = droite.
+            seated_camera = { forward = -25.0, up = 125.0, side = 0.0 },
         },
     },
 
