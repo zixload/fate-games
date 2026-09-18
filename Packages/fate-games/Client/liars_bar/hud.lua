@@ -70,7 +70,10 @@ return function(config, Journal, send_intent)
             0, centre or false, false, Color.BLACK, Vector2D(1, 1), true, Color.BLACK)
     end
 
-    local canvas = Canvas(true, Color.TRANSPARENT, -1, true, true)
+    -- Taux 0 : redessine a chaque image. -1 couperait le rafraichissement
+    -- automatique (doc Canvas:SetAutoRepaintRate) : le HUD se dessinerait une
+    -- fois, vide, au chargement, et plus jamais.
+    local canvas = Canvas(true, Color.TRANSPARENT, 0, true, true)
 
     canvas:Subscribe("Update", function(self, width, height)
         -- Rien a montrer tant que la table n'a rien dit.
