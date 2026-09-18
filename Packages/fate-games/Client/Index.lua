@@ -20,6 +20,10 @@ end)
 local Interaction = Package.Require("interaction/init.lua")(SharedConfig.interaction)
 Interaction.Start()
 
+-- HUD provisoire de Liar's Bar : le journal et la main, au clavier.
+local LiarsJournal = Package.Require("liars_bar/journal.lua")(SharedConfig.liars_hud)
+Package.Require("liars_bar/hud.lua")(SharedConfig.liars_hud, LiarsJournal, send_intent)
+
 -- Invite minimale dessinee directement par le moteur. Elle reste legere et ne
 -- depend pas encore de la future WebUI des cartes et de la partie.
 local prompt_label = nil
