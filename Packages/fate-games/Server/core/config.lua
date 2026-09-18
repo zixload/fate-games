@@ -72,7 +72,7 @@ return {
             arm_length = 250.0,  -- recul de la camera ; 0 = premiere personne
             -- Camera assise, en premiere personne. Reglee en jeu avec /cam le
             -- 18/09 : l'origine est aux pieds, d'ou la hauteur. side > 0 = droite.
-            seated_camera = { forward = -25.0, up = 125.0, side = 0.0 },
+            seated_camera = { forward = -20.0, up = 125.0, side = -25.0 },
         },
     },
 
