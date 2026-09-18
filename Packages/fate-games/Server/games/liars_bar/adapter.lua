@@ -131,6 +131,22 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         return player:GetControlledCharacter()
     end
 
+    -- ESSAI : le personnage d'un vrai joueur s'assoit sur le repere de sa
+    -- chaise, tourne vers le centre de la table. Characters decide si ce
+    -- personnage sait s'asseoir ; un bot garde son corps debout.
+    local function asseoir_personnage(player, chair_n)
+        if not player or player.bot then return end
+        local loc  = config.layout.chairs[chair_n].location
+        local home = config.layout.revolver_home
+        local yaw  = math.deg(math.atan(home.y - loc.y, home.x - loc.x))
+        Characters.Sit(player:GetID(), loc.x, loc.y, yaw)
+    end
+
+    local function relever_personnage(player)
+        if not player or player.bot then return end
+        Characters.Stand(player:GetID())
+    end
+
     local function placer_revolver(position)
         if revolver_prop and position then
             revolver_prop:SetLocation(position)
@@ -277,8 +293,19 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             releve.chair_of[seat] = c
         end
         local chaise_gagnante = e.winner ~= nil and releve.chair_of[e.winner] or nil
+        local a_relever = {}
+        for _, entry in ipairs(seated) do a_relever[#a_relever + 1] = entry.player end
 
         remettre_a_zero()
+
+        -- Tout le monde se leve. Sous pcall, apres la remise a zero : un
+        -- personnage qui refuse de se relever ne doit pas bloquer la table.
+        for _, p in ipairs(a_relever) do
+            local ok, err = pcall(relever_personnage, p)
+            if not ok then
+                Log.Error("liars", "relever un joueur a echoue : " .. tostring(err))
+            end
+        end
 
         if avec_bots then
             Log.Info("liars", "partie avec bots : resultat non enregistre")
@@ -487,6 +514,30 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
         send("all", "liars:seated", chair_n, player:GetID(), player:GetName())
         Log.Info("liars", ("chaise %d occupee (%d assis)"):format(chair_n, #seated), cid)
+        asseoir_personnage(player, chair_n)
+        return true
+    end
+
+    -- Se lever : E sur sa propre chaise, hors partie seulement. En partie on
+    -- reste a sa place jusqu'au bout.
+    function Adapter.Stand(player, cid)
+        if state then
+            return false, "partie_en_cours"
+        end
+        local chair_n = seat_by_player[player:GetID()]
+        if not chair_n then
+            return false, "pas_a_table"
+        end
+
+        seat_by_player[player:GetID()] = nil
+        player_by_seat[chair_n] = nil
+        for i = #seated, 1, -1 do
+            if seated[i].chair == chair_n then table.remove(seated, i) end
+        end
+
+        send("all", "liars:unseated", chair_n)
+        Log.Info("liars", ("chaise %d liberee (%d assis)"):format(chair_n, #seated), cid)
+        relever_personnage(player)
         return true
     end
 
@@ -661,7 +712,13 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             Interactables.Register(prop, {
                 label = ("S'asseoir (place %d)"):format(chair_n),
                 on_interact = function(player, session, entry, cid)
-                    local ok, raison = Adapter.Seat(player, chair_n, cid)
+                    -- E sur sa propre chaise, hors partie : on se leve.
+                    local ok, raison
+                    if not state and seat_by_player[player:GetID()] == chair_n then
+                        ok, raison = Adapter.Stand(player, cid)
+                    else
+                        ok, raison = Adapter.Seat(player, chair_n, cid)
+                    end
                     if not ok then refuser(player, raison) end
                 end,
             })

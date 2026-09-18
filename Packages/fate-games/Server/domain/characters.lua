@@ -73,7 +73,10 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
             return
         end
 
-        if not moved(transform, session.saved) then
+        -- Assis, on garderait la chaise comme point de retour : a la reconnexion
+        -- le personnage reapparaitrait dans son meuble. On garde la derniere
+        -- position debout.
+        if session.assis or not moved(transform, session.saved) then
             if callback then callback(false) end
             return
         end
@@ -144,6 +147,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
 
         session.character = character
         session.saved     = transform   -- nil si le personnage est neuf
+        session.essai     = (essai and essai.enabled) and essai or nil
 
         session.player:Possess(character)
 
@@ -153,6 +157,46 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
 
         Log.Info("characters", ("personnage %d en jeu (%s)")
             :format(session.character_id, session.character_name))
+    end
+
+    ----------------------------------------------------------------------------
+    -- Posture (ESSAI) : seul le personnage d'essai sait s'asseoir, par la
+    -- variable "Assis" de son Animation Blueprint. Le personnage nanos
+    -- habituel reste debout, comme avant : ces deux fonctions ne font rien.
+    ----------------------------------------------------------------------------
+
+    -- Pose le personnage sur la chaise (x, y), tourne vers yaw. La hauteur
+    -- de marche est gardee : les pieds restent au niveau du sol. Collision et
+    -- gravite coupees, sinon la chaise cuite dans la carte le repousse.
+    function Characters.Sit(player_id, x, y, yaw)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) then return false end
+
+        local c = session.character
+        local ici = c:GetLocation()
+        c:StopMovement(true)
+        c:SetSpeedSettings(0, 0)
+        c:SetGravityEnabled(false)
+        c:SetCollision(CollisionType.NoCollision)
+        c:SetLocation(Vector(x, y, ici.Z))
+        c:SetRotation(Rotator(0, yaw, 0))
+        c:SetAnimationBlueprintPropertyValue("Assis", true)
+        session.assis = true
+        return true
+    end
+
+    function Characters.Stand(player_id)
+        local session = sessions[player_id]
+        if not (session and session.assis and session.character) then return false end
+
+        local c = session.character
+        local essai = session.essai
+        c:SetAnimationBlueprintPropertyValue("Assis", false)
+        c:SetCollision(CollisionType.Normal)
+        c:SetGravityEnabled(true)
+        c:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
+        session.assis = nil
+        return true
     end
 
     local function load_state(session, callback)
