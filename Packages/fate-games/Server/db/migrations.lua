@@ -70,4 +70,32 @@ return {
                 ON characters (legacy_name)]],
         },
     },
+
+    {
+        id   = 3,
+        name = "resultat_liars_bar",
+        statements = {
+            -- Seule donnee durable du jeu : le resultat d'une partie terminee.
+            -- Rien des mains, rien des barillets — ils n'existent que le temps
+            -- de la partie et ne regardent personne apres.
+            [[CREATE TABLE IF NOT EXISTS liars_matches (
+                id         INTEGER PRIMARY KEY,
+                started_at TEXT    NOT NULL,
+                ended_at   TEXT    NOT NULL,
+                rounds     INTEGER NOT NULL,
+                winner_id  INTEGER
+            )]],
+
+            -- placement vaut 1 pour le vainqueur, puis 2, 3... dans l'ordre
+            -- inverse des eliminations.
+            [[CREATE TABLE IF NOT EXISTS liars_participants (
+                match_id     INTEGER NOT NULL,
+                seat         INTEGER NOT NULL,
+                character_id INTEGER NOT NULL,
+                look         TEXT    NOT NULL,
+                placement    INTEGER,
+                PRIMARY KEY (match_id, seat)
+            )]],
+        },
+    },
 }

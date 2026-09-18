@@ -20,6 +20,25 @@ local Accounts      = Package.Require("domain/accounts.lua")(Log, DB, Ids, Serve
 local Characters    = Package.Require("domain/characters.lua")(Log, DB, Ids, Scheduler, Accounts, ServerConfig)
 local Interactables = Package.Require("domain/interactables.lua")(Log, Intents, Characters, ServerConfig)
 
+-- Liar's Bar. Le cablage est explicite et a plat : chaque module recoit ses
+-- dependances, aucune globale ne circule entre eux (R5).
+local LiarsConfig    = Package.Require("games/liars_bar/data/config.lua")
+local Appearances    = Package.Require("Shared/appearances.lua")
+local LiarsDeck      = Package.Require("games/liars_bar/data/deck.lua")(LiarsConfig)
+local LiarsRevolver  = Package.Require("games/liars_bar/revolver.lua")(LiarsConfig)
+local LiarsChallenge = Package.Require("games/liars_bar/challenge.lua")(LiarsDeck)
+local LiarsRound     = Package.Require("games/liars_bar/round.lua")(LiarsConfig, LiarsDeck)
+local LiarsMatch     = Package.Require("games/liars_bar/match.lua")(LiarsConfig, Appearances, LiarsRevolver)
+local LiarsEffects   = Package.Require("games/liars_bar/effects.lua")()
+
+local LiarsEngine = Package.Require("games/liars_bar/engine.lua")(
+    LiarsConfig, LiarsDeck, LiarsRevolver, LiarsChallenge,
+    LiarsRound, LiarsMatch, LiarsEffects)
+
+local LiarsBar = Package.Require("games/liars_bar/adapter.lua")(
+    Log, DB, Ids, Characters, Interactables, Intents,
+    LiarsEngine, Appearances, LiarsConfig, ServerConfig.spawn)
+
 -- Les chaines de log restent en ASCII : la console Windows les reaffiche selon sa page
 -- de codes locale, et tout caractere accentue y ressort en "?".
 Log.Info("boot", "=== Fate Games - demarrage ===")
@@ -35,7 +54,7 @@ if not DB.Migrate() then
     return
 end
 
-if not Ids.Seed({ "accounts", "characters", "ledger" }) then
+if not Ids.Seed({ "accounts", "characters", "ledger", "liars_matches" }) then
     Log.Error("boot", "amorcage des identifiants echoue : initialisation interrompue")
     return
 end
@@ -45,6 +64,8 @@ DB.EndStartup()
 
 Scheduler.Start()
 
+LiarsBar.Init()
+
 Player.Subscribe("Ready", function(player)
     Characters.OnPlayerReady(player)
     -- Le joueur doit connaitre ce qui est deja interactif dans le monde.
@@ -52,27 +73,11 @@ Player.Subscribe("Ready", function(player)
 end)
 
 Player.Subscribe("Destroy", function(player)
+    -- Prevenir le jeu AVANT que la session du personnage soit fermee : apres,
+    -- la place n'est plus retrouvable.
+    LiarsBar.OnPlayerLeave(player)
     Characters.OnPlayerLeave(player)
 end)
-
--- Objet de demonstration, le temps qu'un vrai domaine pose les siens. Il sert a
--- verifier la chaine complete en jeu : viser, appuyer, valider cote serveur, auditer,
--- repondre.
-do
-    local table_prop = Prop(
-        Vector(ServerConfig.spawn.x + 200, ServerConfig.spawn.y, ServerConfig.spawn.z),
-        Rotator(0, 0, 0),
-        "nanos-world::SM_WoodenTable"
-    )
-
-    Interactables.Register(table_prop, {
-        label = "Examiner la table",
-        on_interact = function(player, session, entry, cid)
-            Log.Info("demo", ("%s examine la table"):format(
-                session and session.character_name or "quelqu'un"), cid)
-        end,
-    })
-end
 
 if ServerConfig.dev and ServerConfig.dev.smoke_test then
     Package.Require("dev/smoke.lua")(Log, DB, Characters).Run()
