@@ -181,6 +181,10 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         c:SetLocation(Vector(x, y, ici.Z))
         c:SetRotation(Rotator(0, yaw, 0))
         c:SetAnimationBlueprintPropertyValue("Assis", true)
+        -- Premiere personne a hauteur des yeux : derriere, le bras de la camera
+        -- butait sur le dossier et rentrait dans le corps.
+        local cam = session.essai.seated_camera
+        c:SetSpringArmSettings(Vector(cam.forward, 0, cam.up), 0)
         session.assis = true
         return true
     end
@@ -195,6 +199,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         c:SetCollision(CollisionType.Normal)
         c:SetGravityEnabled(true)
         c:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
+        c:SetSpringArmSettings(Vector(0, 0, essai.eye_height), essai.arm_length)
         session.assis = nil
         return true
     end
