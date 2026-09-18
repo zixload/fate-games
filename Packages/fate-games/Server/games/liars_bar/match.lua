@@ -5,7 +5,7 @@
 -- par construction et non laissee a la chance — ce qui compte dans un jeu de
 -- bluff n'est pas de choisir sa tete, c'est de pouvoir distinguer les autres.
 --
--- Dix apparences pour six places au maximum : le tirage ne peut pas echouer.
+-- Dix apparences pour quatre places au maximum : le tirage ne peut pas echouer.
 
 return function(config, Appearances, Revolver)
     local Match = {}

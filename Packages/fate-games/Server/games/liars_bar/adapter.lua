@@ -555,8 +555,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             end,
         })
 
-        -- Les deux intentions heritent du pipeline : revalidation de distance,
-        -- audit et correlation viennent gratuitement.
+        -- Les deux intentions heritent du pipeline : audit et correlation
+        -- viennent gratuitement. Elles ne revalident PAS la distance — seule
+        -- l'intention interact du registre le fait. Ce qui fait foi ici, c'est
+        -- d'etre inscrit a une place de la partie en cours.
         Intents.Register("liars_play", {
             validate = function(player, payload)
                 if not state then return false, "aucune_partie" end
