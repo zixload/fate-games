@@ -123,6 +123,9 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
             character:SetScale(Vector(essai.scale, essai.scale, essai.scale))
         end
         character:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
+        -- Rotation fixee ici plutot que laissee au defaut : Stand doit pouvoir
+        -- la retablir, et la doc ne donne pas la valeur par defaut.
+        character:SetRotationSettings(Rotator(0, essai.rotation_rate, 0), false, true)
         character:SetSpringArmSettings(Vector(0, 0, essai.eye_height), essai.arm_length)
         return character
     end
@@ -179,6 +182,9 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         session.assis = true
         c:StopMovement(true)
         c:SetSpeedSettings(0, 0)
+        -- Vitesse nulle ne suffit pas : le corps s'orientait encore vers la
+        -- direction demandee (Q/D le faisaient tourner sur la chaise).
+        c:SetRotationSettings(Rotator(0, 0, 0), false, false)
         c:SetGravityEnabled(false)
         c:SetCollision(CollisionType.NoCollision)
         c:SetLocation(Vector(x, y, ici.Z))
@@ -216,6 +222,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         c:SetCollision(CollisionType.Normal)
         c:SetGravityEnabled(true)
         c:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
+        c:SetRotationSettings(Rotator(0, essai.rotation_rate, 0), false, true)
         c:SetSpringArmSettings(Vector(0, 0, essai.eye_height), essai.arm_length)
         session.assis = nil
         return true

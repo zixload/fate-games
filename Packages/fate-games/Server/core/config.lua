@@ -67,6 +67,7 @@ return {
             },
             scale      = 0.8,    -- le corps du pack mesure ~190 cm, un peu grand
             walk_speed = 450,    -- cm/s, a accorder avec le Blend Space
+            rotation_rate = 540, -- degres par seconde, corps oriente vers le mouvement
             eye_height = 60.0,   -- hauteur de la camera depuis le centre du corps
             arm_length = 250.0,  -- recul de la camera ; 0 = premiere personne
             -- Camera assise, en premiere personne. Reglee en jeu avec /cam le
