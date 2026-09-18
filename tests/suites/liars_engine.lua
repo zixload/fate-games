@@ -46,6 +46,17 @@ return function(H, Stubs)
         return nil
     end
 
+    -- Meme contenu, meme ordre. L'audience seule ne prouve rien : Effects.Deal
+    -- la remplit par construction. Il faut comparer les cartes elles-memes a
+    -- la main de la place, sinon une main distribuee au voisin passerait.
+    local function memes_cartes(a, b)
+        if #a ~= #b then return false end
+        for i = 1, #a do
+            if a[i] ~= b[i] then return false end
+        end
+        return true
+    end
+
     H.describe("liars_bar/engine", function()
 
         H.it("demarre une partie et distribue en prive", function()
@@ -62,6 +73,13 @@ return function(H, Stubs)
                 if e.kind == "deal" then
                     distributions = distributions + 1
                     H.assert_eq(e.audience, e.seat, "distribution privee")
+
+                    local main = state.round.hands[e.seat]
+                    H.assert_true(memes_cartes(e.cards, main),
+                        ("place %d : recu {%s}, main {%s}"):format(e.seat,
+                            table.concat(e.cards, ","), table.concat(main, ",")))
+                    H.assert_false(rawequal(e.cards, main),
+                        "la distribution est une copie, pas la main vivante")
                 end
             end
             H.assert_eq(distributions, 3, "une distribution par joueur")

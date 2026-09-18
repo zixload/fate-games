@@ -29,11 +29,42 @@ return function(H, Stubs)
         end
     end
 
+    -- Meme contenu, meme ordre. L'audience seule ne prouve rien : Effects.Deal
+    -- la remplit par construction. Il faut comparer les cartes elles-memes a
+    -- la main de la place, sinon une main distribuee au voisin passerait.
+    local function memes_cartes(a, b)
+        if #a ~= #b then return false end
+        for i = 1, #a do
+            if a[i] ~= b[i] then return false end
+        end
+        return true
+    end
+
+    -- A appeler juste apres Engine.Start ou Engine.Apply : toute distribution
+    -- du lot ouvre la manche courante, donc chaque main est encore intacte.
+    local function verifier_distributions(H, state, effects, contexte)
+        local n = 0
+        for _, e in ipairs(effects) do
+            if e.kind == "deal" then
+                n = n + 1
+                H.assert_eq(e.audience, e.seat,
+                    "une distribution doit etre adressee a son proprietaire, " .. contexte)
+                local main = state.round.hands[e.seat]
+                H.assert_true(main ~= nil and memes_cartes(e.cards, main),
+                    ("place %d recoit {%s} au lieu de sa main {%s}, %s"):format(
+                        e.seat, table.concat(e.cards, ","),
+                        table.concat(main or {}, ","), contexte))
+            end
+        end
+        return n
+    end
+
     -- Joue une partie entiere en pilote automatique : le joueur actif pose
     -- toujours une carte, sauf s'il ne peut que contester.
     local function jouer_partie(Engine, Effects, graine, H)
         local state, effects = Engine.Start({ "p1", "p2", "p3", "p4" }, rng_graine(graine))
         Effects.AssertNoLeak(effects)
+        verifier_distributions(H, state, effects, "graine " .. graine .. ", demarrage")
 
         local tours = 0
         while not state.finished do
@@ -61,6 +92,7 @@ return function(H, Stubs)
             local out
             state, out = Engine.Apply(state, act)
             Effects.AssertNoLeak(out)
+            verifier_distributions(H, state, out, "graine " .. graine .. ", tour " .. tours)
         end
 
         return state
@@ -106,14 +138,7 @@ return function(H, Stubs)
                 H.assert_true(tours < 2000, "la partie doit se terminer")
 
                 Effects.AssertNoLeak(effects)
-
-                for _, e in ipairs(effects) do
-                    if e.kind == "deal" then
-                        H.assert_eq(e.audience, e.seat,
-                            "une distribution doit etre adressee a son proprietaire")
-                        verifies = verifies + 1
-                    end
-                end
+                verifies = verifies + verifier_distributions(H, state, effects, "tour " .. tours)
 
                 local act
                 if state.pending then

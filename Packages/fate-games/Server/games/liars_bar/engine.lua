@@ -20,6 +20,12 @@ return function(config, Deck, Revolver, Challenge, Round, Match, Effects)
         return nil
     end
 
+    local function copier(list)
+        local copie = {}
+        for i, v in ipairs(list) do copie[i] = v end
+        return copie
+    end
+
     local function ouvrir_manche(state, opener, out)
         local vivants = Match.AliveSeats(state.match)
         state.match.rounds = state.match.rounds + 1
@@ -28,7 +34,9 @@ return function(config, Deck, Revolver, Challenge, Round, Match, Effects)
 
         out[#out + 1] = Effects.TableCard(state.round.rank)
         for _, seat in ipairs(vivants) do
-            out[#out + 1] = Effects.Deal(seat, state.round.hands[seat])
+            -- Une COPIE et non la main vivante : Round.Play retirera ensuite des
+            -- cartes de cette table, et un effet emis ne doit plus changer.
+            out[#out + 1] = Effects.Deal(seat, copier(state.round.hands[seat]))
         end
         out[#out + 1] = Effects.Turn(state.round.turn)
     end
