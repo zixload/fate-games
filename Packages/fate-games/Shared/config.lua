@@ -36,6 +36,49 @@ return {
         },
     },
 
+    -- Cartes 3D de Liar's Bar (Client/liars_bar/rendu.lua). L'echelle et les
+    -- axes du FBX des cartes sont inconnus : tout se regle en jeu avec /fan,
+    -- ces valeurs ne sont que des points de depart. Rotations en degres,
+    -- { p = tangage, y = lacet, r = roulis }, distances en cm.
+    liars_cards = {
+        pack       = "my-asset-pack",
+        -- Le jeu de 52 n'a pas de Joker : le Valet, qui ne sert pas ici, le
+        -- remplace sans confusion possible.
+        joker_mesh = "my-asset-pack::Jack_of_Spades1",
+        -- Le dos est le meme pour toutes les cartes : n'importe laquelle,
+        -- retournee, fait une carte face cachee sans rien reveler.
+        back_mesh  = "my-asset-pack::Ace_of_Spades1",
+        -- Support invisible de l'eventail et de chaque fente.
+        pivot_mesh = "nanos-world::SM_Cube",
+        -- Os qui tient l'eventail : squelette Creative, puis mannequin nanos.
+        bone_simple    = "RightHandProp",
+        bone_mannequin = "hand_r",
+        -- Garder la main en texte dans le HUD tant que l'eventail n'est pas
+        -- valide en jeu.
+        debug_text_hand = true,
+
+        fan = {
+            pos        = { x = 0, y = 0, z = 0 },   -- pivot, depuis l'os de la main
+            rot        = { p = 0, y = 0, r = 0 },
+            carte      = { p = 0, y = 0, r = 0 },   -- carte, dans sa fente
+            ecart      = 8,     -- degres entre deux cartes
+            rayon      = 10,    -- rayon de l'arc
+            taille     = 1.0,   -- echelle des cartes
+            levee      = 3,     -- carte choisie
+            curseur    = 1.5,   -- carte sous le curseur
+            profondeur = 0.2,   -- decalage entre deux cartes, contre le scintillement
+        },
+
+        table = {
+            decalage   = { x = 20, y = 0, z = 0.5 }, -- tas, depuis le centre du plateau
+            dos        = { p = 0, y = 0, r = 180 },   -- carte face cachee
+            face       = { p = 0, y = 0, r = 0 },     -- carte revelee
+            epaisseur  = 0.3,   -- entre deux cartes du tas
+            dispersion = 4,     -- desordre autour du tas
+            ecart_revelation = 7,  -- entre deux cartes revelees
+        },
+    },
+
     scheduler = {
         -- duree d'un tour de roue : chaque entite inscrite est traitee une fois par tour
         wheel_seconds = 60,

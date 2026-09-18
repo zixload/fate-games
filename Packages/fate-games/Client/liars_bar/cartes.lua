@@ -1,0 +1,72 @@
+-- Cartes 3D de Liar's Bar : quel modele, et ou le poser.
+--
+-- Pur : aucune globale nanos, donc testable hors jeu. rendu.lua s'en sert
+-- pour creer et placer les objets. Les positions sont exprimees dans le
+-- repere du support (pivot de l'eventail, centre du plateau) : c'est le
+-- moteur qui compose ensuite les reperes par l'accrochage.
+
+return function(config)
+    local Cartes = {}
+
+    local COULEURS = { "Clubs", "Diamonds", "Hearts", "Spades" }
+    local VALEURS  = { king = "King", queen = "Queen", ace = "Ace" }
+
+    -- Le modele d'une carte vue de face. Le Joker a son remplacant ; une
+    -- valeur inconnue montre un dos, jamais une face au hasard.
+    function Cartes.Mesh(rank, couleur)
+        if rank == "joker" then return config.joker_mesh end
+        local valeur = VALEURS[rank]
+        if not valeur then return config.back_mesh end
+        return ("%s::%s_of_%s1"):format(config.pack, valeur, COULEURS[couleur] or "Spades")
+    end
+
+    -- Une couleur par carte, pour le decor seulement : la regle ne connait
+    -- que la valeur.
+    function Cartes.Couleurs(n, rng)
+        local out = {}
+        for i = 1, n do out[i] = rng(#COULEURS) end
+        return out
+    end
+
+    -- Fente i sur n de l'eventail, dans le repere du pivot. Les cartes
+    -- s'ouvrent en arc autour de l'axe Y (le tangage) ; celle du milieu est
+    -- droite. La levee eloigne la carte le long de son propre axe.
+    function Cartes.Fente(n, i, fan, levee)
+        local angle = (i - (n + 1) / 2) * fan.ecart
+        local rad   = math.rad(angle)
+        local r     = fan.rayon + (levee or 0)
+        return {
+            x     = math.sin(rad) * r,
+            y     = (i - 1) * fan.profondeur,
+            z     = math.cos(rad) * r - fan.rayon,
+            pitch = -angle,
+        }
+    end
+
+    -- Carte k du tas du centre, relative au centre du plateau. Le desordre
+    -- est tire du rang de la carte, pas du hasard : chaque client dessine le
+    -- meme tas.
+    function Cartes.Tas(k, tbl)
+        local jx  = (((k * 37) % 11) - 5) / 5 * tbl.dispersion
+        local jy  = (((k * 53) % 13) - 6) / 6 * tbl.dispersion
+        local yaw = ((k * 71) % 60) - 30
+        return {
+            x   = tbl.decalage.x + jx,
+            y   = tbl.decalage.y + jy,
+            z   = tbl.decalage.z + (k - 1) * tbl.epaisseur,
+            yaw = yaw,
+        }
+    end
+
+    -- Carte revelee i sur n : alignees cote a cote, a cote du tas.
+    function Cartes.Revelee(n, i, tbl)
+        return {
+            x   = tbl.decalage.x - 3 * tbl.ecart_revelation,
+            y   = tbl.decalage.y + (i - (n + 1) / 2) * tbl.ecart_revelation,
+            z   = tbl.decalage.z,
+            yaw = 0,
+        }
+    end
+
+    return Cartes
+end
