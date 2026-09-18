@@ -174,18 +174,23 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
 
         local c = session.character
         local ici = c:GetLocation()
+        -- Marque d'abord : si un appel ci-dessous leve, Stand saura encore
+        -- tout defaire au lieu de laisser le joueur fige.
+        session.assis = true
         c:StopMovement(true)
         c:SetSpeedSettings(0, 0)
         c:SetGravityEnabled(false)
         c:SetCollision(CollisionType.NoCollision)
         c:SetLocation(Vector(x, y, ici.Z))
         c:SetRotation(Rotator(0, yaw, 0))
-        c:SetAnimationBlueprintPropertyValue("Assis", true)
+        -- SetAnimationBlueprintPropertyValue n'existe que cote client : le
+        -- serveur publie une valeur synchronisee, chaque client l'applique
+        -- (Client/posture.lua).
+        c:SetValue("assis", true, true)
         -- Premiere personne a hauteur des yeux : derriere, le bras de la camera
         -- butait sur le dossier et rentrait dans le corps.
         local cam = session.essai.seated_camera
         c:SetSpringArmSettings(Vector(cam.forward, 0, cam.up), 0)
-        session.assis = true
         return true
     end
 
@@ -195,7 +200,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
 
         local c = session.character
         local essai = session.essai
-        c:SetAnimationBlueprintPropertyValue("Assis", false)
+        c:SetValue("assis", false, true)
         c:SetCollision(CollisionType.Normal)
         c:SetGravityEnabled(true)
         c:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)

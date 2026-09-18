@@ -20,6 +20,9 @@ end)
 local Interaction = Package.Require("interaction/init.lua")(SharedConfig.interaction)
 Interaction.Start()
 
+-- Posture assise des personnages d'essai, publiee par le serveur.
+Package.Require("posture.lua")
+
 -- HUD provisoire de Liar's Bar : le journal et la main, au clavier.
 local LiarsJournal = Package.Require("liars_bar/journal.lua")(SharedConfig.liars_hud)
 Package.Require("liars_bar/hud.lua")(SharedConfig.liars_hud, LiarsJournal, send_intent)
