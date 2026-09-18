@@ -153,6 +153,34 @@ return function(H, Stubs)
             H.assert_false(Round.Exhausted(round, { 1, 2, 3 }), "deux places avec des cartes")
         end)
 
+        H.it("garde la derniere pose accusable quand son auteur se vide", function()
+            local Round = build()
+            local round = Round.Start({ 1, 2, 3 }, 1, rng_fixe)
+            poser_main(round, 1, { "ace" })
+            poser_main(round, 2, { "king", "queen" })
+            poser_main(round, 3, {})
+
+            -- A pose sa derniere carte : il ne reste que B comme porteur. B peut
+            -- encore contester la pose de A, donc la manche n'est PAS nulle.
+            Round.Play(round, 1, { 1 })
+            H.assert_eq(round.last.seat, 1, "A est l'auteur de la derniere pose")
+            H.assert_false(Round.HasCards(round, 1), "A s'est vide")
+            H.assert_false(Round.Exhausted(round, { 1, 2, 3 }),
+                "B a des cartes et peut repondre a A")
+        end)
+
+        H.it("declare la manche nulle quand seul l'auteur de la pose a des cartes", function()
+            local Round = build()
+            local round = Round.Start({ 1, 2, 3 }, 1, rng_fixe)
+            poser_main(round, 1, { "ace", "king" })
+            poser_main(round, 2, {})
+            poser_main(round, 3, {})
+
+            Round.Play(round, 1, { 1 })
+            H.assert_true(Round.Exhausted(round, { 1, 2, 3 }),
+                "personne d'autre que l'auteur ne peut repondre")
+        end)
+
         H.it("reprend apres la place disparue et non au debut de la table", function()
             local Round = build()
             local round = Round.Start({ 1, 2, 3, 4 }, 1, rng_fixe)

@@ -2,11 +2,11 @@
 --
 -- Une regle gouverne tout le reste : un joueur sans cartes SORT de la manche,
 -- on ne le compte plus. Le tour passe donc a la place vivante suivante qui a
--- encore des cartes. Et quand il ne reste qu'une seule place avec des cartes,
--- la manche s'arrete : il n'y a plus personne pour lui repondre.
+-- encore des cartes.
 --
 -- Se vider ne met pas a l'abri de son imprudence : la derniere pose reste
--- accusable tant que la manche n'est pas finie.
+-- accusable tant qu'un autre joueur que son auteur a des cartes. La manche
+-- n'est nulle que lorsque plus personne ne peut lui repondre.
 
 return function(config, Deck)
     local Round = {}
@@ -117,15 +117,23 @@ return function(config, Deck)
         return nil
     end
 
-    -- La manche est epuisee des qu'il reste moins de deux places avec des
-    -- cartes : une place seule ne peut ni etre accusee ni accuser utilement.
+    -- La manche est nulle quand plus personne ne peut repondre a la derniere
+    -- pose. Se vider ne met pas a l'abri : tant qu'un AUTRE joueur que son
+    -- auteur a des cartes, cette pose reste accusable et la manche continue.
+    -- Avant toute pose, il faut simplement deux porteurs pour jouer.
     function Round.Exhausted(round, seats)
-        local avec = 0
+        local porteurs = {}
         for _, seat in ipairs(seats) do
             if Round.HasCards(round, seat) then
-                avec = avec + 1
-                if avec >= 2 then return false end
+                porteurs[#porteurs + 1] = seat
             end
+        end
+
+        if #porteurs == 0 then return true end
+        if round.last == nil then return #porteurs < 2 end
+
+        for _, seat in ipairs(porteurs) do
+            if seat ~= round.last.seat then return false end
         end
         return true
     end

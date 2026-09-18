@@ -175,6 +175,30 @@ return function(H, Stubs)
             H.assert_eq(state.pending.seat, poseur, "le menteur tire")
         end)
 
+        H.it("laisse accuser le joueur qui vient de se vider en mentant", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
+
+            local seats = state.match.seats
+            local a, b, c = seats[1], seats[2], seats[3]
+            H.assert_eq(state.round.turn, a, "A ouvre")
+
+            -- A n'a plus qu'une carte, et elle ment ; C n'a plus rien. Apres la
+            -- pose de A, B est le seul porteur — mais il peut encore repondre.
+            local intruse = state.round.rank == "king" and "ace" or "king"
+            state.round.hands[a] = { intruse }
+            state.round.hands[c] = {}
+
+            local effects
+            state, effects = Engine.Apply(state, { kind = "play", seat = a, indices = { 1 } })
+            H.assert_nil(find(effects, "round_ended"), "la manche continue : " .. kinds(effects))
+            H.assert_eq(state.round.turn, b, "la main passe a B")
+
+            state = Engine.Apply(state, { kind = "challenge", seat = b })
+            H.assert_true(state.pending ~= nil, "un tir est en attente")
+            H.assert_eq(state.pending.seat, a, "A, qui a menti en se vidant, doit tirer")
+        end)
+
         H.it("n'accepte le tir que du joueur designe", function()
             local Engine = build()
             local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
