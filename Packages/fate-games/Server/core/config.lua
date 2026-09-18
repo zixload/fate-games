@@ -47,6 +47,10 @@ return {
         -- joueur et pousse la vraie chaine de connexion. Voir Server/dev/smoke.lua.
         -- A laisser a false en temps normal : il ecrit puis supprime des lignes.
         smoke_test = false,
+
+        -- Bots de test de Liar's Bar : "/bots N" dans le chat. A mettre a
+        -- false sur un serveur ouvert au public.
+        liars_bots = true,
     },
 
     -- Point d'arrivee par defaut, utilise quand un personnage n'a pas d'etat

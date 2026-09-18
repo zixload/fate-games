@@ -8,7 +8,7 @@
 -- C'est aussi pour cette raison qu'il n'est pas couvert par le banc de test :
 -- il n'y a rien a y verifier qui ne soit deja verifie ailleurs.
 
-return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appearances, config, spawn)
+return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, Appearances, config, spawn)
     local Adapter = {}
 
     -- Le Nagant M1895 n'est pas encore cuit. Tant que ce drapeau est faux, un
@@ -28,6 +28,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     -- avoir au meme endroit rend ce diagnostic possible.
     local ASSETS = {
         seat_marker = "nanos-world::SM_Cube",
+        bot_body    = "nanos-world::SK_Male",
 
         revolver = REVOLVER_CUIT and "liars-props::SM_Nagant_M1895"
             or "nanos-world::SM_Bottle_01",
@@ -65,6 +66,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     local revolver_home  = nil   -- au centre de la table
     local devant_chaise  = {}    -- chaise -> position du revolver devant elle
 
+    -- Bots de test. Chaque lot d'effets incremente la generation : un
+    -- minuteur de bot arme avant ne joue que si rien n'a bouge depuis.
+    local bot_generation = 0
+    local function bot_rng(n) return math.random(n) end
+
     ---------------------------------------------------------------- envois
 
     -- La seule porte vers les clients. C'est l'audience fixee par le moteur qui
@@ -83,6 +89,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
                 :format(event, tostring(audience)))
             return
         end
+
+        -- Un bot n'a pas de client : rien a lui envoyer, et ce n'est pas une anomalie.
+        if player.bot then return end
 
         -- Cote serveur : (evenement, joueur, fiabilite, ...). Omettre la
         -- fiabilite decale le premier argument utile dans ce parametre.
@@ -103,7 +112,15 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
 
     local function character_of(seat)
         local player = player_by_seat[seat]
-        return player and player:GetControlledCharacter() or nil
+        if not player then return nil end
+        -- Un bot n'a pas de session : son corps est range dans son entree d'assise.
+        if player.bot then
+            for _, entry in ipairs(seated) do
+                if entry.player == player then return entry.body end
+            end
+            return nil
+        end
+        return player:GetControlledCharacter()
     end
 
     local function placer_revolver(position)
@@ -115,6 +132,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     ---------------------------------------------------------------- remise a zero
 
     local function remettre_a_zero()
+        for _, entry in ipairs(seated) do
+            if entry.body then entry.body:Destroy() end
+        end
         state, started_at = nil, nil
         player_by_seat, seat_by_player, chair_of, seated = {}, {}, {}, {}
     end
@@ -233,12 +253,14 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             looks      = {},
             chair_of   = {},
         }
+        local avec_bots = false
         for i, entry in ipairs(seated) do
             releve.seated[i] = {
                 seat         = entry.seat,
                 chair        = entry.chair,
                 character_id = entry.character_id,
             }
+            if entry.bot then avec_bots = true end
         end
         for seat, look in pairs(state and state.match.looks or {}) do
             releve.looks[seat] = look
@@ -250,9 +272,13 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
 
         remettre_a_zero()
 
-        local ok, err = pcall(Adapter.PersistResult, e.winner, e.summary, releve)
-        if not ok then
-            Log.Error("liars", "resultat non ecrit : " .. tostring(err))
+        if avec_bots then
+            Log.Info("liars", "partie avec bots : resultat non enregistre")
+        else
+            local ok, err = pcall(Adapter.PersistResult, e.winner, e.summary, releve)
+            if not ok then
+                Log.Error("liars", "resultat non ecrit : " .. tostring(err))
+            end
         end
 
         send(e.audience, "liars:match_ended", chaise_gagnante)
@@ -373,6 +399,27 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         return texte:match("^.-:%d+: (.*)$") or texte
     end
 
+    -- Si le jeu attend un bot, on lui demande son coup apres un delai. Le
+    -- coup est decide sur l'etat COURANT a l'echeance, et seulement si aucun
+    -- lot d'effets n'est passe entre-temps : un minuteur perime ne joue pas.
+    function Adapter.ScheduleBots()
+        bot_generation = bot_generation + 1
+        local seat = Bots.Awaited(state)
+        local player = seat and player_by_seat[seat]
+        if not (player and player.bot) then return end
+
+        local generation = bot_generation
+        Timer.SetTimeout(function()
+            if generation ~= bot_generation then return end
+            local act = Bots.Decide(state, seat, bot_rng)
+            if not act then return end
+            local ok, raison = Adapter.Act(act)
+            if not ok then
+                Log.Warn("liars", "coup de bot refuse : " .. tostring(raison))
+            end
+        end, math.floor(config.bots.delay * 1000))
+    end
+
     function Adapter.Act(act, cid)
         if not state then
             return false, "aucune partie en cours"
@@ -393,6 +440,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         state = nouveau
         dispatch(effects, cid)
         Adapter.ArmShootTimeout()
+        Adapter.ScheduleBots()
         return true
     end
 
@@ -425,11 +473,73 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             player       = player,
             chair        = chair_n,
             character_id = session and session.character_id or 0,
+            name         = player:GetName(),
+            bot          = player.bot or nil,
         }
 
         send("all", "liars:seated", chair_n, player:GetID())
         Log.Info("liars", ("chaise %d occupee (%d assis)"):format(chair_n, #seated), cid)
         return true
+    end
+
+    ---------------------------------------------------------------- bots de test
+
+    -- Un bot est un pseudo-joueur : il repond a GetID et GetName comme un
+    -- Player. Son identifiant est l'oppose de sa chaise, jamais celui d'un
+    -- vrai joueur.
+    local function nouveau_bot(chair_n)
+        local id = -chair_n
+        return {
+            bot     = true,
+            GetID   = function() return id end,
+            GetName = function() return "Bot " .. chair_n end,
+        }
+    end
+
+    -- Debout derriere sa chaise, dans l'axe table-chaise, tourne vers la
+    -- table : assis dessus, il heurterait la chaise cuite dans la carte.
+    local function corps_de_bot(chair_n)
+        local loc  = config.layout.chairs[chair_n].location
+        local home = config.layout.revolver_home
+        local dx, dy = loc.x - home.x, loc.y - home.y
+        local len = math.sqrt(dx * dx + dy * dy)
+        if len < 1 then len = 1 end
+        local recul = config.bots.body_offset
+        local yaw = math.deg(math.atan(-dy, -dx))
+        return Character(
+            Vector(loc.x + dx / len * recul, loc.y + dy / len * recul, loc.z + 100.0),
+            Rotator(0, yaw, 0),
+            ASSETS.bot_body
+        )
+    end
+
+    -- Fixe le nombre de bots assis : on retire ceux qui sont la, puis on en
+    -- assoit n aux chaises libres, par ordre croissant. Hors partie seulement.
+    function Adapter.SetBots(n)
+        if state then return false, "partie_en_cours" end
+
+        for i = #seated, 1, -1 do
+            local entry = seated[i]
+            if entry.bot then
+                if entry.body then entry.body:Destroy() end
+                player_by_seat[entry.chair] = nil
+                seat_by_player[entry.player:GetID()] = nil
+                table.remove(seated, i)
+                send("all", "liars:unseated", entry.chair)
+            end
+        end
+
+        local assis = 0
+        for chair_n = 1, #config.layout.chairs do
+            if assis >= n then break end
+            if not player_by_seat[chair_n] and Adapter.Seat(nouveau_bot(chair_n), chair_n) then
+                seated[#seated].body = corps_de_bot(chair_n)
+                assis = assis + 1
+            end
+        end
+
+        Log.Info("liars", ("%d bot(s) a la table"):format(assis))
+        return true, assis
     end
 
     function Adapter.Begin(player, cid)
@@ -490,6 +600,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         state = nouveau
         dispatch(effects, cid)
         Adapter.ArmShootTimeout()
+        Adapter.ScheduleBots()
 
         Log.Info("liars", ("partie demarree a %d joueurs"):format(#ids), cid)
         return true

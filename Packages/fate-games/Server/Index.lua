@@ -35,9 +35,11 @@ local LiarsEngine = Package.Require("games/liars_bar/engine.lua")(
     LiarsConfig, LiarsDeck, LiarsRevolver, LiarsChallenge,
     LiarsRound, LiarsMatch, LiarsEffects)
 
+local LiarsBots = Package.Require("games/liars_bar/bots.lua")(LiarsConfig)
+
 local LiarsBar = Package.Require("games/liars_bar/adapter.lua")(
     Log, DB, Ids, Characters, Interactables, Intents,
-    LiarsEngine, Appearances, LiarsConfig, ServerConfig.spawn)
+    LiarsEngine, LiarsBots, Appearances, LiarsConfig, ServerConfig.spawn)
 
 -- Les chaines de log restent en ASCII : la console Windows les reaffiche selon sa page
 -- de codes locale, et tout caractere accentue y ressort en "?".
@@ -65,6 +67,24 @@ DB.EndStartup()
 Scheduler.Start()
 
 LiarsBar.Init()
+
+-- Bots de test : "/bots N" dans le chat, en mode dev seulement. Retourner
+-- false retient le message (doc Chat, PlayerSubmit).
+if ServerConfig.dev and ServerConfig.dev.liars_bots then
+    Chat.Subscribe("PlayerSubmit", function(message, player)
+        local n = tostring(message):match("^/bots%s+(%d+)%s*$")
+        if not n then return end
+
+        local ok, detail = LiarsBar.SetBots(tonumber(n))
+        if ok then
+            Chat.SendMessage(player, ("%d bot(s) a la table"):format(detail))
+        else
+            Chat.SendMessage(player, "bots refuses : " .. tostring(detail))
+        end
+        return false
+    end)
+    Log.Info("liars", "bots de test actifs : /bots N dans le chat")
+end
 
 Player.Subscribe("Ready", function(player)
     Characters.OnPlayerReady(player)
