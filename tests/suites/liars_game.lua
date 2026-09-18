@@ -97,11 +97,16 @@ return function(H, Stubs)
         end)
 
         H.it("n'envoie la main d'un joueur qu'a lui seul, sur une partie entiere", function()
-            local Engine = build()
+            local Engine, Effects = build()
             local state, effects = Engine.Start({ "p1", "p2", "p3", "p4" }, rng_graine(7))
 
-            local verifies = 0
-            while not state.finished and verifies < 400 do
+            local verifies, tours = 0, 0
+            while not state.finished do
+                tours = tours + 1
+                H.assert_true(tours < 2000, "la partie doit se terminer")
+
+                Effects.AssertNoLeak(effects)
+
                 for _, e in ipairs(effects) do
                     if e.kind == "deal" then
                         H.assert_eq(e.audience, e.seat,
@@ -116,15 +121,24 @@ return function(H, Stubs)
                 else
                     local seat = state.round.turn
                     local main = state.round.hands[seat] or {}
-                    if #main > 0 then
-                        act = { kind = "play", seat = seat, indices = { 1 } }
-                    else
+
+                    -- Meme clause periodique que jouer_partie. Sans elle ce pilote
+                    -- ne contesterait jamais, puisque NextTurn ne rend que des places
+                    -- qui ont des cartes : la partie ne finirait pas, et aucune
+                    -- distribution ne serait verifiee apres un tir ou une elimination.
+                    if #main == 0 then
                         act = { kind = "challenge", seat = seat }
+                    elseif state.round.last and state.round.last.seat ~= seat and (tours % 3 == 0) then
+                        act = { kind = "challenge", seat = seat }
+                    else
+                        act = { kind = "play", seat = seat, indices = { 1 } }
                     end
                 end
+
                 state, effects = Engine.Apply(state, act)
             end
 
+            H.assert_true(state.finished, "la partie doit se terminer")
             H.assert_true(verifies > 0, "au moins une distribution verifiee")
         end)
 
