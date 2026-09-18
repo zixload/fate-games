@@ -86,6 +86,24 @@ if ServerConfig.dev and ServerConfig.dev.liars_bots then
     Log.Info("liars", "bots de test actifs : /bots N dans le chat")
 end
 
+-- ESSAI : regler la camera assise en direct, "/cam <avant> <haut>" en cm,
+-- tant que le personnage d'essai est actif. Les bonnes valeurs vont ensuite
+-- dans dev.creative_character.seated_camera.
+local essai = ServerConfig.dev and ServerConfig.dev.creative_character
+if essai and essai.enabled then
+    Chat.Subscribe("PlayerSubmit", function(message, player)
+        local avant, haut = tostring(message):match("^/cam%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s*$")
+        if not avant then return end
+
+        if Characters.SetSeatedCamera(player:GetID(), tonumber(avant), tonumber(haut)) then
+            Chat.SendMessage(player, ("camera assise : avant %s, haut %s"):format(avant, haut))
+        else
+            Chat.SendMessage(player, "pas de personnage d'essai a regler")
+        end
+        return false
+    end)
+end
+
 Player.Subscribe("Ready", function(player)
     Characters.OnPlayerReady(player)
     -- Le joueur doit connaitre ce qui est deja interactif dans le monde.

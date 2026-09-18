@@ -194,6 +194,18 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         return true
     end
 
+    -- Reglage en jeu de la camera assise (commande /cam, mode dev). Modifie
+    -- la config d'essai partagee et reapplique tout de suite si on est assis.
+    function Characters.SetSeatedCamera(player_id, forward, up)
+        local session = sessions[player_id]
+        if not (session and session.essai) then return false end
+        session.essai.seated_camera = { forward = forward, up = up }
+        if session.assis and session.character then
+            session.character:SetSpringArmSettings(Vector(forward, 0, up), 0)
+        end
+        return true
+    end
+
     function Characters.Stand(player_id)
         local session = sessions[player_id]
         if not (session and session.assis and session.character) then return false end
