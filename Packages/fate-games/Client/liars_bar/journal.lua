@@ -32,9 +32,16 @@ return function(config)
             turn       = nil,
             hand       = {},
             lines      = {},
+            cursor     = nil,  -- carte de ma main sous le curseur (molette)
+            counts     = {},   -- chaise -> cartes en main, information publique
+            pile       = {},   -- poses de la manche : { chair, count }
+            revealed   = nil,  -- derniere revelation : { chair, cards }
+            version    = 0,    -- change a chaque modification ; le rendu la surveille
         }
         local selected = {}    -- indice -> true
         local pending  = nil   -- indices envoyes, en attente de confirmation
+        local en_jeu   = {}    -- chaises de la partie en cours
+        local morts    = {}    -- chaises eliminees
 
         local function qui(chair)
             if chair == nil then return "?" end
@@ -60,7 +67,17 @@ return function(config)
 
         local function hors_partie()
             j.hand, j.table_rank, j.turn = {}, nil, nil
+            j.cursor, j.counts, j.pile, j.revealed = nil, {}, {}, nil
             selected, pending = {}, nil
+        end
+
+        -- Le curseur reste dans la main : il suit une main qui retrecit.
+        local function borner_curseur()
+            if #j.hand == 0 then
+                j.cursor = nil
+            elseif not j.cursor or j.cursor > #j.hand then
+                j.cursor = math.min(j.cursor or 1, #j.hand)
+            end
         end
 
         local H = {}
@@ -82,6 +99,8 @@ return function(config)
 
         H.started = function(list)
             hors_partie()
+            en_jeu, morts = {}, {}
+            for _, entree in ipairs(list or {}) do en_jeu[entree.chair] = true end
             ligne(("Partie lancée : %d joueurs"):format(#(list or {})))
         end
 
@@ -89,11 +108,18 @@ return function(config)
             j.hand = {}
             for i, c in ipairs(cards or {}) do j.hand[i] = c end
             selected, pending = {}, nil
+            j.cursor = #j.hand > 0 and 1 or nil
             ligne(("Tu reçois %d cartes"):format(#j.hand))
         end
 
+        -- Chaque carte de table ouvre une manche : chaque joueur encore en vie
+        -- recoit une main pleine, et le tas du centre repart de zero.
         H.table_card = function(r)
             j.table_rank = r
+            j.pile, j.revealed = {}, nil
+            for chair in pairs(en_jeu) do
+                j.counts[chair] = morts[chair] and 0 or config.hand_size
+            end
             ligne("Carte de table : " .. Journal.RankName(r))
         end
 
@@ -109,10 +135,13 @@ return function(config)
 
         H.cards_played = function(chair, count)
             ligne(("%s pose %d carte(s)"):format(qui(chair), count))
+            j.counts[chair] = math.max(0, (j.counts[chair] or 0) - count)
+            j.pile[#j.pile + 1] = { chair = chair, count = count }
             if chair == j.my_chair and pending then
                 table.sort(pending, function(a, b) return a > b end)
                 for _, i in ipairs(pending) do table.remove(j.hand, i) end
                 pending = nil
+                borner_curseur()
             end
         end
 
@@ -123,6 +152,9 @@ return function(config)
         H.reveal = function(chair, cards)
             local noms = {}
             for i, c in ipairs(cards or {}) do noms[i] = Journal.RankName(c) end
+            local copie = {}
+            for i, c in ipairs(cards or {}) do copie[i] = c end
+            j.revealed = { chair = chair, cards = copie }
             ligne(("Révélé chez %s : %s"):format(qui(chair), table.concat(noms, ", ")))
         end
 
@@ -134,18 +166,37 @@ return function(config)
             end
         end
 
+        -- Le decompte de chaque barillet est public : on dit ou en est le tireur,
+        -- et ce que vaudra son prochain tir.
         H.shoot = function(chair, chamber, fatal)
-            ligne(("%s tire… %s"):format(qui(chair), fatal and "BANG" or "à blanc"))
+            local total = config.chambers
+            local suite
+            if fatal then
+                suite = ("tir %d sur %d"):format(chamber, total)
+            elseif total - chamber <= 1 then
+                suite = ("tir %d sur %d, le prochain est mortel"):format(chamber, total)
+            else
+                suite = ("tir %d sur %d, prochain : 1 chance sur %d")
+                    :format(chamber, total, total - chamber)
+            end
+            ligne(("%s tire… %s (%s)"):format(qui(chair), fatal and "BANG" or "à blanc", suite))
         end
 
         H.eliminated = function(chair)
+            morts[chair] = true
+            j.counts[chair] = 0
             ligne(qui(chair) .. " est éliminé")
         end
 
-        H.round_ended = function()
+        local FINS = {
+            challenged = "Fin de manche : l'accusation est réglée",
+            exhausted  = "Manche nulle : plus personne pour répondre à la dernière pose",
+        }
+
+        H.round_ended = function(reason)
             j.turn = nil
             selected = {}
-            ligne("Fin de manche")
+            ligne(FINS[reason] or "Fin de manche")
         end
 
         H.match_ended = function(winner)
@@ -171,6 +222,21 @@ return function(config)
         function j:On(event, ...)
             local handler = H[event]
             if handler then handler(...) end
+            j.version = j.version + 1
+        end
+
+        -- Molette : le curseur tourne dans la main, a tout moment.
+        function j:MoveCursor(delta)
+            j.version = j.version + 1
+            if #j.hand == 0 then return end
+            local i = ((j.cursor or 1) - 1 + delta) % #j.hand
+            j.cursor = i + 1
+        end
+
+        -- Clic : choisir ou retirer la carte sous le curseur.
+        function j:ToggleCursor()
+            if not j.cursor then return false end
+            return j:Toggle(j.cursor)
         end
 
         function j:IsMyTurn()
@@ -199,10 +265,12 @@ return function(config)
             if i < 1 or i > #j.hand then return false end
             if selected[i] then
                 selected[i] = nil
+                j.version = j.version + 1
                 return true
             end
             if #j:Selection() >= config.max_play then return false end
             selected[i] = true
+            j.version = j.version + 1
             return true
         end
 
@@ -211,6 +279,7 @@ return function(config)
         function j:MarkPending(indices)
             pending = indices
             selected = {}
+            j.version = j.version + 1
         end
 
         return j

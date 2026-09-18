@@ -21,6 +21,10 @@ return {
         -- Miroir du plafond serveur (games/liars_bar/data/config.lua), qui
         -- seul fait foi : ici il ne sert qu'a ne pas proposer l'impossible.
         max_play = 3,
+        -- Miroirs du serveur eux aussi, pour l'affichage seulement : cartes
+        -- recues a chaque donne, et chambres du barillet.
+        hand_size = 5,
+        chambers  = 6,
         keys = {
             -- Une liste de noms par carte, le premier sert d'etiquette dans le
             -- HUD. Des lettres plutot que des chiffres : Unreal nomme une touche
