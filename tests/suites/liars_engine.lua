@@ -155,6 +155,10 @@ return function(H, Stubs)
             local designe = state.pending.seat
             H.assert_true(designe == poseur or designe == accusateur,
                 "le tireur est l'un des deux")
+
+            local annonce = find(effects, "designated")
+            H.assert_true(annonce ~= nil, "le tireur est annonce : " .. kinds(effects))
+            H.assert_eq(annonce.seat, designe, "l'annonce nomme le tireur en attente")
             H.assert_true(Effects.AssertNoLeak(effects), "aucune fuite a la contestation")
         end)
 
@@ -194,9 +198,10 @@ return function(H, Stubs)
             H.assert_nil(find(effects, "round_ended"), "la manche continue : " .. kinds(effects))
             H.assert_eq(state.round.turn, b, "la main passe a B")
 
-            state = Engine.Apply(state, { kind = "challenge", seat = b })
+            state, effects = Engine.Apply(state, { kind = "challenge", seat = b })
             H.assert_true(state.pending ~= nil, "un tir est en attente")
             H.assert_eq(state.pending.seat, a, "A, qui a menti en se vidant, doit tirer")
+            H.assert_eq(find(effects, "designated").seat, a, "A est annonce comme tireur")
         end)
 
         H.it("n'accepte le tir que du joueur designe", function()
@@ -343,6 +348,7 @@ return function(H, Stubs)
 
             H.assert_nil(state.pending, "aucun tir en attente sur un mort")
             H.assert_nil(find(effects, "shoot"), "aucun tir")
+            H.assert_nil(find(effects, "designated"), "personne n'est designe")
             local fin = find(effects, "round_ended")
             H.assert_true(fin ~= nil, "fin de manche : " .. kinds(effects))
             H.assert_eq(fin.reason, "challenged", "motif")

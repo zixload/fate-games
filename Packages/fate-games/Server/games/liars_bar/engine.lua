@@ -152,6 +152,7 @@ return function(config, Deck, Revolver, Challenge, Round, Match, Effects)
         end
 
         state.pending = { seat = perdant }
+        out[#out + 1] = Effects.Designated(perdant)
     end
 
     handlers.shoot = function(state, act, out)

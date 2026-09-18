@@ -18,6 +18,7 @@ return function()
         cards_played = true,
         reveal       = true,
         accuse       = true,
+        designated   = true,
         shoot        = true,
         eliminated   = true,
         turn         = true,
@@ -53,6 +54,13 @@ return function()
 
     function Effects.Accuse(accuser, target)
         return { kind = "accuse", accuser = accuser, target = target, audience = "all" }
+    end
+
+    -- Qui doit tirer. Emis apres la revelation, et seulement quand un tir est
+    -- reellement mis en attente : sans lui, un client devrait rejuger la
+    -- contestation lui-meme pour savoir vers qui glisser le revolver.
+    function Effects.Designated(seat)
+        return { kind = "designated", seat = seat, audience = "all" }
     end
 
     function Effects.Shoot(seat, chamber, fatal)

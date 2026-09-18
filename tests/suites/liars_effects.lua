@@ -39,6 +39,15 @@ return function(H, Stubs)
             H.assert_eq(e.audience, "all", "le decompte est public")
         end)
 
+        H.it("annonce publiquement qui doit tirer", function()
+            local E = make_effects()
+            local e = E.Designated(2)
+
+            H.assert_eq(e.kind, "designated", "nature")
+            H.assert_eq(e.seat, 2, "tireur designe")
+            H.assert_eq(e.audience, "all", "toute la table le sait")
+        end)
+
         H.it("rejette un effet de nature inconnue", function()
             local E = make_effects()
             H.assert_error(function() E.Validate({ kind = "teleporte", audience = "all" }) end,
@@ -60,6 +69,7 @@ return function(H, Stubs)
                 E.CardsPlayed(1, 2),
                 E.Reveal(1, { "king" }),
                 E.Accuse(2, 1),
+                E.Designated(1),
                 E.Shoot(1, 1, false),
                 E.Eliminated(1),
                 E.Turn(2),
