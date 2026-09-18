@@ -128,6 +128,16 @@ return function(H, Stubs)
             H.assert_eq(#rest, 5, "cartes non distribuees")
         end)
 
+        H.it("sert une main pleine a chaque place de la table", function()
+            local Deck = make_deck(config)
+
+            -- La capacite de la table n'est pas un reglage libre : elle decoule du
+            -- paquet. Une place de trop ferait lever Deal au demarrage.
+            H.assert_true(config.max_seats * config.hand_size <= #Deck.Build(),
+                ("%d places de %d cartes pour un paquet de %d"):format(
+                    config.max_seats, config.hand_size, #Deck.Build()))
+        end)
+
         H.it("refuse de distribuer plus que le paquet", function()
             local Deck = make_deck(config)
             H.assert_error(function()

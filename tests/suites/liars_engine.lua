@@ -410,6 +410,158 @@ return function(H, Stubs)
             H.assert_nil(find(effects, "eliminated"), "aucune seconde annonce : " .. kinds(effects))
         end)
 
+        H.it("passe la main quand le joueur qui l'a s'en va", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3", "p4" }, rng_sans_mort())
+
+            local seats = state.match.seats
+            H.assert_eq(state.round.turn, seats[1], "la place 1 a la main")
+
+            local effects
+            state, effects = Engine.Apply(state, { kind = "leave", seat = seats[1] })
+
+            -- Sans reaffectation, la main resterait a un mort et la table se
+            -- figerait : personne d'autre n'a le droit de jouer.
+            H.assert_eq(state.round.turn, seats[2], "la main passe au vivant suivant")
+            local tour = find(effects, "turn")
+            H.assert_true(tour ~= nil, "nouveau tour annonce : " .. kinds(effects))
+            H.assert_eq(tour.seat, seats[2], "le tour annonce nomme le vivant suivant")
+
+            state = Engine.Apply(state, { kind = "play", seat = seats[2], indices = { 1 } })
+            H.assert_eq(state.round.last.seat, seats[2], "la partie reprend")
+        end)
+
+        H.it("refuse de poser pendant un tir en attente", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
+
+            local poseur = state.round.turn
+            state = Engine.Apply(state, { kind = "play", seat = poseur, indices = { 1 } })
+            local accusateur = state.round.turn
+            state = Engine.Apply(state, { kind = "challenge", seat = accusateur })
+            local designe = state.pending.seat
+
+            -- L'accusateur a toujours la main et des cartes : seule la garde du
+            -- tir en attente l'empeche de poser et de relancer la manche.
+            H.assert_error(function()
+                Engine.Apply(state, { kind = "play", seat = accusateur, indices = { 1 } })
+            end, "un tir est en attente")
+            H.assert_eq(state.pending.seat, designe, "le tir en attente est intact")
+        end)
+
+        H.it("refuse de contester pendant un tir en attente", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
+
+            local poseur = state.round.turn
+            state = Engine.Apply(state, { kind = "play", seat = poseur, indices = { 1 } })
+            local accusateur = state.round.turn
+            state = Engine.Apply(state, { kind = "challenge", seat = accusateur })
+            local designe = state.pending.seat
+
+            -- Une seconde contestation ecraserait le tir en attente : le perdant
+            -- du premier jugement s'echapperait.
+            H.assert_error(function()
+                Engine.Apply(state, { kind = "challenge", seat = accusateur })
+            end, "un tir est en attente")
+            H.assert_eq(state.pending.seat, designe, "le tir en attente est intact")
+        end)
+
+        H.it("ouvre sur le vivant suivant quand le perdant meurt", function()
+            local Engine = build()
+            -- Balle en premiere chambre partout : le premier tir tue.
+            local state = Engine.Start({ "p1", "p2", "p3", "p4" }, function(_) return 1 end)
+
+            local seats = state.match.seats
+            local poseur, accusateur = seats[1], seats[2]
+            H.assert_eq(state.round.turn, poseur, "la place 1 ouvre")
+
+            -- Pose honnete : c'est l'accusateur qui tire, et il meurt.
+            state.round.hands[poseur] = { "joker", "joker", "joker", "joker", "joker" }
+            state = Engine.Apply(state, { kind = "play", seat = poseur, indices = { 1 } })
+            state = Engine.Apply(state, { kind = "challenge", seat = accusateur })
+            H.assert_eq(state.pending.seat, accusateur, "l'accusateur tire")
+
+            local effects
+            state, effects = Engine.Apply(state, { kind = "shoot", seat = accusateur })
+            H.assert_true(find(effects, "shoot").fatal, "le coup part")
+
+            -- Le vivant qui SUIT le mort, et non le premier vivant de la table.
+            H.assert_eq(state.round.opener, seats[3], "ouvreur")
+            H.assert_eq(state.round.turn, seats[3], "la main")
+        end)
+
+        H.it("ouvre sur le vivant qui suit l'ouvreur apres une manche nulle", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3", "p4" }, rng_sans_mort())
+
+            local seats = state.match.seats
+            H.assert_eq(state.round.opener, seats[1], "la place 1 a ouvert")
+
+            -- Seule la place 3 garde des cartes : sa pose clot la manche, nulle.
+            state.round.hands[seats[1]] = {}
+            state.round.hands[seats[2]] = {}
+            state.round.hands[seats[4]] = {}
+            state.round.turn = seats[3]
+
+            local effects
+            state, effects = Engine.Apply(state, { kind = "play", seat = seats[3], indices = { 1 } })
+            H.assert_eq(find(effects, "round_ended").reason, "exhausted", "manche nulle")
+
+            -- Le suivant de l'OUVREUR (place 2), pas celui du dernier a jouer
+            -- (place 4), ni l'ouvreur lui-meme (place 1).
+            H.assert_eq(state.round.opener, seats[2], "ouvreur")
+            H.assert_eq(state.round.turn, seats[2], "la main")
+        end)
+
+        H.it("publie les morts dans l'ordre ou ils sont tombes", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3", "p4" }, function(_) return 1 end)
+
+            local seats = state.match.seats
+
+            -- Premiere mort par la balle : la place 2 accuse a tort et tire.
+            state.round.hands[seats[1]] = { "joker", "joker", "joker", "joker", "joker" }
+            state = Engine.Apply(state, { kind = "play", seat = seats[1], indices = { 1 } })
+            state = Engine.Apply(state, { kind = "challenge", seat = seats[2] })
+            state = Engine.Apply(state, { kind = "shoot", seat = seats[2] })
+
+            -- Puis deux departs, dans un ordre qui n'est pas celui des places.
+            state = Engine.Apply(state, { kind = "leave", seat = seats[4] })
+            local effects
+            state, effects = Engine.Apply(state, { kind = "leave", seat = seats[1] })
+
+            local fin = find(effects, "match_ended")
+            H.assert_true(fin ~= nil, "fin de partie : " .. kinds(effects))
+            H.assert_eq(fin.winner, seats[3], "vainqueur")
+            H.assert_eq(fin.summary.rounds, state.match.rounds, "manches jouees")
+
+            -- Le classement ecrit en base se lit a l'envers de cette liste : son
+            -- contenu ET son ordre font les places 2, 3 et 4.
+            local dead = fin.summary.dead
+            H.assert_eq(#dead, 3, "trois morts")
+            H.assert_eq(dead[1], seats[2], "premier tombe")
+            H.assert_eq(dead[2], seats[4], "deuxieme tombe")
+            H.assert_eq(dead[3], seats[1], "dernier tombe")
+        end)
+
+        H.it("emet les effets d'une contestation puis d'un tir dans l'ordre exact", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
+
+            local poseur = state.round.turn
+            state = Engine.Apply(state, { kind = "play", seat = poseur, indices = { 1 } })
+
+            local effects
+            state, effects = Engine.Apply(state, { kind = "challenge", seat = state.round.turn })
+            H.assert_eq(kinds(effects), "accuse,reveal,designated", "contestation")
+
+            state, effects = Engine.Apply(state, { kind = "shoot", seat = state.pending.seat })
+            H.assert_false(find(effects, "shoot").fatal, "tir non fatal avec ce hasard")
+            H.assert_eq(kinds(effects),
+                "shoot,round_ended,table_card,deal,deal,deal,turn", "tir puis nouvelle manche")
+        end)
+
         H.it("declare la partie terminee quand il ne reste qu'un vivant", function()
             local Engine = build()
             local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
