@@ -161,7 +161,7 @@ Vérifiée **après chaque résolution de tir, jamais ailleurs**. Le dernier jou
 
 ### Composition
 
-**Trois joueurs minimum, six places maximum**, la table canonique étant de quatre.
+**Trois joueurs minimum, quatre places maximum.** Ce n'est pas un choix de confort mais une conséquence arithmétique : vingt cartes et des mains de cinq ne servent que quatre joueurs, cinq en demanderaient vingt-cinq. La première rédaction de ce document annonçait six places tout en décrivant, quelques paragraphes plus haut, un paquet que quatre joueurs épuisent entièrement. Les deux ne pouvaient pas être vrais.
 
 ### Les apparences
 
@@ -169,7 +169,7 @@ Vérifiée **après chaque résolution de tir, jamais ailleurs**. Le dernier jou
 des dix apparences de `Shared/appearances.lua`, tirée **sans remise** — la distinction est donc
 garantie par construction, et non par la chance.
 
-Il y a dix apparences pour six places au maximum, donc le tirage ne peut jamais échouer.
+Il y a dix apparences pour quatre places au maximum, donc le tirage ne peut jamais échouer.
 
 Aucun choix, aucun menu, aucun vestibule : c'est la conséquence directe du parti pris « pas
 d'interface ». Et ce qui compte réellement dans un jeu de bluff n'est pas de choisir sa tête, c'est
