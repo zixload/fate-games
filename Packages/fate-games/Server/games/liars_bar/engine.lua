@@ -59,6 +59,19 @@ return function(config, Deck, Revolver, Challenge, Round, Match, Effects)
         ouvrir_manche(state, suivant, out)
     end
 
+    -- Une contestation est jugee, mais son perdant n'est plus a table : il est
+    -- parti avant de tirer, ou avant meme qu'on l'accuse. Le hasard etait fixe
+    -- a la creation du barillet, personne n'y perd rien — on clot la manche ici,
+    -- et la suivante s'ouvre sur le vivant qui suit ce perdant.
+    local function clore_sans_tireur(state, perdant, out)
+        state.pending = nil
+        out[#out + 1] = Effects.RoundEnded("challenged")
+
+        if verifier_victoire(state, out) then return end
+
+        return ouvrir_manche(state, Match.NextAlive(state.match, perdant), out)
+    end
+
     function Engine.Start(player_ids, rng)
         local state = {
             match    = Match.New(player_ids, rng),
@@ -131,6 +144,13 @@ return function(config, Deck, Revolver, Challenge, Round, Match, Effects)
         local verdict = Challenge.Resolve(last.cards, state.round.rank)
         local perdant = (verdict == "liar") and last.seat or act.seat
 
+        -- Le menteur a pu quitter la table entre sa pose et l'accusation. Poser
+        -- un tir en attente sur un mort ferait attendre tout le monde jusqu'au
+        -- delai, puis tirerait son revolver et l'eliminerait une seconde fois.
+        if not state.match.alive[perdant] then
+            return clore_sans_tireur(state, perdant, out)
+        end
+
         state.pending = { seat = perdant }
     end
 
@@ -142,13 +162,18 @@ return function(config, Deck, Revolver, Challenge, Round, Match, Effects)
             error(("place %s : pas designee pour tirer"):format(tostring(act.seat)))
         end
 
-        local tireur = act.seat
+        local tireur       = act.seat
+        local vivant_avant = state.match.alive[tireur]
         local fatal, chamber = Revolver.Pull(state.match.revolvers[tireur])
         out[#out + 1] = Effects.Shoot(tireur, chamber, fatal)
 
         if fatal then
             Match.Eliminate(state.match, tireur)
-            out[#out + 1] = Effects.Eliminated(tireur)
+            -- Garde-fou : un tireur deja mort a deja ete annonce elimine. Une
+            -- seconde annonce ferait croire aux clients a une nouvelle mort.
+            if vivant_avant then
+                out[#out + 1] = Effects.Eliminated(tireur)
+            end
         end
 
         state.pending = nil
@@ -178,13 +203,8 @@ return function(config, Deck, Revolver, Challenge, Round, Match, Effects)
         -- de spectateur, qui laisse l'etat de manche perime alors que les clients
         -- ont deja ete prevenus de sa fin — et rien ne pourrait plus la clore.
         if state.pending and state.pending.seat == act.seat then
-            state.pending = nil
-            out[#out + 1] = Effects.RoundEnded("challenged")
-
-            if verifier_victoire(state, out) then return end
-
             -- Le partant est mort, donc l'ouverture revient au vivant suivant.
-            return ouvrir_manche(state, Match.NextAlive(state.match, act.seat), out)
+            return clore_sans_tireur(state, act.seat, out)
         end
 
         if verifier_victoire(state, out) then return end

@@ -320,6 +320,72 @@ return function(H, Stubs)
             H.assert_eq(fins, 1, "un seul round_ended")
         end)
 
+        H.it("clot la manche sans tir quand le menteur accuse est deja parti", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
+
+            local seats = state.match.seats
+            local menteur, accusateur = seats[1], seats[2]
+            H.assert_eq(state.round.turn, menteur, "le menteur ouvre")
+
+            local intruse = state.round.rank == "king" and "ace" or "king"
+            state.round.hands[menteur] = { intruse, intruse, intruse, intruse, intruse }
+            state = Engine.Apply(state, { kind = "play", seat = menteur, indices = { 1 } })
+            H.assert_eq(state.round.turn, accusateur, "la main passe a l'accusateur")
+
+            local depart
+            state, depart = Engine.Apply(state, { kind = "leave", seat = menteur })
+            H.assert_false(state.finished, "deux vivants : la partie continue")
+
+            local manches_avant = state.match.rounds
+            local effects
+            state, effects = Engine.Apply(state, { kind = "challenge", seat = accusateur })
+
+            H.assert_nil(state.pending, "aucun tir en attente sur un mort")
+            H.assert_nil(find(effects, "shoot"), "aucun tir")
+            local fin = find(effects, "round_ended")
+            H.assert_true(fin ~= nil, "fin de manche : " .. kinds(effects))
+            H.assert_eq(fin.reason, "challenged", "motif")
+            H.assert_true(find(effects, "table_card") ~= nil, "nouvelle manche ouverte")
+            H.assert_eq(state.match.rounds, manches_avant + 1, "une manche de plus")
+            H.assert_eq(state.round.turn, accusateur,
+                "le vivant qui suit le menteur parti ouvre")
+
+            local annonces = 0
+            for _, lot in ipairs({ depart, effects }) do
+                for _, e in ipairs(lot) do
+                    if e.kind == "eliminated" and e.seat == menteur then
+                        annonces = annonces + 1
+                    end
+                end
+            end
+            H.assert_eq(annonces, 1, "le menteur n'est annonce elimine qu'une fois")
+        end)
+
+        H.it("n'annonce pas une seconde elimination pour un tireur deja mort", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
+
+            local poseur = state.round.turn
+            state = Engine.Apply(state, { kind = "play", seat = poseur, indices = { 1 } })
+            state = Engine.Apply(state, { kind = "challenge", seat = state.round.turn })
+
+            -- Etat inatteignable par le jeu normal depuis que la contestation
+            -- refuse de designer un mort : on le fabrique pour eprouver le
+            -- garde-fou du tir. Le tireur est mort et sa prochaine chambre porte
+            -- la balle.
+            local tireur = state.pending.seat
+            state.match.alive[tireur] = nil
+            state.match.dead_order[#state.match.dead_order + 1] = tireur
+            local rev = state.match.revolvers[tireur]
+            rev.bullet = rev.fired + 1
+
+            local effects
+            state, effects = Engine.Apply(state, { kind = "shoot", seat = tireur })
+            H.assert_true(find(effects, "shoot").fatal, "le coup part")
+            H.assert_nil(find(effects, "eliminated"), "aucune seconde annonce : " .. kinds(effects))
+        end)
+
         H.it("declare la partie terminee quand il ne reste qu'un vivant", function()
             local Engine = build()
             local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
