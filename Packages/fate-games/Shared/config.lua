@@ -14,6 +14,20 @@ return {
         key = "E",
     },
 
+    -- HUD provisoire de Liar's Bar (Client/liars_bar/). Noms de touches de la
+    -- doc Input. Pas Enter pour poser : il risque de servir au chat.
+    liars_hud = {
+        journal_lines = 8,
+        -- Miroir du plafond serveur (games/liars_bar/data/config.lua), qui
+        -- seul fait foi : ici il ne sert qu'a ne pas proposer l'impossible.
+        max_play = 3,
+        keys = {
+            select = { "One", "Two", "Three", "Four", "Five" },
+            play   = "P",
+            accuse = "M",
+        },
+    },
+
     scheduler = {
         -- duree d'un tour de roue : chaque entite inscrite est traitee une fois par tour
         wheel_seconds = 60,
