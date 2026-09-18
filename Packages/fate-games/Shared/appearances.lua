@@ -28,10 +28,14 @@
 -- toute la lisibilite entre joueurs est portee par la tete. C'est la que la
 -- variete est concentree, volontairement.
 
-local PACK = "creative-characters"
+-- Mise a jour du 19/09/2026 : le pack est cuit dans my-asset-pack, et
+-- toutes ses pieces y sont des maillages SQUELETTIQUES prefixes SK_, tetes
+-- comprises (bilan : les 10 apparences ont toutes leurs pieces). Le
+-- commentaire ci-dessus sur les deux modes d'assemblage date d'avant.
+local PACK = "my-asset-pack"
 
 local function ref(nom)
-    return PACK .. "::" .. nom
+    return PACK .. "::SK_" .. nom
 end
 
 local Apparences = {}

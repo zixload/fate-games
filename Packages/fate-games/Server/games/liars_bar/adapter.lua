@@ -207,19 +207,24 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             return
         end
 
+        -- Les pieces du pack n'habillent que le squelette Creative, donc un
+        -- CharacterSimple. Le corps nanos d'un bot n'a pas ce squelette : on
+        -- le laisse tel quel plutot que de le deformer.
+        if not character:IsA(CharacterSimple) then
+            Log.Info("liars", ("apparence %s ignoree a la chaise %s : pas un personnage Creative")
+                :format(tostring(e.look), tostring(chair(e.seat))))
+            return
+        end
+
         character:SetMesh(look.body)
         character:RemoveAllStaticMeshesAttached()
         character:RemoveAllSkeletalMeshesAttached()
 
-        -- Les pieces de tete sont des maillages STATIQUES accroches a un os :
-        -- aucun rigging necessaire. Le nom "head" est l'usage courant mais reste
-        -- A CONFIRMER sur le squelette nanos world.
+        -- Tetes et vetements sont tous des maillages squelettiques du pack,
+        -- attaches en "master pose" : ils suivent les os du corps.
         for i, mesh in ipairs(look.head) do
-            character:AddStaticMeshAttached("liars_head_" .. i, mesh, "head")
+            character:AddSkeletalMeshAttached("liars_head_" .. i, mesh)
         end
-
-        -- Les vetements sont attaches en "master pose" : ils suivent le corps,
-        -- donc ils doivent etre skinnes sur le meme squelette.
         for i, mesh in ipairs(look.worn) do
             character:AddSkeletalMeshAttached("liars_worn_" .. i, mesh)
         end
