@@ -73,9 +73,14 @@ Player.Subscribe("Ready", function(player)
 end)
 
 Player.Subscribe("Destroy", function(player)
-    -- Prevenir le jeu AVANT que la session du personnage soit fermee : apres,
-    -- la place n'est plus retrouvable.
-    LiarsBar.OnPlayerLeave(player)
+    -- Prevenir le jeu AVANT que la session du personnage soit fermee, sinon la
+    -- place n'est plus retrouvable. Sous pcall parce qu'une levee ici sauterait
+    -- le vidage de position et la destruction du Character.
+    local ok, err = pcall(LiarsBar.OnPlayerLeave, player)
+    if not ok then
+        Log.Error("liars", "OnPlayerLeave a leve : " .. tostring(err))
+    end
+
     Characters.OnPlayerLeave(player)
 end)
 

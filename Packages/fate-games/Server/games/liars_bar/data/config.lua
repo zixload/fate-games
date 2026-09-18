@@ -7,10 +7,11 @@ return {
     -- nombre maximal de cartes posables en un tour
     max_play = 3,
 
-    -- il faut trois joueurs pour composer une partie, six places au maximum,
-    -- la table canonique etant de quatre
+    -- Quatre places, pas six : le paquet de vingt cartes et les mains de cinq
+    -- ne servent que quatre joueurs. C'est la table canonique du jeu, et la
+    -- seule compatible avec l'arithmetique decrite dans data/deck.lua.
     min_players = 3,
-    max_seats   = 6,
+    max_seats   = 4,
 
     -- chambres du barillet ; une seule balle, position tiree au hasard
     chambers = 6,

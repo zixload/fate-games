@@ -281,6 +281,15 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             ids[i] = entry.player:GetID()
         end
 
+        -- On memorise les places physiques : si le moteur leve, la reindexation
+        -- ci-dessous laisserait la table durablement fausse — un joueur assis en
+        -- chaise 4 vivant a l'indice 2, une chaise vide se declarant occupee — et
+        -- rien ne la reparerait hors redemarrage du serveur.
+        local physiques = {}
+        for i, entry in ipairs(seated) do
+            physiques[i] = entry.seat
+        end
+
         -- Reindexation : le moteur numerote les places de 1 a n sans trou, alors
         -- que les chaises occupees peuvent etre la 2, la 4 et la 5. On reecrit
         -- donc les correspondances sur la numerotation du moteur, en conservant
@@ -294,8 +303,22 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
 
         started_at = os.date("!%Y-%m-%dT%H:%M:%SZ")
 
-        local effects
-        state, effects = Engine.Start(ids, function(n) return math.random(n) end)
+        local ok, nouveau, effects = pcall(Engine.Start, ids, function(n) return math.random(n) end)
+        if not ok then
+            Log.Error("liars", "demarrage impossible : " .. tostring(nouveau), cid)
+
+            player_by_seat = {}
+            for i, entry in ipairs(seated) do
+                entry.seat = physiques[i]
+                player_by_seat[entry.seat] = entry.player
+                seat_by_player[entry.player:GetID()] = entry.seat
+            end
+            started_at = nil
+
+            return false, "demarrage_impossible"
+        end
+
+        state = nouveau
         dispatch(effects, cid)
         Adapter.ArmShootTimeout()
 
@@ -306,7 +329,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     ---------------------------------------------------------------- init
 
     function Adapter.Init()
-        Prop(Vector(spawn.x, spawn.y, spawn.z), Rotator(0, 0, 0), ASSETS.table)
+        -- Decale du point d'apparition : characters.lua y fait apparaitre les
+        -- nouveaux personnages, qui se materialiseraient dans la table.
+        local cx, cy, cz = spawn.x + 250.0, spawn.y, spawn.z
+
+        Prop(Vector(cx, cy, cz), Rotator(0, 0, 0), ASSETS.table)
 
         local rayon = 120.0
         for seat = 1, config.max_seats do
@@ -314,9 +341,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             local rad   = math.rad(angle)
 
             local chair = Prop(
-                Vector(spawn.x + math.cos(rad) * rayon,
-                       spawn.y + math.sin(rad) * rayon,
-                       spawn.z),
+                Vector(cx + math.cos(rad) * rayon,
+                       cy + math.sin(rad) * rayon,
+                       cz),
                 Rotator(0, angle + 180.0, 0),   -- tournee vers la table
                 ASSETS.chair
             )
@@ -332,7 +359,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         -- Le revolver au centre porte deux actes : lancer la partie, et tirer.
         -- C'est le meme objet parce que c'est le meme geste — on y pose la main.
         local revolver = Prop(
-            Vector(spawn.x, spawn.y, spawn.z + 60.0),
+            Vector(cx, cy, cz + 60.0),
             Rotator(0, 0, 0),
             ASSETS.revolver
         )
@@ -392,13 +419,29 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         Log.Info("liars", ("table posee : %d places"):format(config.max_seats))
     end
 
-    -- Un joueur qui quitte le serveur en cours de partie compte comme elimine.
+    -- Un joueur qui part compte comme elimine si une partie tourne. Mais il faut
+    -- AUSSI liberer sa chaise quand aucune partie n'a commence : sinon elle reste
+    -- occupee pour la vie du serveur, le fantome est encore compte parmi les
+    -- assis, et il peut recevoir une main — apres quoi la partie se bloque des que
+    -- le tour l'atteint, puisqu'il n'y a pas de delai de tour.
     function Adapter.OnPlayerLeave(player)
-        if not state then return end
-        local seat = seat_by_player[player:GetID()]
-        if seat then
+        local player_id = player:GetID()
+        local seat = seat_by_player[player_id]
+        if not seat then return end
+
+        if state then
             Adapter.Act({ kind = "leave", seat = seat })
+            return
         end
+
+        seat_by_player[player_id] = nil
+        player_by_seat[seat] = nil
+        for i = #seated, 1, -1 do
+            if seated[i].seat == seat then table.remove(seated, i) end
+        end
+
+        to_all("liars:unseated", seat)
+        Log.Info("liars", ("place %d liberee, joueur parti avant le debut"):format(seat))
     end
 
     return Adapter
