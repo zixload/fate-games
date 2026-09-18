@@ -148,7 +148,7 @@ Trois façons d'en sortir :
 | Cause | Conséquence |
 | --- | --- |
 | Une contestation résolue | Le perdant tire, la manche s'arrête quelle qu'en soit l'issue |
-| Moins de deux joueurs ont des cartes | **Manche nulle**, aucun tir — plus personne pour répondre |
+| Plus personne d'autre que l'auteur de la dernière pose n'a de cartes | **Manche nulle**, aucun tir — plus personne pour répondre à cette pose |
 | Il ne reste qu'un vivant | Fin de partie |
 
 **Qui ouvre la manche suivante** : le perdant du tir, s'il est vivant ; s'il est mort, le joueur
@@ -199,6 +199,7 @@ Le contrat entre le moteur et l'adaptateur. `effects.lua` les construit et les v
 | `table_card` | rank | annonce publique de la manche |
 | `cards_played` | player, **count** | N dos glissent vers le dépôt |
 | `reveal` | player, cards | la dernière pose se retourne, pour tous |
+| `designated` | seat | le revolver glisse devant le tireur désigné |
 | `accuse` | accuser, target | bras tendu, slot `UpperBody` |
 | `shoot` | player, chamber, fatal | la mise en scène du tir |
 | `eliminated` | player | revolver retiré, bascule sur le canal des éliminés |
@@ -279,6 +280,8 @@ immédiate, conformément à la distinction déjà posée dans l'architecture en
 transactionnelle.
 
 Rien des mains, rien des barillets : tout cela meurt avec la partie.
+
+**Deux numérotations, une seule visible.** Le moteur numérote ses places de 1 à n sans trou ; les chaises sont physiques. L'adaptateur traduit toute place en chaise à la sortie : les clients comme la base ne voient que des numéros de chaise, et le vainqueur est enregistré par son personnage, pas par un numéro de place.
 
 ---
 
