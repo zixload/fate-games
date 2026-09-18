@@ -32,30 +32,71 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         accuse = "",   -- bras tendu, slot UpperBody, pour garder la posture assise
     }
 
+    -- Deux numerotations coexistent, et il ne faut jamais les confondre.
+    --
+    --   CHAISE : physique, de 1 a max_seats. C'est la seule que voient les
+    --            clients et la base.
+    --   PLACE  : celle du moteur, de 1 a n sans trou, attribuee au demarrage
+    --            dans l'ordre des chaises.
+    --
+    -- Hors partie, player_by_seat et seat_by_player sont indexees par chaise.
+    -- En partie, par place, parce qu'Act parle au moteur ; chair_of fait alors
+    -- le chemin inverse pour tout ce qui sort.
     local state          = nil   -- etat du moteur, nil hors partie
-    local seated         = {}    -- { { player = ..., seat = n } }, avant le debut
+    local seated         = {}    -- { { player, chair, character_id, seat } }
     local player_by_seat = {}
     local seat_by_player = {}
-    local shoot_timer    = nil
+    local chair_of       = {}    -- place moteur -> chaise, le temps d'une partie
     local started_at     = nil
+
+    local shoot_timer    = nil
 
     ---------------------------------------------------------------- envois
 
-    local function to_one(seat, event, ...)
-        local player = player_by_seat[seat]
-        if not player then return end
+    -- La seule porte vers les clients. C'est l'audience fixee par le moteur qui
+    -- choisit le destinataire, jamais le traducteur : un numero de place -> le
+    -- seul joueur de cette place ; "all" -> tout le monde. Toute autre valeur
+    -- est refusee — dans le doute on n'envoie rien, on ne diffuse pas.
+    local function send(audience, event, ...)
+        if audience == "all" then
+            Events.BroadcastRemote(event, Reliability.Reliable, ...)
+            return
+        end
+
+        local player = (type(audience) == "number") and player_by_seat[audience] or nil
+        if not player then
+            Log.Warn("liars", ("%s : aucun destinataire pour l'audience %s, rien envoye")
+                :format(event, tostring(audience)))
+            return
+        end
+
         -- Cote serveur : (evenement, joueur, fiabilite, ...). Omettre la
         -- fiabilite decale le premier argument utile dans ce parametre.
         Events.CallRemote(event, player, Reliability.Reliable, ...)
     end
 
-    local function to_all(event, ...)
-        Events.BroadcastRemote(event, Reliability.Reliable, ...)
+    -- Une place moteur traduite en chaise, pour tout ce qui sort. Une place
+    -- sans chaise est un defaut de comptabilite : on leve plutot que d'envoyer
+    -- un numero faux, et dispatch journalise l'echec.
+    local function chair(seat)
+        if seat == nil then return nil end
+        local c = chair_of[seat]
+        if c == nil then
+            error("place moteur sans chaise : " .. tostring(seat))
+        end
+        return c
     end
 
     local function character_of(seat)
         local player = player_by_seat[seat]
         return player and player:GetControlledCharacter() or nil
+    end
+
+    ---------------------------------------------------------------- remise a zero
+
+    local function remettre_a_zero()
+        state, started_at = nil, nil
+        player_by_seat, seat_by_player, chair_of, seated = {}, {}, {}, {}
     end
 
     ---------------------------------------------------------------- traducteurs
@@ -65,7 +106,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     TRANSLATORS.appearance = function(e)
         local character = character_of(e.seat)
         if not character then
-            Log.Warn("liars", ("apparence : aucun personnage a la place %d"):format(e.seat))
+            Log.Warn("liars", ("apparence : aucun personnage a la chaise %s")
+                :format(tostring(chair(e.seat))))
             return
         end
 
@@ -92,20 +134,40 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             character:AddSkeletalMeshAttached("liars_worn_" .. i, mesh)
         end
 
-        Log.Debug("liars", ("place %d habillee en %s (%d tete, %d vetements)")
-            :format(e.seat, look.label, #look.head, #look.worn))
+        Log.Debug("liars", ("chaise %s habillee en %s (%d tete, %d vetements)")
+            :format(tostring(chair(e.seat)), look.label, #look.head, #look.worn))
     end
 
-    TRANSLATORS.deal         = function(e) to_one(e.seat, "liars:deal", e.cards) end
-    TRANSLATORS.table_card   = function(e) to_all("liars:table_card", e.rank) end
-    TRANSLATORS.cards_played = function(e) to_all("liars:cards_played", e.seat, e.count) end
-    TRANSLATORS.reveal       = function(e) to_all("liars:reveal", e.seat, e.cards) end
-    TRANSLATORS.turn         = function(e) to_all("liars:turn", e.seat) end
-    TRANSLATORS.round_ended  = function(e) to_all("liars:round_ended", e.reason) end
-    TRANSLATORS.shoot        = function(e) to_all("liars:shoot", e.seat, e.chamber, e.fatal) end
+    TRANSLATORS.deal = function(e)
+        send(e.audience, "liars:deal", e.cards)
+    end
+
+    TRANSLATORS.table_card = function(e)
+        send(e.audience, "liars:table_card", e.rank)
+    end
+
+    TRANSLATORS.cards_played = function(e)
+        send(e.audience, "liars:cards_played", chair(e.seat), e.count)
+    end
+
+    TRANSLATORS.reveal = function(e)
+        send(e.audience, "liars:reveal", chair(e.seat), e.cards)
+    end
+
+    TRANSLATORS.turn = function(e)
+        send(e.audience, "liars:turn", chair(e.seat))
+    end
+
+    TRANSLATORS.round_ended = function(e)
+        send(e.audience, "liars:round_ended", e.reason)
+    end
+
+    TRANSLATORS.shoot = function(e)
+        send(e.audience, "liars:shoot", chair(e.seat), e.chamber, e.fatal)
+    end
 
     TRANSLATORS.accuse = function(e)
-        to_all("liars:accuse", e.accuser, e.target)
+        send(e.audience, "liars:accuse", chair(e.accuser), chair(e.target))
 
         if ANIMATIONS.accuse ~= "" then
             local character = character_of(e.accuser)
@@ -118,25 +180,66 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
     TRANSLATORS.eliminated = function(e)
         -- Il garde la parole : il n'y a precisement RIEN a faire sur son micro.
         -- Il reste assis, il voit tout, il peut commenter.
-        to_all("liars:eliminated", e.seat)
-        Log.Info("liars", ("place %d eliminee"):format(e.seat))
+        local c = chair(e.seat)
+        send(e.audience, "liars:eliminated", c)
+        Log.Info("liars", ("chaise %s eliminee"):format(tostring(c)))
     end
 
     TRANSLATORS.match_ended = function(e)
-        to_all("liars:match_ended", e.winner)
-        Adapter.PersistResult(e.winner, e.summary)
+        -- Tout ce que l'ecriture et les annonces demandent est releve AVANT la
+        -- remise a zero, et la remise a zero passe AVANT tout ce qui peut lever :
+        -- une ecriture en base qui echoue ne doit plus pouvoir laisser la table
+        -- occupee jusqu'au redemarrage du serveur.
+        local releve = {
+            started_at = started_at,
+            seated     = {},
+            looks      = {},
+            chair_of   = {},
+        }
+        for i, entry in ipairs(seated) do
+            releve.seated[i] = {
+                seat         = entry.seat,
+                chair        = entry.chair,
+                character_id = entry.character_id,
+            }
+        end
+        for seat, look in pairs(state and state.match.looks or {}) do
+            releve.looks[seat] = look
+        end
+        for seat, c in pairs(chair_of) do
+            releve.chair_of[seat] = c
+        end
+        local chaise_gagnante = e.winner ~= nil and releve.chair_of[e.winner] or nil
 
-        state, player_by_seat, seat_by_player, seated, started_at = nil, {}, {}, {}, nil
-        Log.Info("liars", ("partie terminee, vainqueur place %s"):format(tostring(e.winner)))
+        remettre_a_zero()
+
+        local ok, err = pcall(Adapter.PersistResult, e.winner, e.summary, releve)
+        if not ok then
+            Log.Error("liars", "resultat non ecrit : " .. tostring(err))
+        end
+
+        send(e.audience, "liars:match_ended", chaise_gagnante)
+
+        Log.Info("liars", ("partie terminee, vainqueur chaise %s"):format(tostring(chaise_gagnante)))
     end
 
     ---------------------------------------------------------------- persistance
 
     -- Donnee transactionnelle, donc ecriture immediate (R3). C'est la seule
-    -- chose que le jeu laisse derriere lui.
-    function Adapter.PersistResult(winner, summary)
+    -- chose que le jeu laisse derriere lui. Elle ne lit que le releve fait par
+    -- match_ended : l'etat de l'adaptateur est deja remis a zero quand elle
+    -- tourne. La base ne connait que des chaises et des personnages — une place
+    -- moteur n'a de sens que le temps d'une partie.
+    function Adapter.PersistResult(winner, summary, releve)
         local match_id = Ids.Next("liars_matches")
         local ended_at = os.date("!%Y-%m-%dT%H:%M:%SZ")
+
+        local winner_id = nil
+        for _, entry in ipairs(releve.seated) do
+            if winner ~= nil and entry.seat == winner then
+                winner_id = entry.character_id
+            end
+        end
 
         DB.Execute(
             [[INSERT INTO liars_matches (id, started_at, ended_at, rounds, winner_id)
@@ -146,8 +249,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
                     Log.Error("liars", "resultat non ecrit : " .. tostring(err))
                 end
             end,
-            match_id, started_at or ended_at, ended_at,
-            summary and summary.rounds or 0, winner
+            match_id, releve.started_at or ended_at, ended_at,
+            summary and summary.rounds or 0, winner_id
         )
 
         -- Le classement se lit a l'envers de l'ordre des eliminations : le
@@ -159,7 +262,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         end
         if winner then placement[winner] = 1 end
 
-        for _, entry in ipairs(seated) do
+        for _, entry in ipairs(releve.seated) do
             DB.Execute(
                 [[INSERT INTO liars_participants (match_id, seat, character_id, look, placement)
                   VALUES (:0, :1, :2, :3, :4)]],
@@ -168,8 +271,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
                         Log.Error("liars", "participant non ecrit : " .. tostring(err))
                     end
                 end,
-                match_id, entry.seat, entry.character_id,
-                tostring(state and state.match.looks[entry.seat] or "?"),
+                match_id, entry.chair, entry.character_id,
+                tostring(releve.looks[entry.seat] or "?"),
                 placement[entry.seat]
             )
         end
@@ -177,11 +280,18 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
 
     ---------------------------------------------------------------- application
 
+    -- Chaque traducteur tourne sous pcall. Un seul qui leve — un os mal nomme,
+    -- un maillage absent — ne doit ni priver les clients des effets suivants,
+    -- ni sauter le delai de tir, ni empecher la remise a zero de fin de partie.
     local function dispatch(effects, cid)
         for _, e in ipairs(effects) do
             local translate = TRANSLATORS[e.kind]
             if translate then
-                translate(e)
+                local ok, err = pcall(translate, e)
+                if not ok then
+                    Log.Error("liars", ("traduction de %s en echec : %s")
+                        :format(tostring(e.kind), tostring(err)), cid)
+                end
             else
                 Log.Warn("liars", "effet sans traducteur : " .. tostring(e.kind), cid)
             end
@@ -202,7 +312,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         shoot_timer = Timer.SetTimeout(function()
             shoot_timer = nil
             if state and state.pending and state.pending.seat == designe then
-                Log.Info("liars", ("tir resolu d'office pour la place %d"):format(designe))
+                Log.Info("liars", ("tir resolu d'office pour la chaise %s")
+                    :format(tostring(chair_of[designe])))
                 Adapter.Act({ kind = "shoot", seat = designe })
             end
         end, math.floor(config.shoot_timeout * 1000))
@@ -232,11 +343,12 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
 
     ---------------------------------------------------------------- assise
 
-    function Adapter.Seat(player, seat, cid)
+    -- Hors partie : chair_n est une chaise, et les tables sont indexees par chaise.
+    function Adapter.Seat(player, chair_n, cid)
         if state then
             return false, "partie_en_cours"
         end
-        if player_by_seat[seat] then
+        if player_by_seat[chair_n] then
             return false, "place_occupee"
         end
 
@@ -244,23 +356,23 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         if ancienne then
             player_by_seat[ancienne] = nil
             for i = #seated, 1, -1 do
-                if seated[i].seat == ancienne then table.remove(seated, i) end
+                if seated[i].chair == ancienne then table.remove(seated, i) end
             end
         end
 
-        player_by_seat[seat] = player
-        seat_by_player[player:GetID()] = seat
+        player_by_seat[chair_n] = player
+        seat_by_player[player:GetID()] = chair_n
         -- Le personnage se retrouve par la session : il n'y a pas de valeur
         -- posee sur le joueur dans ce depot.
         local session = Characters.SessionByPlayer(player:GetID())
         seated[#seated + 1] = {
             player       = player,
-            seat         = seat,
+            chair        = chair_n,
             character_id = session and session.character_id or 0,
         }
 
-        to_all("liars:seated", seat, player:GetID())
-        Log.Info("liars", ("place %d occupee (%d assis)"):format(seat, #seated), cid)
+        send("all", "liars:seated", chair_n, player:GetID())
+        Log.Info("liars", ("chaise %d occupee (%d assis)"):format(chair_n, #seated), cid)
         return true
     end
 
@@ -272,33 +384,26 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             return false, "pas_assez_de_joueurs"
         end
 
-        -- Ordre des places croissant : la table doit tourner dans le sens ou on
+        -- Ordre des chaises croissant : la table doit tourner dans le sens ou on
         -- la voit, pas dans l'ordre d'arrivee des joueurs.
-        table.sort(seated, function(a, b) return a.seat < b.seat end)
+        table.sort(seated, function(a, b) return a.chair < b.chair end)
 
         local ids = {}
         for i, entry in ipairs(seated) do
             ids[i] = entry.player:GetID()
         end
 
-        -- On memorise les places physiques : si le moteur leve, la reindexation
-        -- ci-dessous laisserait la table durablement fausse — un joueur assis en
-        -- chaise 4 vivant a l'indice 2, une chaise vide se declarant occupee — et
-        -- rien ne la reparerait hors redemarrage du serveur.
-        local physiques = {}
+        -- Reindexation : le moteur numerote ses places de 1 a n sans trou, alors
+        -- que les chaises occupees peuvent etre la 2, la 3 et la 4. Les tables
+        -- passent sur la numerotation du moteur, dans l'ordre autour de la
+        -- table — c'est a cela que servait le tri —, et chair_of garde le chemin
+        -- inverse jusqu'a la fin de la partie.
+        player_by_seat, seat_by_player, chair_of = {}, {}, {}
         for i, entry in ipairs(seated) do
-            physiques[i] = entry.seat
-        end
-
-        -- Reindexation : le moteur numerote les places de 1 a n sans trou, alors
-        -- que les chaises occupees peuvent etre la 2, la 4 et la 5. On reecrit
-        -- donc les correspondances sur la numerotation du moteur, en conservant
-        -- l'ordre autour de la table — c'est a cela que servait le tri.
-        player_by_seat = {}
-        for i, entry in ipairs(seated) do
+            entry.seat = i
             player_by_seat[i] = entry.player
             seat_by_player[entry.player:GetID()] = i
-            entry.seat = i
+            chair_of[i] = entry.chair
         end
 
         started_at = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -307,11 +412,14 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         if not ok then
             Log.Error("liars", "demarrage impossible : " .. tostring(nouveau), cid)
 
-            player_by_seat = {}
-            for i, entry in ipairs(seated) do
-                entry.seat = physiques[i]
-                player_by_seat[entry.seat] = entry.player
-                seat_by_player[entry.player:GetID()] = entry.seat
+            -- Retour aux chaises. Sans cela, un joueur assis en chaise 4 vivrait
+            -- a l'indice 2 et une chaise vide se declarerait occupee, sans que
+            -- rien ne le repare hors redemarrage du serveur.
+            player_by_seat, seat_by_player, chair_of = {}, {}, {}
+            for _, entry in ipairs(seated) do
+                entry.seat = nil
+                player_by_seat[entry.chair] = entry.player
+                seat_by_player[entry.player:GetID()] = entry.chair
             end
             started_at = nil
 
@@ -336,11 +444,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
         Prop(Vector(cx, cy, cz), Rotator(0, 0, 0), ASSETS.table)
 
         local rayon = 120.0
-        for seat = 1, config.max_seats do
-            local angle = (seat - 1) * (360.0 / config.max_seats)
+        for chair_n = 1, config.max_seats do
+            local angle = (chair_n - 1) * (360.0 / config.max_seats)
             local rad   = math.rad(angle)
 
-            local chair = Prop(
+            local prop = Prop(
                 Vector(cx + math.cos(rad) * rayon,
                        cy + math.sin(rad) * rayon,
                        cz),
@@ -348,10 +456,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
                 ASSETS.chair
             )
 
-            Interactables.Register(chair, {
-                label = ("S'asseoir (place %d)"):format(seat),
+            Interactables.Register(prop, {
+                label = ("S'asseoir (place %d)"):format(chair_n),
                 on_interact = function(player, session, entry, cid)
-                    Adapter.Seat(player, seat, cid)
+                    Adapter.Seat(player, chair_n, cid)
                 end,
             })
         end
@@ -390,10 +498,13 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             end,
             apply = function(player, payload, cid)
                 local seat = seat_by_player[player:GetID()]
+                -- La cible part chez le client : c'est donc une chaise, relevee
+                -- AVANT l'acte, qu'une fin de partie remettrait a zero.
+                local c = chair_of[seat]
                 local ok, raison = Adapter.Act(
                     { kind = "play", seat = seat, indices = payload.indices }, cid)
                 return ok, {
-                    target = "seat:" .. tostring(seat),
+                    target = "chair:" .. tostring(c),
                     audit  = ok and ("pose de %d carte(s)"):format(#payload.indices)
                         or tostring(raison),
                 }
@@ -408,9 +519,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             end,
             apply = function(player, payload, cid)
                 local seat = seat_by_player[player:GetID()]
+                local c = chair_of[seat]
                 local ok, raison = Adapter.Act({ kind = "challenge", seat = seat }, cid)
                 return ok, {
-                    target = "seat:" .. tostring(seat),
+                    target = "chair:" .. tostring(c),
                     audit  = ok and "conteste" or tostring(raison),
                 }
             end,
@@ -434,14 +546,15 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             return
         end
 
+        -- Hors partie, `seat` est une chaise.
         seat_by_player[player_id] = nil
         player_by_seat[seat] = nil
         for i = #seated, 1, -1 do
-            if seated[i].seat == seat then table.remove(seated, i) end
+            if seated[i].chair == seat then table.remove(seated, i) end
         end
 
-        to_all("liars:unseated", seat)
-        Log.Info("liars", ("place %d liberee, joueur parti avant le debut"):format(seat))
+        send("all", "liars:unseated", seat)
+        Log.Info("liars", ("chaise %d liberee, joueur parti avant le debut"):format(seat))
     end
 
     return Adapter
