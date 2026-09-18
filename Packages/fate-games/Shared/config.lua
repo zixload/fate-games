@@ -22,7 +22,17 @@ return {
         -- seul fait foi : ici il ne sert qu'a ne pas proposer l'impossible.
         max_play = 3,
         keys = {
-            select = { "One", "Two", "Three", "Four", "Five" },
+            -- Plusieurs noms par carte : Unreal nomme une touche d'apres le
+            -- caractere qu'elle tape. En AZERTY la touche 1 tape "&" et
+            -- s'appelle "Ampersand", pas "One". Le pave numerique, lui, ne
+            -- depend pas de la disposition du clavier.
+            select = {
+                { "One",   "Ampersand",       "NumPadOne" },
+                { "Two",   "E_AccentAigu",    "NumPadTwo" },
+                { "Three", "Quote",           "NumPadThree" },
+                { "Four",  "Apostrophe",      "NumPadFour" },
+                { "Five",  "LeftParantheses", "NumPadFive" },
+            },
             play   = "P",
             accuse = "M",
         },

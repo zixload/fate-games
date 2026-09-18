@@ -39,10 +39,12 @@ return function(config, Journal, send_intent)
         if chat_ouvert then return end
         local keys = config.keys
 
-        for i, k in ipairs(keys.select) do
-            if key_name == k then
-                journal:Toggle(i)
-                return
+        for i, noms in ipairs(keys.select) do
+            for _, k in ipairs(noms) do
+                if key_name == k then
+                    journal:Toggle(i)
+                    return
+                end
             end
         end
 
