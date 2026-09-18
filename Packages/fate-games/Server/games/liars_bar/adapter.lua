@@ -98,6 +98,14 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         Events.CallRemote(event, player, Reliability.Reliable, ...)
     end
 
+    -- Un refus par E doit revenir au joueur : le registre d'interaction ignore
+    -- ce que rend on_interact, et le client recevrait "ok".
+    local function refuser(player, raison, contexte)
+        if player and not player.bot then
+            Events.CallRemote("liars:refused", player, Reliability.Reliable, raison, contexte)
+        end
+    end
+
     -- Une place moteur traduite en chaise, pour tout ce qui sort. Une place
     -- sans chaise est un defaut de comptabilite : on leve plutot que d'envoyer
     -- un numero faux, et dispatch journalise l'echec.
@@ -477,7 +485,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             bot          = player.bot or nil,
         }
 
-        send("all", "liars:seated", chair_n, player:GetID())
+        send("all", "liars:seated", chair_n, player:GetID(), player:GetName())
         Log.Info("liars", ("chaise %d occupee (%d assis)"):format(chair_n, #seated), cid)
         return true
     end
@@ -552,7 +560,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             return false, "pas_assis"
         end
         if #seated < config.min_players then
-            return false, "pas_assez_de_joueurs"
+            return false, "pas_assez_de_joueurs", { assis = #seated, minimum = config.min_players }
         end
 
         -- Ordre des chaises croissant : la table doit tourner dans le sens ou on
@@ -598,6 +606,15 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         end
 
         state = nouveau
+
+        -- Le moteur n'annonce pas le debut : les clients l'apprennent ici,
+        -- avant la premiere carte de table.
+        local annonce = {}
+        for i, entry in ipairs(seated) do
+            annonce[i] = { chair = entry.chair, name = entry.name }
+        end
+        send("all", "liars:started", annonce)
+
         dispatch(effects, cid)
         Adapter.ArmShootTimeout()
         Adapter.ScheduleBots()
@@ -644,7 +661,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             Interactables.Register(prop, {
                 label = ("S'asseoir (place %d)"):format(chair_n),
                 on_interact = function(player, session, entry, cid)
-                    Adapter.Seat(player, chair_n, cid)
+                    local ok, raison = Adapter.Seat(player, chair_n, cid)
+                    if not ok then refuser(player, raison) end
                 end,
             })
         end
@@ -664,12 +682,16 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             label = "Prendre le revolver",
             on_interact = function(player, session, entry, cid)
                 if not state then
-                    return Adapter.Begin(player, cid)
+                    local ok, raison, contexte = Adapter.Begin(player, cid)
+                    if not ok then refuser(player, raison, contexte) end
+                    return
                 end
                 local seat = seat_by_player[player:GetID()]
-                if seat then
-                    Adapter.Act({ kind = "shoot", seat = seat }, cid)
+                if not seat then
+                    return refuser(player, "pas_a_table")
                 end
+                local ok, raison = Adapter.Act({ kind = "shoot", seat = seat }, cid)
+                if not ok then refuser(player, raison) end
             end,
         })
 
