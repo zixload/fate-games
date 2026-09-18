@@ -56,7 +56,7 @@ return {
         -- du pack Creative Characters, copie dans MyAssetPack. Laisser
         -- enabled a false tant que le pack et ABP_Creative ne sont pas cuits.
         creative_character = {
-            enabled        = false,
+            enabled        = true,
             body           = "my-asset-pack::SK_Body_010",
             anim_blueprint = "my-asset-pack::ABP_Creative",
             parts = {
