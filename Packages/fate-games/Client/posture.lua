@@ -33,12 +33,25 @@ local function appliquer(character, assis)
     end
 end
 
+-- Pose « cartes en main » pendant une partie : meme principe, variable
+-- "Cartes" de ABP_Creative. Si elle n'existe pas encore, rien ne se passe.
+local function tenir_cartes(character, en_main)
+    local ok, err = pcall(function()
+        character:SetAnimationBlueprintPropertyValue("Cartes", en_main == true)
+    end)
+    if not ok then
+        Console.Error("[posture] Cartes impossible : " .. tostring(err))
+    end
+end
+
 CharacterSimple.Subscribe("ValueChange", function(self, key, value)
     if key == "assis" then appliquer(self, value) end
+    if key == "cartes" then tenir_cartes(self, value) end
 end)
 
 -- Un joueur qui arrive voit les gens deja assis : la valeur est la des
 -- l'apparition du personnage chez lui, sans changement a signaler.
 CharacterSimple.Subscribe("Spawn", function(self)
     if self:GetValue("assis", false) then appliquer(self, true) end
+    if self:GetValue("cartes", false) then tenir_cartes(self, true) end
 end)

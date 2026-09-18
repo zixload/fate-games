@@ -25,7 +25,21 @@ Package.Require("posture.lua")
 
 -- HUD provisoire de Liar's Bar : le journal et la main, au clavier.
 local LiarsJournal = Package.Require("liars_bar/journal.lua")(SharedConfig.liars_hud)
-Package.Require("liars_bar/hud.lua")(SharedConfig.liars_hud, LiarsJournal, send_intent)
+local liars_journal = Package.Require("liars_bar/hud.lua")(
+    SharedConfig.liars_hud, LiarsJournal, send_intent, SharedConfig.liars_cards)
+
+-- Cartes en 3D, a regler en jeu (/fan). Sous garde : pas encore valide en
+-- jeu, un echec ici ne doit pas emporter le reste du client.
+local ok_cartes, err_cartes = pcall(function()
+    local LiarsCartes = Package.Require("liars_bar/cartes.lua")(SharedConfig.liars_cards)
+    local disposition = Package.Require("Shared/liars_table.lua")
+    local rendu = Package.Require("liars_bar/rendu.lua")(
+        SharedConfig.liars_cards, LiarsCartes, liars_journal, disposition)
+    Package.Require("liars_bar/reglages.lua")(SharedConfig.liars_cards, rendu)
+end)
+if not ok_cartes then
+    Console.Error("[cartes] chargement impossible : " .. tostring(err_cartes))
+end
 
 -- Invite minimale dessinee directement par le moteur. Elle reste legere et ne
 -- depend pas encore de la future WebUI des cartes et de la partie.

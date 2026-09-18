@@ -2,9 +2,10 @@
 --
 -- Le seul fichier du HUD qui touche au moteur. Tout ce qui se decide sur
 -- l'affichage est dans journal.lua, teste hors jeu ; ici on branche et on
--- dessine. Il disparaitra avec l'eventail 3D.
+-- dessine. La main y reste en texte tant que l'eventail 3D n'est pas valide
+-- en jeu (liars_cards.debug_text_hand).
 
-return function(config, Journal, send_intent)
+return function(config, Journal, send_intent, cartes_cfg)
     local journal = Journal.New()
     local chat_ouvert = false
 
@@ -64,6 +65,22 @@ return function(config, Journal, send_intent)
         end
     end)
 
+    -- Molette : parcourir sa main, a tout moment tant qu'on a des cartes.
+    -- Clic gauche : choisir la carte sous le curseur, a son tour seulement.
+    -- Retenus quand ils servent, pour ne pas declencher d'action native.
+    Input.Subscribe("MouseScroll", function(mouse_x, mouse_y, delta)
+        if chat_ouvert or #journal.hand == 0 or delta == 0 then return end
+        journal:MoveCursor(delta > 0 and -1 or 1)
+        return false
+    end)
+
+    Input.Subscribe("MouseDown", function(key_name)
+        if chat_ouvert or key_name ~= "LeftMouseButton" then return end
+        if not journal:IsMyTurn() or not journal.cursor then return end
+        journal:ToggleCursor()
+        return false
+    end)
+
     -- L'etiquette d'une carte : le premier nom de sa touche.
     local function touche(i)
         local noms = config.keys.select[i]
@@ -113,18 +130,23 @@ return function(config, Journal, send_intent)
                 l.kind == "refus" and ROUGE or Color.WHITE)
         end
 
-        -- Ma main, en bas, seulement si j'en ai une.
-        if #journal.hand > 0 then
+        -- Ma main, en bas, en texte tant que l'eventail 3D n'est pas valide.
+        -- Le curseur de la molette est marque d'un point.
+        local en_texte = not cartes_cfg or cartes_cfg.debug_text_hand
+        if #journal.hand > 0 and en_texte then
             local cartes = {}
             for i, c in ipairs(journal.hand) do
                 local nom = ("[%s] %s"):format(touche(i), Journal.RankName(c))
+                if i == journal.cursor then nom = "• " .. nom end
                 cartes[i] = journal:IsSelected(i) and ("> " .. nom .. " <") or nom
             end
             texte(self, table.concat(cartes, "    "), width / 2, height - 110, 24, Color.WHITE, true)
+        end
+        if #journal.hand > 0 then
             if journal:IsMyTurn() then
                 local choix = {}
                 for i = 1, #journal.hand do choix[i] = touche(i) end
-                texte(self, ("%s choisir   ·   %s poser   ·   %s accuser"):format(
+                texte(self, ("molette parcourir · clic ou %s choisir · %s poser · %s accuser"):format(
                     table.concat(choix, " "), config.keys.play, config.keys.accuse),
                     width / 2, height - 76, 16, JAUNE, true)
             end
