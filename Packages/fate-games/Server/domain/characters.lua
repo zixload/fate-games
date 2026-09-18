@@ -102,18 +102,42 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
     -- Chargement et creation
     ----------------------------------------------------------------------------
 
+    -- ESSAI, a trancher : un personnage Creative Characters sur son propre
+    -- squelette, anime par sa propre Animation Blueprint. CharacterSimple
+    -- accepte n'importe quel maillage (doc CharacterSimple), Character exige
+    -- le squelette UE4 Mannequin, que ce pack n'a pas.
+    local function creer_essai(point, essai)
+        local character = CharacterSimple(
+            Vector(point.x, point.y, point.z),
+            Rotator(0, point.yaw or 0, 0),
+            essai.body,
+            essai.anim_blueprint
+        )
+        for i, piece in ipairs(essai.parts or {}) do
+            character:AddSkeletalMeshAttached("essai_" .. i, piece)
+        end
+        character:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
+        character:SetSpringArmSettings(Vector(0, 0, essai.eye_height), essai.arm_length)
+        return character
+    end
+
     local function spawn(session, transform)
         local point = transform or config.spawn
 
-        local character = Character(
-            Vector(point.x, point.y, point.z),
-            Rotator(0, point.yaw or 0, 0),
-            MESH
-        )
-
-        -- Premiere personne : la trace de visee part de la camera, donc des
-        -- yeux. En troisieme personne elle partait de derriere le personnage.
-        character:SetCameraMode(CameraMode.FPSOnly)
+        local essai = config.dev and config.dev.creative_character
+        local character
+        if essai and essai.enabled then
+            character = creer_essai(point, essai)
+        else
+            character = Character(
+                Vector(point.x, point.y, point.z),
+                Rotator(0, point.yaw or 0, 0),
+                MESH
+            )
+            -- Premiere personne : la trace de visee part de la camera, donc des
+            -- yeux. En troisieme personne elle partait de derriere le personnage.
+            character:SetCameraMode(CameraMode.FPSOnly)
+        end
 
         session.character = character
         session.saved     = transform   -- nil si le personnage est neuf

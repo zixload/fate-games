@@ -51,6 +51,24 @@ return {
         -- Bots de test de Liar's Bar : "/bots N" dans le chat. A mettre a
         -- false sur un serveur ouvert au public.
         liars_bots = true,
+
+        -- ESSAI CharacterSimple (voir domain/characters.lua) : jouer le clown
+        -- du pack Creative Characters, copie dans MyAssetPack. Laisser
+        -- enabled a false tant que le pack et ABP_Creative ne sont pas cuits.
+        creative_character = {
+            enabled        = false,
+            body           = "my-asset-pack::SK_Body_010",
+            anim_blueprint = "my-asset-pack::ABP_Creative",
+            parts = {
+                "my-asset-pack::SK_Male_emotion_happy_002",
+                "my-asset-pack::SK_Clown_nose_001",
+                "my-asset-pack::SK_Costume_10_001",
+                "my-asset-pack::SK_Shoe_Slippers_005",
+            },
+            walk_speed = 450,    -- cm/s, a accorder avec le Blend Space
+            eye_height = 60.0,   -- hauteur de la camera depuis le centre du corps
+            arm_length = 250.0,  -- recul de la camera ; 0 = premiere personne
+        },
     },
 
     -- Point d'arrivee par defaut, utilise quand un personnage n'a pas d'etat
