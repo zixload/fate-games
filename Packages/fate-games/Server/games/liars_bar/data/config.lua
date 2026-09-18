@@ -24,10 +24,9 @@ return {
     -- cuits dans la carte : le serveur ne doit creer que les volumes
     -- interactifs et le revolver mobile.
     layout = {
-        -- Etape de calibration : seule la place 1 est creee, avec un cube
-        -- visible. Mettre nil apres validation pour creer les quatre reperes
-        -- invisibles.
-        debug_visible_chair = 1,
+        -- Calibration : les quatre reperes sont visibles pour verifier en jeu
+        -- qu'ils recouvrent leur chaise. Mettre false une fois verifie.
+        debug_visible = true,
 
         chairs = {
             -- ordre du tour : Cube2, Cube, Cube4, Cube3

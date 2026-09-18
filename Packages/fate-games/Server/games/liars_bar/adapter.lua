@@ -512,33 +512,30 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
                 home.y + (loc.y - home.y) * 0.66,
                 home.z)
 
-            local debug_chair = layout.debug_visible_chair
-            if debug_chair == nil or debug_chair == chair_n then
-                -- IgnoreOnlyPawn laisse traverser le volume par le personnage
-                -- tout en le gardant detectable par la trace d'interaction.
-                -- Un petit Prop est saisissable par defaut, et la saisie
-                -- emporterait le repere loin de sa chaise : on l'interdit.
-                local prop = Prop(
-                    Vector(loc.x, loc.y, loc.z),
-                    Rotator(0, marker.yaw, 0),
-                    ASSETS.seat_marker,
-                    CollisionType.IgnoreOnlyPawn,
-                    false,
-                    GrabMode.Disabled
-                )
-                prop:SetScale(Vector(marker.scale.x, marker.scale.y, marker.scale.z))
+            -- IgnoreOnlyPawn laisse traverser le volume par le personnage
+            -- tout en le gardant detectable par la trace d'interaction.
+            -- Un petit Prop est saisissable par defaut, et la saisie
+            -- emporterait le repere loin de sa chaise : on l'interdit.
+            local prop = Prop(
+                Vector(loc.x, loc.y, loc.z),
+                Rotator(0, marker.yaw, 0),
+                ASSETS.seat_marker,
+                CollisionType.IgnoreOnlyPawn,
+                false,
+                GrabMode.Disabled
+            )
+            prop:SetScale(Vector(marker.scale.x, marker.scale.y, marker.scale.z))
 
-                if debug_chair == nil then
-                    prop:SetVisibility(false)
-                end
-
-                Interactables.Register(prop, {
-                    label = ("S'asseoir (place %d)"):format(chair_n),
-                    on_interact = function(player, session, entry, cid)
-                        Adapter.Seat(player, chair_n, cid)
-                    end,
-                })
+            if not layout.debug_visible then
+                prop:SetVisibility(false)
             end
+
+            Interactables.Register(prop, {
+                label = ("S'asseoir (place %d)"):format(chair_n),
+                on_interact = function(player, session, entry, cid)
+                    Adapter.Seat(player, chair_n, cid)
+                end,
+            })
         end
 
         -- Le revolver au centre porte deux actes : lancer la partie, et tirer.
@@ -610,9 +607,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Appear
             end,
         })
 
-        if layout.debug_visible_chair then
-            Log.Info("liars", ("calibration : place %d visible")
-                :format(layout.debug_visible_chair))
+        if layout.debug_visible then
+            Log.Info("liars", ("calibration : %d places visibles"):format(#layout.chairs))
         else
             Log.Info("liars", ("table initialisee : %d places"):format(config.max_seats))
         end
