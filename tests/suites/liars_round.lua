@@ -58,6 +58,28 @@ return function(H, Stubs)
             H.assert_error(function() Round.Play(round, 1, { 1, 2, 3, 4 }) end, "entre 1 et 3")
         end)
 
+        H.it("refuse une table d'indices a trous", function()
+            local Round = build()
+            local round = Round.Start({ 1, 2 }, 1, rng_fixe)
+            poser_main(round, 1, { "king", "queen", "ace", "joker", "king" })
+
+            -- La faille n'existe que si # et ipairs divergent reellement dans ce
+            -- Lua : on le verifie ici, sinon le refus ci-dessous ne prouverait rien.
+            local trouee = { nil, nil, 3 }
+            local parcourus = 0
+            for _ in ipairs(trouee) do parcourus = parcourus + 1 end
+            H.assert_eq(#trouee, 3, "# compte trois indices")
+            H.assert_eq(parcourus, 0, "ipairs n'en parcourt aucun")
+
+            H.assert_error(function() Round.Play(round, 1, trouee) end, "indices mal formes")
+            H.assert_eq(#round.hands[1], 5, "aucune carte retiree")
+            H.assert_nil(round.last, "aucune pose enregistree")
+
+            -- Une cle non entiere a cote d'indices valides : meme refus.
+            H.assert_error(function() Round.Play(round, 1, { 1, extra = 2 }) end,
+                "indices mal formes")
+        end)
+
         H.it("refuse un indice absent de la main", function()
             local Round = build()
             local round = Round.Start({ 1, 2 }, 1, rng_fixe)

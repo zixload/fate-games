@@ -36,9 +36,24 @@ return function(config, Deck)
     end
 
     function Round.Play(round, seat, indices)
-        if #indices < 1 or #indices > config.max_play then
+        if type(indices) ~= "table" then
+            error("indices invalides : table attendue")
+        end
+
+        -- On ne se fie pas a # : sur une table a trous comme { nil, nil, 3 },
+        -- # peut rendre 3 alors qu'ipairs n'en parcourt aucun, et la pose
+        -- passerait sans retirer une seule carte — une pose vide qui efface la
+        -- precedente. On compte donc les cles et les elements separement.
+        local cles, elements = 0, 0
+        for _ in pairs(indices) do cles = cles + 1 end
+        for _ in ipairs(indices) do elements = elements + 1 end
+
+        if cles ~= elements then
+            error("indices mal formes : table a trous ou cles non entieres")
+        end
+        if elements < 1 or elements > config.max_play then
             error(("pose de %d cartes : il en faut entre 1 et %d")
-                :format(#indices, config.max_play))
+                :format(elements, config.max_play))
         end
 
         local hand = round.hands[seat] or {}
