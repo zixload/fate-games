@@ -158,6 +158,23 @@ return function(H, Stubs)
             H.assert_true(Effects.AssertNoLeak(effects), "aucune fuite a la contestation")
         end)
 
+        H.it("designe bien le menteur et non l'accusateur", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
+
+            local poseur = state.round.turn
+            -- Main entierement intruse : la pose est forcement un mensonge.
+            local intruse = state.round.rank == "king" and "ace" or "king"
+            state.round.hands[poseur] = { intruse, intruse, intruse, intruse, intruse }
+
+            state = Engine.Apply(state, { kind = "play", seat = poseur, indices = { 1 } })
+            local accusateur = state.round.turn
+            state = Engine.Apply(state, { kind = "challenge", seat = accusateur })
+
+            -- Ternaire inversee : ce serait l'accusateur qui tirerait.
+            H.assert_eq(state.pending.seat, poseur, "le menteur tire")
+        end)
+
         H.it("n'accepte le tir que du joueur designe", function()
             local Engine = build()
             local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
@@ -245,6 +262,38 @@ return function(H, Stubs)
 
             H.assert_nil(state.match.alive[partant], "le partant n'est plus vivant")
             H.assert_true(find(effects, "eliminated") ~= nil, "elimination annoncee")
+        end)
+
+        H.it("ouvre la manche suivante quand le tireur designe s'en va", function()
+            local Engine = build()
+            local state = Engine.Start({ "p1", "p2", "p3" }, rng_sans_mort())
+
+            local poseur = state.round.turn
+            state = Engine.Apply(state, { kind = "play", seat = poseur, indices = { 1 } })
+            state = Engine.Apply(state, { kind = "challenge", seat = state.round.turn })
+
+            local designe       = state.pending.seat
+            local manches_avant = state.match.rounds
+
+            local effects
+            state, effects = Engine.Apply(state, { kind = "leave", seat = designe })
+
+            -- La manche se termine avec le depart, donc la suivante DOIT s'ouvrir.
+            -- Sinon l'etat de manche reste perime alors que les clients ont ete
+            -- prevenus de sa fin, et plus rien ne peut la clore.
+            H.assert_true(find(effects, "round_ended") ~= nil, "fin de manche annoncee")
+            H.assert_true(find(effects, "table_card") ~= nil, "nouvelle carte de table")
+            H.assert_true(find(effects, "turn") ~= nil, "nouveau tour annonce")
+            H.assert_nil(state.pending, "plus personne en attente")
+            H.assert_nil(state.round.last, "la nouvelle manche n'a pas de pose")
+            H.assert_eq(state.match.rounds, manches_avant + 1, "une manche de plus")
+
+            -- Un seul round_ended : deux violeraient le contrat d'ordre des effets.
+            local fins = 0
+            for _, e in ipairs(effects) do
+                if e.kind == "round_ended" then fins = fins + 1 end
+            end
+            H.assert_eq(fins, 1, "un seul round_ended")
         end)
 
         H.it("declare la partie terminee quand il ne reste qu'un vivant", function()

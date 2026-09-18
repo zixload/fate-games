@@ -171,11 +171,20 @@ return function(config, Deck, Revolver, Challenge, Round, Match, Effects)
         Match.Eliminate(state.match, act.seat)
         out[#out + 1] = Effects.Eliminated(act.seat)
 
-        -- Le partant devait tirer : le hasard etait deja fixe, on resout sans
-        -- lui plutot que de bloquer la partie.
+        -- Le partant devait tirer : le hasard etait fixe a la creation du barillet,
+        -- on resout sans lui plutot que de bloquer la partie. La manche se termine
+        -- donc ici, et il faut OUVRIR LA SUIVANTE, exactement comme le fait
+        -- handlers.shoot. Sans ce retour, on retomberait dans la branche du depart
+        -- de spectateur, qui laisse l'etat de manche perime alors que les clients
+        -- ont deja ete prevenus de sa fin — et rien ne pourrait plus la clore.
         if state.pending and state.pending.seat == act.seat then
             state.pending = nil
             out[#out + 1] = Effects.RoundEnded("challenged")
+
+            if verifier_victoire(state, out) then return end
+
+            -- Le partant est mort, donc l'ouverture revient au vivant suivant.
+            return ouvrir_manche(state, Match.NextAlive(state.match, act.seat), out)
         end
 
         if verifier_victoire(state, out) then return end
