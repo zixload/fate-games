@@ -81,6 +81,33 @@ return function(H, Stubs)
             end
         end)
 
+        H.it("rejette une main glissee dans une pose publique", function()
+            local E = make_effects()
+            local truque = E.CardsPlayed(1, 2)
+            truque.hand = { "king", "queen" }
+
+            H.assert_error(function() E.Validate(truque) end, "champ inconnu hand")
+        end)
+
+        H.it("rejette tout champ etranger a la nature de l'effet", function()
+            local E = make_effects()
+            local tour = E.Turn(2)
+            tour.cards = { "ace" }
+            H.assert_error(function() E.Validate(tour) end, "champ inconnu cards")
+
+            local tir = E.Shoot(1, 1, false)
+            tir.bullet = 4
+            H.assert_error(function() E.Validate(tir) end, "champ inconnu bullet")
+        end)
+
+        H.it("exige un compte entier d'au moins une carte", function()
+            local E = make_effects()
+            H.assert_true(E.Validate(E.CardsPlayed(1, 1)), "une carte")
+            H.assert_error(function() E.Validate(E.CardsPlayed(1, 0)) end, "compte de cartes invalide")
+            H.assert_error(function() E.Validate(E.CardsPlayed(1, 1.5)) end, "compte de cartes invalide")
+            H.assert_error(function() E.Validate(E.CardsPlayed(1, nil)) end, "compte de cartes invalide")
+        end)
+
         H.it("detecte une fuite de cartes dans un effet public", function()
             local E = make_effects()
 
