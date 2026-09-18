@@ -212,12 +212,22 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         return true
     end
 
+    -- Pose « cartes en main » (ESSAI) : valeur synchronisee que chaque client
+    -- recopie dans la variable "Cartes" de ABP_Creative (Client/posture.lua).
+    function Characters.SetHolding(player_id, en_main)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) then return false end
+        session.character:SetValue("cartes", en_main == true, true)
+        return true
+    end
+
     function Characters.Stand(player_id)
         local session = sessions[player_id]
         if not (session and session.assis and session.character) then return false end
 
         local c = session.character
         local essai = session.essai
+        c:SetValue("cartes", false, true)
         c:SetValue("assis", false, true)
         c:SetCollision(CollisionType.Normal)
         c:SetGravityEnabled(true)

@@ -147,6 +147,25 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         Characters.Stand(player:GetID())
     end
 
+    -- Le personnage qui occupe une place : le corps d'un bot, sinon celui du
+    -- joueur. Sa chaise est publiee sur lui en valeur synchronisee : chaque
+    -- client s'en sert pour savoir a qui donner des dos de cartes. 0 = aucune.
+    local function personnage_de(entry)
+        if entry.bot then return entry.body end
+        local session = Characters.SessionByPlayer(entry.player:GetID())
+        return session and session.character or nil
+    end
+
+    local function marquer_chaise(entry, chaise)
+        local ok, err = pcall(function()
+            local c = personnage_de(entry)
+            if c and c:IsValid() then c:SetValue("liars_chair", chaise, true) end
+        end)
+        if not ok then
+            Log.Warn("liars", "marque de chaise impossible : " .. tostring(err))
+        end
+    end
+
     local function placer_revolver(position)
         if revolver_prop and position then
             revolver_prop:SetLocation(position)
@@ -157,6 +176,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
     local function remettre_a_zero()
         for _, entry in ipairs(seated) do
+            marquer_chaise(entry, 0)
             if entry.body then entry.body:Destroy() end
         end
         state, started_at = nil, nil
@@ -515,6 +535,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         send("all", "liars:seated", chair_n, player:GetID(), player:GetName())
         Log.Info("liars", ("chaise %d occupee (%d assis)"):format(chair_n, #seated), cid)
         asseoir_personnage(player, chair_n)
+        marquer_chaise(seated[#seated], chair_n)
         return true
     end
 
@@ -538,6 +559,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         send("all", "liars:unseated", chair_n)
         Log.Info("liars", ("chaise %d liberee (%d assis)"):format(chair_n, #seated), cid)
         relever_personnage(player)
+        marquer_chaise({ player = player }, 0)
         return true
     end
 
@@ -593,6 +615,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             if assis >= n then break end
             if not player_by_seat[chair_n] and Adapter.Seat(nouveau_bot(chair_n), chair_n) then
                 seated[#seated].body = corps_de_bot(chair_n)
+                marquer_chaise(seated[#seated], chair_n)
                 assis = assis + 1
             end
         end
@@ -665,6 +688,15 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             annonce[i] = { chair = entry.chair, name = entry.name }
         end
         send("all", "liars:started", annonce)
+
+        -- ESSAI : chaque vrai joueur prend ses cartes en main. Sous pcall : une
+        -- pose qui echoue ne doit pas empecher la partie.
+        for _, entry in ipairs(seated) do
+            if not entry.bot then
+                local ok, err = pcall(Characters.SetHolding, entry.player:GetID(), true)
+                if not ok then Log.Warn("liars", "pose cartes en main : " .. tostring(err)) end
+            end
+        end
 
         dispatch(effects, cid)
         Adapter.ArmShootTimeout()
