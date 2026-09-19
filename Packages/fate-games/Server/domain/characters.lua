@@ -176,18 +176,10 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
     -- habituel reste debout, comme avant : ces deux fonctions ne font rien.
     ----------------------------------------------------------------------------
 
-    -- Pose le personnage sur la chaise (x, y), tourne vers yaw. La hauteur
-    -- de marche est gardee : les pieds restent au niveau du sol. Collision et
-    -- gravite coupees, sinon la chaise cuite dans la carte le repousse.
-    function Characters.Sit(player_id, x, y, yaw)
-        local session = sessions[player_id]
-        if not (session and session.essai and session.character) then return false end
-
-        local c = session.character
-        local ici = c:GetLocation()
-        -- Marque d'abord : si un appel ci-dessous leve, Stand saura encore
-        -- tout defaire au lieu de laisser le joueur fige.
-        session.assis = true
+    -- La posture assise d'un corps Creative, joueur ou bot : immobile,
+    -- collision et gravite coupees (sinon la chaise cuite dans la carte le
+    -- repousse), pose en (x, y, z) et tourne vers yaw.
+    local function poser_assis(c, x, y, z, yaw)
         c:StopMovement(true)
         c:SetSpeedSettings(0, 0)
         -- Vitesse nulle ne suffit pas : le corps s'orientait encore vers la
@@ -195,17 +187,41 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         c:SetRotationSettings(Rotator(0, 0, 0), false, false)
         c:SetGravityEnabled(false)
         c:SetCollision(CollisionType.NoCollision)
-        c:SetLocation(Vector(x, y, ici.Z))
+        c:SetLocation(Vector(x, y, z))
         c:SetRotation(Rotator(0, yaw, 0))
         -- SetAnimationBlueprintPropertyValue n'existe que cote client : le
         -- serveur publie une valeur synchronisee, chaque client l'applique
         -- (Client/posture.lua).
         c:SetValue("assis", true, true)
+    end
+
+    -- Pose le personnage sur la chaise (x, y), tourne vers yaw. La hauteur
+    -- de marche est gardee : les pieds restent au niveau du sol.
+    function Characters.Sit(player_id, x, y, yaw)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) then return false end
+
+        local c = session.character
+        -- Marque d'abord : si un appel ci-dessous leve, Stand saura encore
+        -- tout defaire au lieu de laisser le joueur fige.
+        session.assis = true
+        poser_assis(c, x, y, c:GetLocation().Z, yaw)
         -- Premiere personne a hauteur des yeux : derriere, le bras de la camera
         -- butait sur le dossier et rentrait dans le corps.
         local cam = session.essai.seated_camera
         regler_camera(c, Vector(cam.forward, cam.side or 0, cam.up), 0)
         return true
+    end
+
+    -- Un corps Creative sans joueur (bot de test), assis comme un joueur :
+    -- meme corps, meme animation. z est la hauteur d'un personnage debout
+    -- sur le plancher. nil si le personnage d'essai est coupe.
+    function Characters.CorpsAssis(x, y, z, yaw)
+        local essai = config.dev and config.dev.creative_character
+        if not (essai and essai.enabled) then return nil end
+        local c = creer_essai({ x = x, y = y, z = z, yaw = yaw }, essai)
+        poser_assis(c, x, y, z, yaw)
+        return c
     end
 
     -- Reglage en jeu de la camera assise (commande /cam, mode dev). Modifie

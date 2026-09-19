@@ -32,6 +32,12 @@ return {
         },
     },
 
+    -- Hauteur d'un personnage Creative debout sur le plancher (centre de sa
+    -- capsule), mesuree en jeu le 19/09 (panneau F2, Positions : z 380 assis
+    -- sur la chaise 4, la hauteur de marche etant gardee). Les bots s'assoient
+    -- a cette hauteur.
+    z_assis = 380.0,
+
     -- Sommet du cube pose sur le plateau : 327.086143 + 68.5 / 2.
     revolver_home = { x = -3414.257385, y = 35.547911, z = 361.336143 },
 }

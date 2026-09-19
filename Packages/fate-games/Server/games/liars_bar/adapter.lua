@@ -594,11 +594,17 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         }
     end
 
-    -- Debout derriere sa chaise, dans l'axe table-chaise, tourne vers la
-    -- table : assis dessus, il heurterait la chaise cuite dans la carte.
+    -- Un personnage Creative assis sur sa chaise, tourne vers la table, comme
+    -- un joueur : son eventail et ses tenues suivent les memes regles. Sans
+    -- personnage Creative, l'ancien corps nanos, debout derriere la chaise
+    -- (il n'a pas d'animation assise et heurterait la chaise cuite).
     local function corps_de_bot(chair_n)
         local loc  = config.layout.chairs[chair_n].location
         local home = config.layout.revolver_home
+        local vers_table = math.deg(math.atan(home.y - loc.y, home.x - loc.x))
+        local assis = Characters.CorpsAssis(loc.x, loc.y, config.layout.z_assis, vers_table)
+        if assis then return assis end
+
         local dx, dy = loc.x - home.x, loc.y - home.y
         local len = math.sqrt(dx * dx + dy * dy)
         if len < 1 then len = 1 end
@@ -706,13 +712,18 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         end
         send("all", "liars:started", annonce)
 
-        -- ESSAI : chaque vrai joueur prend ses cartes en main. Sous pcall : une
-        -- pose qui echoue ne doit pas empecher la partie.
+        -- ESSAI : chacun prend ses cartes en main, bots compris quand leur
+        -- corps est un personnage Creative. Sous pcall : une pose qui echoue
+        -- ne doit pas empecher la partie.
         for _, entry in ipairs(seated) do
-            if not entry.bot then
-                local ok, err = pcall(Characters.SetHolding, entry.player:GetID(), true)
-                if not ok then Log.Warn("liars", "pose cartes en main : " .. tostring(err)) end
-            end
+            local ok, err = pcall(function()
+                if not entry.bot then
+                    Characters.SetHolding(entry.player:GetID(), true)
+                elseif entry.body and entry.body:IsValid() and entry.body:IsA(CharacterSimple) then
+                    entry.body:SetValue("cartes", true, true)
+                end
+            end)
+            if not ok then Log.Warn("liars", "pose cartes en main : " .. tostring(err)) end
         end
 
         dispatch(effects, cid)
