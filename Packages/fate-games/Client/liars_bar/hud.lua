@@ -1,12 +1,13 @@
--- HUD provisoire de Liar's Bar : dessine le journal et ecoute les touches.
+-- HUD de Liar's Bar : dessine le journal et ma main, et ecoute les touches.
 --
 -- Le seul fichier du HUD qui touche au moteur. Tout ce qui se decide sur
--- l'affichage est dans journal.lua, teste hors jeu ; ici on branche et on
--- dessine. La main y reste en texte tant que l'eventail 3D n'est pas valide
--- en jeu (liars_cards.debug_text_hand).
+-- l'affichage est dans journal.lua et cartes.lua, testes hors jeu ; ici on
+-- branche et on dessine. La main est dessinee en cartes, avec les images du
+-- jeu de 52 rangees dans le pack d'assets (liars_cards.images).
 
 return function(config, Journal, send_intent, cartes_cfg)
     local journal = Journal.New()
+    local Cartes = Package.Require("liars_bar/cartes.lua")(cartes_cfg)
     local chat_ouvert = false
     -- Un outil de l'atelier en main : la molette et les clics sont a lui.
     local outil_atelier = Package.Require("outil_atelier.lua")
@@ -91,13 +92,103 @@ return function(config, Journal, send_intent, cartes_cfg)
 
     ---------------------------------------------------------------- dessin
 
-    local FOND  = Color(0.02, 0.02, 0.02, 0.75)
-    local ROUGE = Color(1.0, 0.4, 0.4, 1.0)
-    local JAUNE = Color(1.0, 0.85, 0.3, 1.0)
+    local FOND   = Color(0.02, 0.02, 0.02, 0.75)
+    local ROUGE  = Color(1.0, 0.4, 0.4, 1.0)
+    local JAUNE  = Color(1.0, 0.85, 0.3, 1.0)
+    local LAITON = Color(0.79, 0.64, 0.29, 1.0)
+    local GRISE  = Color(0.45, 0.45, 0.45, 1.0)
+    local TERNE  = Color(0.82, 0.82, 0.82, 1.0)
+
+    -- Les images font 357 x 537.
+    local PROPORTION = 537 / 357
+    -- Eventail : chevauchement, angle entre deux cartes, bords plus bas.
+    local EVENTAIL = { ecart = 0.62, angle = 6 }
+    -- Bas des cartes, au-dessus de la barre d'outils de l'atelier.
+    local MARGE_BAS = 118
+
+    -- Une couleur par carte, pour le decor : nouvelle a chaque donne, gardee
+    -- par position quand la main ne fait que retrecir.
+    local couleurs, derniere_main = {}, ""
+    local function suivre_couleurs(main)
+        local sig = table.concat(main, ",")
+        if sig ~= derniere_main and #main >= #couleurs then
+            couleurs = Cartes.Couleurs(#main, function(n) return math.random(n) end)
+        end
+        derniere_main = sig
+    end
 
     local function texte(c, s, x, y, taille, couleur, centre)
         c:DrawText(s, Vector2D(x, y), FontType.Roboto, taille, couleur,
             0, centre or false, false, Color.BLACK, Vector2D(1, 1), true, Color.BLACK)
+    end
+
+    -- Ma main en eventail, en bas au centre. La carte sous la molette est
+    -- relevee et bordee de blanc, les cartes choisies bien relevees et bordees
+    -- de laiton, les cartes envoyees grisees. Sous chacune, sa touche et son
+    -- nom : le Joker a l'image du Valet de pique. Cachee pendant un outil de
+    -- l'atelier, qui a la souris et la barre du bas.
+    local function carte(c, image, x, bas, w, h, angle, teinte)
+        c:DrawTexture(image, Vector2D(x - w / 2, bas - h), Vector2D(w, h),
+            Vector2D(0, 0), Vector2D(1, 1), teinte, BlendMode.AlphaBlend, angle, Vector2D(0.5, 1))
+    end
+
+    -- Un cadre de la couleur donnee, derriere la carte, tourne autour du
+    -- meme point (le bas de la carte).
+    local function cadre(c, x, bas, w, h, angle, b, couleur)
+        c:DrawTexture("", Vector2D(x - w / 2 - b, bas - h - b), Vector2D(w + 2 * b, h + 2 * b),
+            Vector2D(0, 0), Vector2D(1, 1), couleur, BlendMode.AlphaBlend, angle,
+            Vector2D(0.5, (h + b) / (h + 2 * b)))
+    end
+
+    local function dessiner_main(c, width, height)
+        local main = journal.hand
+        local n = #main
+        if n == 0 or outil_atelier.actif then return end
+        suivre_couleurs(main)
+
+        local h = math.max(110, math.min(220, height * 0.17))
+        local w = h / PROPORTION
+        local disposition = { largeur = w, ecart = EVENTAIL.ecart, angle = EVENTAIL.angle, courbure = h * 0.08 }
+        local base = height - MARGE_BAS
+        local cx = width / 2
+        local mon_tour = journal:IsMyTurn()
+
+        for i, rang in ipairs(main) do
+            local p = Cartes.Main2D(n, i, disposition)
+            local choisie = journal:IsSelected(i)
+            local curseur = i == journal.cursor
+            local leve = choisie and h * 0.22 or (curseur and h * 0.08 or 0)
+            local x, bas = cx + p.x, base + p.y - leve
+            if choisie then
+                cadre(c, x, bas, w, h, p.angle, 4, LAITON)
+            elseif curseur then
+                cadre(c, x, bas, w, h, p.angle, 2, Color.WHITE)
+            end
+            local teinte = journal:IsPending(i) and GRISE or (mon_tour and Color.WHITE or TERNE)
+            carte(c, Cartes.Image(rang, couleurs[i]), x, bas, w, h, p.angle, teinte)
+            texte(c, ("%s · %s"):format(touche(i), Journal.RankName(rang)), x, base + 6, 16,
+                choisie and JAUNE or Color.WHITE, true)
+        end
+
+        -- Au-dessus : la carte de table et mon tour.
+        local titre = {}
+        if journal.table_rank then
+            titre[#titre + 1] = "Carte de table : " .. Journal.RankName(journal.table_rank)
+        end
+        if mon_tour then titre[#titre + 1] = "À toi !" end
+        if #titre > 0 then
+            texte(c, table.concat(titre, "   ·   "), cx, base - h * 1.3 - 30, 22,
+                mon_tour and JAUNE or Color.WHITE, true)
+        end
+
+        -- Dessous : les commandes, a mon tour.
+        if mon_tour then
+            local choix = {}
+            for i = 1, n do choix[i] = touche(i) end
+            texte(c, ("molette parcourir · clic ou %s choisir · %s poser · %s accuser"):format(
+                table.concat(choix, " "), config.keys.play, config.keys.accuse),
+                cx, base + 30, 16, JAUNE, true)
+        end
     end
 
     -- Taux 0 : redessine a chaque image. -1 couperait le rafraichissement
@@ -132,27 +223,7 @@ return function(config, Journal, send_intent, cartes_cfg)
                 l.kind == "refus" and ROUGE or Color.WHITE)
         end
 
-        -- Ma main, en bas, en texte tant que l'eventail 3D n'est pas valide.
-        -- Le curseur de la molette est marque d'un point.
-        local en_texte = not cartes_cfg or cartes_cfg.debug_text_hand
-        if #journal.hand > 0 and en_texte then
-            local cartes = {}
-            for i, c in ipairs(journal.hand) do
-                local nom = ("[%s] %s"):format(touche(i), Journal.RankName(c))
-                if i == journal.cursor then nom = "• " .. nom end
-                cartes[i] = journal:IsSelected(i) and ("> " .. nom .. " <") or nom
-            end
-            texte(self, table.concat(cartes, "    "), width / 2, height - 110, 24, Color.WHITE, true)
-        end
-        if #journal.hand > 0 then
-            if journal:IsMyTurn() then
-                local choix = {}
-                for i = 1, #journal.hand do choix[i] = touche(i) end
-                texte(self, ("molette parcourir · clic ou %s choisir · %s poser · %s accuser"):format(
-                    table.concat(choix, " "), config.keys.play, config.keys.accuse),
-                    width / 2, height - 76, 16, JAUNE, true)
-            end
-        end
+        dessiner_main(self, width, height)
     end)
 
     return journal

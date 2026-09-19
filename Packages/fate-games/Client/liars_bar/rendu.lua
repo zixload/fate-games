@@ -256,9 +256,23 @@ return function(config, Cartes, journal, disposition)
     -- Compteur de reglage : /fan l'incremente pour forcer la reconstruction.
     Rendu.reglage = 0
 
+    -- Les cartes en main se coupent par la config (en_main) : la main passe
+    -- alors au HUD, et ce qui etait deja pose disparait.
+    local function couper_mains()
+        if ma_main.cle then detruire(ma_main.objets); ma_main.objets, ma_main.cle = {}, nil end
+        for chaise, groupe in pairs(autres) do
+            detruire(groupe.objets)
+            autres[chaise] = nil
+        end
+    end
+
     function Rendu.Refresh()
-        sans_echec("main", maj_ma_main)
-        sans_echec("autres", maj_autres)
+        if config.en_main == false then
+            sans_echec("mains", couper_mains)
+        else
+            sans_echec("main", maj_ma_main)
+            sans_echec("autres", maj_autres)
+        end
         sans_echec("tas", maj_tas)
     end
 

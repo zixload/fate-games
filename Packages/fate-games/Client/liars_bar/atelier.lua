@@ -1,6 +1,6 @@
 -- Branchement sur l'atelier (panneau dev, F2), s'il est charge.
 --
--- L'eventail et le tas deviennent reglables a la souris, en direct. Les
+-- Le tas de la table devient reglable a la souris, en direct. Les
 -- valeurs arrivent par "atelier:reglage_change" ; enregistrees dans le
 -- panneau, elles reviennent a chaque connexion. Sans atelier, rien ne se
 -- passe : les evenements partent dans le vide.
@@ -11,19 +11,9 @@ return function(config, rendu)
         return { chemin = chemin, label = label, pas = pas }
     end
 
+    -- L'eventail en main n'est plus reglable ici : la main est au HUD
+    -- (config en_main), les cartes 3D en main reviendront avec un socket.
     local DECLARATIONS = {
-        {
-            id = "liars.eventail", label = "Éventail (ma main)", valeurs = config.fan,
-            champs = {
-                champ("pos.x", "Avant", 1), champ("pos.y", "Côté", 1), champ("pos.z", "Hauteur", 1),
-                champ("rot.p", "Tangage", 1), champ("rot.y", "Lacet", 1), champ("rot.r", "Roulis", 1),
-                champ("carte.p", "Carte : tangage", 1), champ("carte.y", "Carte : lacet", 1),
-                champ("carte.r", "Carte : roulis", 1),
-                champ("ecart", "Écart entre cartes", 1), champ("rayon", "Rayon de l'arc", 0.5),
-                champ("taille", "Taille", 0.001), champ("levee", "Levée (choisie)", 0.5),
-                champ("curseur", "Levée (curseur)", 0.5),
-            },
-        },
         {
             id = "liars.table", label = "Tas de la table", valeurs = config.table,
             champs = {
@@ -39,7 +29,7 @@ return function(config, rendu)
         },
     }
 
-    local CIBLES = { ["liars.eventail"] = config.fan, ["liars.table"] = config.table }
+    local CIBLES = { ["liars.table"] = config.table }
 
     -- Recopie les seuls nombres deja presents : une valeur recue ne cree
     -- jamais de champ.

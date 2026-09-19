@@ -58,7 +58,13 @@ return {
         bone_mannequin = "hand_r",
         -- Garder la main en texte dans le HUD tant que l'eventail n'est pas
         -- valide en jeu.
-        debug_text_hand = true,
+        -- La main s'affiche en HUD (liars_bar/hud.lua), avec les images des
+        -- cartes rangees en fichiers dans le pack d'assets : 14 jpg du jeu de
+        -- 52, copies dans Assets/my-asset-pack/HUD/Cartes (hors depot).
+        images = "assets://my-asset-pack/HUD/Cartes",
+        -- Cartes 3D dans les mains : coupees pour le moment (19/09), l'os
+        -- RightHandProp n'est pas anime. Le tas de la table reste en 3D.
+        en_main = false,
 
         fan = {
             pos        = { x = 0, y = 0, z = 0 },   -- pivot, depuis l'os de la main

@@ -274,6 +274,14 @@ return function(config)
             return true
         end
 
+        -- Une carte envoyee, en attente de la confirmation du serveur.
+        function j:IsPending(i)
+            for _, k in ipairs(pending or {}) do
+                if k == i then return true end
+            end
+            return false
+        end
+
         -- La pose part vers le serveur : la main n'est retouchee qu'a sa
         -- confirmation, par cards_played pour ma chaise.
         function j:MarkPending(indices)

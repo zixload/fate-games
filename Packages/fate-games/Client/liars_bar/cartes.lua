@@ -20,6 +20,31 @@ return function(config)
         return ("%s::%s_of_%s1"):format(config.pack, valeur, COULEURS[couleur] or "Spades")
     end
 
+    -- L'image d'une carte pour le HUD : un fichier du pack d'assets, lu par
+    -- le Canvas (chemin "assets://", doc Basic Types > SpecialPath). Memes
+    -- regles que Mesh : le Joker a son remplacant, l'inconnu montre un dos.
+    function Cartes.Image(rank, couleur)
+        local dossier = config.images
+        if rank == "joker" then return dossier .. "/Jack_of_Spades.jpg" end
+        local valeur = VALEURS[rank]
+        if not valeur then return dossier .. "/Card_Back.jpg" end
+        return ("%s/%s_of_%s.jpg"):format(dossier, valeur, COULEURS[couleur] or "Spades")
+    end
+
+    -- Carte i sur n de la main a l'ecran, en eventail : x du bas de la carte
+    -- (centre), decalage vers le haut et angle en degres. hud : { largeur
+    -- (d'une carte), ecart (fraction de largeur entre deux cartes), angle
+    -- (degres entre deux cartes), courbure (pixels, pour la carte du bord) }.
+    function Cartes.Main2D(n, i, hud)
+        local rel = i - (n + 1) / 2
+        local bord = math.max(1, (n - 1) / 2)
+        return {
+            x     = rel * hud.largeur * hud.ecart,
+            y     = hud.courbure * (rel / bord) ^ 2,
+            angle = rel * hud.angle,
+        }
+    end
+
     -- Une couleur par carte, pour le decor seulement : la regle ne connait
     -- que la valeur.
     function Cartes.Couleurs(n, rng)
