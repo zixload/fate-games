@@ -39,6 +39,7 @@ local ok_cartes, err_cartes = pcall(function()
     local rendu = Package.Require("liars_bar/rendu.lua")(
         SharedConfig.liars_cards, LiarsCartes, liars_journal, disposition)
     Package.Require("liars_bar/reglages.lua")(SharedConfig.liars_cards, rendu)
+    Package.Require("liars_bar/atelier.lua")(SharedConfig.liars_cards, rendu)
 end)
 if not ok_cartes then
     Console.Error("[cartes] chargement impossible : " .. tostring(err_cartes))

@@ -63,6 +63,10 @@ $PackageDir = Get-ChildItem (Join-Path $Repo "Packages") -Directory | Select-Obj
 if (-not $PackageDir) { throw "aucun package dans $Repo\Packages" }
 $Package = $PackageDir.Name
 
+# L'atelier (panneau admin et dev, F2) vit dans son propre depot, a cote de
+# celui-ci. S'il est present, il est monte et charge avec le jeu.
+$AtelierDir = Join-Path (Split-Path $Repo -Parent) "atelier\Packages\atelier"
+
 function Get-ServerProcess {
     Get-Process -Name "NanosWorldServer" -ErrorAction SilentlyContinue
 }
@@ -87,16 +91,27 @@ function Use-ThisPackage {
         Write-Host "jonction posee : $link" -ForegroundColor Green
     }
 
+    $packages = @($Package)
+    if (Test-Path $AtelierDir) {
+        $lienAtelier = Join-Path $ServerDir "Packages\atelier"
+        if (-not (Test-Path $lienAtelier)) {
+            cmd /c mklink /J "$lienAtelier" "$AtelierDir" | Out-Null
+            Write-Host "jonction posee : $lienAtelier" -ForegroundColor Green
+        }
+        $packages += "atelier"
+    }
+
     # Lecture en UTF-8 explicite : Get-Content suivrait la page de codes de la
     # console, qui n'est pas forcement UTF-8 et corromprait les accents.
     $text = [System.IO.File]::ReadAllText($Config)
-    $wanted = "    packages = [`r`n                             `"$Package`",`r`n    ]"
+    $lignes = ($packages | ForEach-Object { "                             `"$_`"," }) -join "`r`n"
+    $wanted = "    packages = [`r`n$lignes`r`n    ]"
     $updated = [System.Text.RegularExpressions.Regex]::Replace(
         $text, '    packages = \[[^\]]*\]', $wanted)
 
     if ($updated -ne $text) {
         [System.IO.File]::WriteAllText($Config, $updated, (New-Object System.Text.UTF8Encoding($false)))
-        Write-Host "Config.toml charge desormais '$Package'" -ForegroundColor Green
+        Write-Host "Config.toml charge desormais : $($packages -join ', ')" -ForegroundColor Green
     }
 }
 

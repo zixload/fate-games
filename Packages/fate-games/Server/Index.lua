@@ -115,6 +115,15 @@ if essai and essai.enabled then
     end)
 end
 
+-- Atelier (panneau admin et dev, depot a part), s'il est charge : le jeu se
+-- nomme, ce qui range ses enregistrements. Deux appels, pour ne pas dependre
+-- de l'ordre de chargement des packages.
+local function declarer_atelier()
+    Events.Call("atelier:declarer", "fate-games", {})
+end
+Events.Subscribe("atelier:pret", declarer_atelier)
+declarer_atelier()
+
 Player.Subscribe("Ready", function(player)
     Characters.OnPlayerReady(player)
     -- Le joueur doit connaitre ce qui est deja interactif dans le monde.
