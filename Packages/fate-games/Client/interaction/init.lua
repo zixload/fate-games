@@ -19,6 +19,9 @@ return function(config)
 
     local REACH = (config and config.reach) or 400.0
 
+    -- Demi-angle du cone de rattrapage, en degres (voir plus_proche_du_regard).
+    local CONE = math.cos(math.rad((config and config.cone_degrees) or 10.0))
+
     ----------------------------------------------------------------------------
     -- Reception du registre
     ----------------------------------------------------------------------------
@@ -66,6 +69,38 @@ return function(config)
     -- Boucle de visee
     ----------------------------------------------------------------------------
 
+    -- Rattrapage quand la trace ne touche rien d'interactif : l'objet connu le
+    -- plus proche de l'axe du regard, dans un cone etroit. Viser au pixel un
+    -- petit objet sur une table demandait des angles precis, et le moindre
+    -- volume devant (une main, une carte) volait la trace.
+    --
+    -- La distance est celle que le serveur revalide (personnage -> objet,
+    -- portee de l'objet) : l'invite ne promet rien qu'il refuserait. Pas de
+    -- test de ligne de vue : l'objet peut etre derriere un obstacle mince, le
+    -- serveur ne regarde de toute facon que la distance.
+    --
+    -- Les objets du registre sont des Props (games/*/adapter.lua).
+    local function plus_proche_du_regard(character, origin, forward)
+        local pied = character:GetLocation()
+        local meilleur, meilleur_cos = nil, CONE
+        for _, prop in pairs(Prop.GetPairs()) do
+            local entry = prop:IsValid() and known[prop:GetID()] or nil
+            if entry then
+                local l = prop:GetLocation()
+                local dx, dy, dz = l.X - pied.X, l.Y - pied.Y, l.Z - pied.Z
+                if math.sqrt(dx * dx + dy * dy + dz * dz) <= (entry.max_distance or REACH) then
+                    local vx, vy, vz = l.X - origin.X, l.Y - origin.Y, l.Z - origin.Z
+                    local d = math.sqrt(vx * vx + vy * vy + vz * vz)
+                    if d > 0 then
+                        local c = (vx * forward.X + vy * forward.Y + vz * forward.Z) / d
+                        if c > meilleur_cos then meilleur, meilleur_cos = prop:GetID(), c end
+                    end
+                end
+            end
+        end
+        return meilleur
+    end
+
     local function scan()
         local player = Client.GetLocalPlayer()
         if not player then return Interaction.SetFocus(nil) end
@@ -94,16 +129,12 @@ return function(config)
         -- l'entite touchee et on ne saurait pas quoi viser.
         local hit = Trace.LineSingle(origin, target, channels, TraceMode.ReturnEntity, { character })
 
-        if not hit or not hit.Entity then
-            return Interaction.SetFocus(nil)
+        -- Ce que la trace touche l'emporte ; sinon, le cone.
+        local id = hit and hit.Entity and hit.Entity:GetID() or nil
+        if id and known[id] then
+            return Interaction.SetFocus(id)
         end
-
-        local id = hit.Entity:GetID()
-        if known[id] then
-            Interaction.SetFocus(id)
-        else
-            Interaction.SetFocus(nil)
-        end
+        Interaction.SetFocus(plus_proche_du_regard(character, origin, forward))
     end
 
     -- Volontairement pas a chaque image : viser n'a pas besoin de 60 traces par

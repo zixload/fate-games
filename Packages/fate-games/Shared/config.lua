@@ -9,6 +9,9 @@ return {
         -- Portee de la visee, en centimetres. Plus longue que la portee serveur :
         -- on peut lire l'invite d'un peu plus loin qu'on ne peut agir.
         reach = 400.0,
+        -- Quand la trace ne touche rien d'interactif, l'objet connu le plus
+        -- proche de l'axe du regard dans ce demi-angle, en degres.
+        cone_degrees = 10.0,
         -- Periode du balayage. Viser n'a pas besoin de 60 traces par seconde.
         scan_interval_ms = 150,
         key = "E",

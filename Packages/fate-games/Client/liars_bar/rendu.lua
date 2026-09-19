@@ -24,11 +24,20 @@ return function(config, Cartes, journal, disposition)
         end
     end
 
+    -- Rien de ce rendu ne doit arreter une trace : le support est un cube
+    -- d'un metre autour de la main, et il masquait le revolver a la visee
+    -- (E sans invite). Le constructeur recoit deja NoCollision ; on le
+    -- redit, SetCollision est permis a qui a l'autorite (doc Actor).
+    local function sans_collision(objet)
+        objet:SetCollision(CollisionType.NoCollision)
+    end
+
     -- Support invisible accroche a parent (a un os si os_nom est donne).
     -- lifespan 0 : si le porteur disparait, le support et tout ce qu'il tient
     -- disparaissent avec lui.
     local function support(parent, os_nom)
         local s = StaticMesh(Vector(), Rotator(), config.pivot_mesh, CollisionType.NoCollision)
+        sans_collision(s)
         s:SetVisibility(false)
         s:AttachTo(parent, AttachmentRule.SnapToTarget, os_nom or "", 0)
         return s
@@ -36,6 +45,7 @@ return function(config, Cartes, journal, disposition)
 
     local function carte_accrochee(modele, parent)
         local c = StaticMesh(Vector(), Rotator(), modele, CollisionType.NoCollision)
+        sans_collision(c)
         c:AttachTo(parent, AttachmentRule.SnapToTarget, "", 0)
         c:SetRelativeRotation(rot(config.fan.carte))
         local t = config.fan.taille
@@ -73,6 +83,7 @@ return function(config, Cartes, journal, disposition)
             modele,
             CollisionType.NoCollision
         )
+        sans_collision(c)
         local t = config.fan.taille
         c:SetScale(Vector(t, t, t))
         return c
