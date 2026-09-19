@@ -7,14 +7,20 @@
 -- permis au client (annotations : [Client/Server]) : seule la vue de ce
 -- joueur change.
 --
+-- Constate en jeu le 19/09 : le decalage (socket_offset) passe a
+-- SetSpringArmSettings reste sans effet, et le changement de longueur du bras
+-- est interpole, donc lent. Le decalage passe donc par la camera du joueur
+-- (Player:SetCameraSocketOffset), et la longueur y est forcee sans
+-- interpolation (Player:SetCameraArmLength(longueur, true)), les deux
+-- [Client/Server] d'apres la doc Player.
+--
 -- Les distances se reglent en direct dans F2 > Reglages ("Camera des
--- outils"). Premieres valeurs estimees d'apres la camera assise (/cam), a
--- ajuster en jeu : le bras de la camera se mesure depuis le bas du personnage,
--- a son echelle.
+-- outils"). Valeurs reglees en jeu le 19/09 ; le pivot se mesure depuis le
+-- bas du personnage, a son echelle.
 
 local reglage = {
-    premiere = { avant = 10, cote = 0, hauteur = 160 },
-    epaule   = { hauteur = 140, bras = 150, cote = 45, dessus = 15 },
+    premiere = { avant = 10, cote = 0, hauteur = 155 },
+    epaule   = { hauteur = 140, bras = 150, cote = 60, dessus = 15 },
 }
 
 local vue = "jeu"
@@ -34,21 +40,30 @@ end
 
 local function appliquer()
     local c = mien()
-    if not c then return end
+    local player = Client.GetLocalPlayer()
+    if not (c and player) then return end
+    -- Longueur du bras sans interpolation, decalage par la camera du joueur.
+    local function bras(longueur, decalage)
+        player:SetCameraArmLength(longueur, true)
+        player:SetCameraSocketOffset(decalage or Vector(0, 0, 0))
+    end
     local ok, err = pcall(function()
         if vue == "premiere" then
             local p = reglage.premiere
             -- Sans retard de camera : on vise au pixel.
             c:SetSpringArmSettings(Vector(p.avant, p.cote, p.hauteur), 0, Vector(0, 0, 0), false)
+            bras(0)
             tete(c, false)
         elseif vue == "epaule" then
             local e = reglage.epaule
-            c:SetSpringArmSettings(Vector(0, 0, e.hauteur), e.bras, Vector(0, e.cote, e.dessus), false)
+            c:SetSpringArmSettings(Vector(0, 0, e.hauteur), e.bras, Vector(0, 0, 0), false)
+            bras(e.bras, Vector(0, e.cote, e.dessus))
             tete(c, true)
         else
             local j = c:GetValue("camera_jeu", nil)
             if type(j) == "table" then
                 c:SetSpringArmSettings(Vector(j.x, j.y, j.z), j.bras)
+                bras(j.bras)
             end
             tete(c, true)
         end
