@@ -54,13 +54,14 @@ return function(config, rendu)
         end
     end
 
-    Events.Subscribe("atelier:reglage_change", function(id, valeurs)
+    Events.Subscribe("atelier:reglage_change", function(id, valeurs, origine)
         local cible = CIBLES[id]
         if not cible then return end
         appliquer(cible, valeurs)
-        -- Regler sans rien voir ne sert a rien : hors partie, le premier
-        -- reglage allume la demo (main et tas factices, bras leves).
-        if not rendu.IsDemo() then rendu.Demo(true) end
+        -- Regler sans rien voir ne sert a rien : le premier reglage fait au
+        -- panneau allume la demo (main et tas factices, bras leves). Pas les
+        -- valeurs enregistrees reappliquees a la connexion.
+        if origine == "joueur" and not rendu.IsDemo() then rendu.Demo(true) end
         rendu.Reconstruire()
     end)
 
