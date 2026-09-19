@@ -58,6 +58,9 @@ return function(config, rendu)
         local cible = CIBLES[id]
         if not cible then return end
         appliquer(cible, valeurs)
+        -- Regler sans rien voir ne sert a rien : hors partie, le premier
+        -- reglage allume la demo (main et tas factices, bras leves).
+        if not rendu.IsDemo() then rendu.Demo(true) end
         rendu.Reconstruire()
     end)
 
