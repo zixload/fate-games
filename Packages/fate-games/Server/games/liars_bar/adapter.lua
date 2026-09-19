@@ -16,11 +16,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     -- touche rien et aucune partie ne peut demarrer.
     local REVOLVER_CUIT = false
 
-    -- Les dix apparences attendent leur pack (voir Shared/appearances.lua).
-    -- Tant que ce drapeau est faux, l'apparence est journalisee et rien
-    -- d'autre : habiller un personnage de references absentes le laisserait
-    -- sans corps ni tete.
-    local APPARENCES_CUITES = false
+    -- Les dix apparences sont cuites dans my-asset-pack (bilan du 19/09/2026 :
+    -- toutes leurs pieces y sont). Faux, l'apparence serait seulement
+    -- journalisee. Elles n'habillent que les personnages Creative : le corps
+    -- nanos des bots est laisse tel quel.
+    local APPARENCES_CUITES = true
 
     -- Les references d'assets, rassemblees ici et nulle part ailleurs. Une
     -- reference de mesh invalide echoue EN SILENCE cote Lua : le prop est quand
