@@ -63,7 +63,7 @@ return {
             carte      = { p = 0, y = 0, r = 0 },   -- carte, dans sa fente
             ecart      = 8,     -- degres entre deux cartes
             rayon      = 10,    -- rayon de l'arc
-            taille     = 1.0,   -- echelle des cartes
+            taille     = 0.035, -- le FBX est en pouces : 254 cm de haut, ramene a ~9 cm
             levee      = 3,     -- carte choisie
             curseur    = 1.5,   -- carte sous le curseur
             profondeur = 0.2,   -- decalage entre deux cartes, contre le scintillement
