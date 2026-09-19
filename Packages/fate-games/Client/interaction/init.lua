@@ -11,6 +11,9 @@
 return function(config)
     local Interaction = {}
 
+    -- Un outil de l'atelier en main : E sert a tourner l'objet tenu.
+    local outil_atelier = Package.Require("outil_atelier.lua")
+
     -- id -> { label, max_distance }
     local known = {}
 
@@ -102,6 +105,7 @@ return function(config)
     end
 
     local function scan()
+        if outil_atelier.actif then return Interaction.SetFocus(nil) end
         local player = Client.GetLocalPlayer()
         if not player then return Interaction.SetFocus(nil) end
 
@@ -164,7 +168,7 @@ return function(config)
     -- Cote client la signature est CallRemote(evenement, fiabilite, ...) : il n'y a
     -- pas de joueur a viser, ca part vers le serveur.
     function Interaction.Trigger()
-        if not focused_id then return end
+        if not focused_id or outil_atelier.actif then return end
         Events.CallRemote("zix:intent", Reliability.Reliable, "interact", { target = focused_id })
     end
 

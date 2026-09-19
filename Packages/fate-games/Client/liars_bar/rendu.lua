@@ -74,9 +74,19 @@ return function(config, Cartes, journal, disposition)
         return objets
     end
 
+    -- Le centre de la table. Le serveur le publie sur le revolver
+    -- ("liars_home") quand sa place a ete deplacee a l'atelier ; sinon, la
+    -- disposition partagee.
+    local function centre_table()
+        for _, p in pairs(Prop.GetPairs()) do
+            local c = p:IsValid() and p:GetValue("liars_home", nil) or nil
+            if type(c) == "table" and c.x and c.y and c.z then return c end
+        end
+        return disposition.revolver_home
+    end
+
     -- Une carte posee a plat sur la table, en coordonnees monde.
-    local function carte_posee(modele, lieu, orientation, lacet)
-        local centre = disposition.revolver_home
+    local function carte_posee(modele, lieu, orientation, lacet, centre)
         local c = StaticMesh(
             Vector(centre.x + lieu.x, centre.y + lieu.y, centre.z + lieu.z),
             Rotator(orientation.p, orientation.y + (lacet or 0), orientation.r),
@@ -205,7 +215,9 @@ return function(config, Cartes, journal, disposition)
             total, revelees = 4, { "king", "joker" }
         end
 
-        local cle = ("%d|%s|%s"):format(total, table.concat(revelees, ","), tostring(Rendu.reglage))
+        local centre = centre_table()
+        local cle = ("%d|%s|%s|%.1f,%.1f,%.1f"):format(total, table.concat(revelees, ","),
+            tostring(Rendu.reglage), centre.x, centre.y, centre.z)
         if cle == tas.cle then return end
         detruire(tas.objets)
         tas.objets = {}
@@ -216,11 +228,11 @@ return function(config, Cartes, journal, disposition)
         local tbl = config.table
         for k = 1, caches do
             local p = Cartes.Tas(k, tbl)
-            tas.objets[#tas.objets + 1] = carte_posee(config.back_mesh, p, tbl.dos, p.yaw)
+            tas.objets[#tas.objets + 1] = carte_posee(config.back_mesh, p, tbl.dos, p.yaw, centre)
         end
         for i, rang in ipairs(revelees) do
             local p = Cartes.Revelee(#revelees, i, tbl)
-            tas.objets[#tas.objets + 1] = carte_posee(Cartes.Mesh(rang, (i % 4) + 1), p, tbl.face, p.yaw)
+            tas.objets[#tas.objets + 1] = carte_posee(Cartes.Mesh(rang, (i % 4) + 1), p, tbl.face, p.yaw, centre)
         end
         tas.cle = cle
     end

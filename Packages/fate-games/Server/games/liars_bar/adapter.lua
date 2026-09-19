@@ -76,6 +76,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     local revolver_prop  = nil
     local revolver_home  = nil   -- au centre de la table
     local devant_chaise  = {}    -- chaise -> position du revolver devant elle
+    local reperes        = {}    -- chaise -> son repere (Prop invisible)
 
     -- Bots de test. Chaque lot d'effets incremente la generation : un
     -- minuteur de bot arme avant ne joue que si rien n'a bouge depuis.
@@ -722,22 +723,105 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         return true
     end
 
+    ---------------------------------------------------------------- disposition
+
+    -- Le revolver s'arrete aux deux tiers du chemin vers chaque chaise et
+    -- reste a la hauteur de sa place de repos.
+    local function recalculer_devant()
+        local home = config.layout.revolver_home
+        for chair_n, marker in ipairs(config.layout.chairs) do
+            local loc = marker.location
+            devant_chaise[chair_n] = Vector(
+                home.x + (loc.x - home.x) * 0.66,
+                home.y + (loc.y - home.y) * 0.66,
+                revolver_home.Z)
+        end
+    end
+
+    ---------------------------------------------------------------- atelier
+
+    -- Le revolver et les reperes des chaises se deplacent a l'atelier
+    -- (panneau dev, F2 : Physics Gun, Tool Gun). Une place enregistree
+    -- revient par "atelier:place" a chaque demarrage ; c'est ici qu'elle
+    -- devient la disposition de la table. Sans atelier, rien ne se passe.
+    local JEU = "fate-games"
+
+    local function declarer_objets()
+        if not revolver_prop then return end
+        local liste = { { id = "liars.revolver", label = "Revolver", entite = revolver_prop } }
+        for chair_n, prop in ipairs(reperes) do
+            liste[#liste + 1] = { id = "liars.chaise." .. chair_n, label = "Chaise " .. chair_n, entite = prop }
+        end
+        Events.Call("atelier:declarer_objets", JEU, liste)
+    end
+
+    local function lieu_valide(l)
+        if type(l) ~= "table" then return false end
+        for _, k in ipairs({ "x", "y", "z", "p", "ya", "r" }) do
+            if type(l[k]) ~= "number" or l[k] ~= l[k] then return false end
+        end
+        return true
+    end
+
+    -- La place du revolver est sa pose de repos : position (levee comprise)
+    -- et rotation. Le plateau est a la moitie de son epaisseur plus bas ; le
+    -- centre de la table est publie aux clients pour le tas de cartes.
+    local function placer_revolver_repos(lieu)
+        revolver_home = Vector(lieu.x, lieu.y, lieu.z)
+        config.layout.revolver_home = { x = lieu.x, y = lieu.y, z = lieu.z - POSE_REVOLVER.lever }
+        recalculer_devant()
+        if revolver_prop then
+            revolver_prop:SetRotation(Rotator(lieu.p, lieu.ya, lieu.r))
+            revolver_prop:SetValue("liars_home", config.layout.revolver_home, true)
+            if not state then revolver_prop:SetLocation(revolver_home) end
+        end
+    end
+
+    -- La place d'une chaise est celle de son repere : on s'y assoit, et le
+    -- revolver glisse vers elle.
+    local function placer_chaise(chair_n, lieu)
+        local marker = config.layout.chairs[chair_n]
+        if not marker then return end
+        marker.location = { x = lieu.x, y = lieu.y, z = lieu.z }
+        marker.yaw = lieu.ya
+        recalculer_devant()
+        local prop = reperes[chair_n]
+        if prop then
+            prop:SetLocation(Vector(lieu.x, lieu.y, lieu.z))
+            prop:SetRotation(Rotator(lieu.p, lieu.ya, lieu.r))
+        end
+    end
+
+    Events.Subscribe("atelier:place", function(id, lieu)
+        if type(id) ~= "string" or not lieu_valide(lieu) then return end
+        local ok, err = pcall(function()
+            if id == "liars.revolver" then
+                placer_revolver_repos(lieu)
+            else
+                local n = tonumber(id:match("^liars%.chaise%.(%d+)$"))
+                if n then placer_chaise(n, lieu) end
+            end
+        end)
+        if ok then
+            Log.Info("liars", ("place %s appliquee"):format(id))
+        else
+            Log.Warn("liars", ("place %s refusee : %s"):format(id, tostring(err)))
+        end
+    end)
+
+    -- L'atelier peut se charger apres le jeu : il le signale.
+    Events.Subscribe("atelier:pret", declarer_objets)
+
     ---------------------------------------------------------------- init
 
     function Adapter.Init()
         local layout = config.layout
         local home = layout.revolver_home
         revolver_home = Vector(home.x, home.y, home.z + POSE_REVOLVER.lever)
+        recalculer_devant()
 
         for chair_n, marker in ipairs(layout.chairs) do
             local loc = marker.location
-
-            -- Le revolver s'arrete aux deux tiers du chemin vers la chaise et
-            -- reste a hauteur du plateau.
-            devant_chaise[chair_n] = Vector(
-                home.x + (loc.x - home.x) * 0.66,
-                home.y + (loc.y - home.y) * 0.66,
-                home.z + POSE_REVOLVER.lever)
 
             -- IgnoreOnlyPawn laisse traverser le volume par le personnage
             -- tout en le gardant detectable par la trace d'interaction.
@@ -752,6 +836,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
                 GrabMode.Disabled
             )
             prop:SetScale(Vector(marker.scale.x, marker.scale.y, marker.scale.z))
+            reperes[chair_n] = prop
 
             if not layout.debug_visible then
                 prop:SetVisibility(false)
@@ -844,6 +929,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
                 }
             end,
         })
+
+        declarer_objets()
 
         if layout.debug_visible then
             Log.Info("liars", ("calibration : %d places visibles"):format(#layout.chairs))

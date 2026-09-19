@@ -8,6 +8,8 @@
 return function(config, Journal, send_intent, cartes_cfg)
     local journal = Journal.New()
     local chat_ouvert = false
+    -- Un outil de l'atelier en main : la molette et les clics sont a lui.
+    local outil_atelier = Package.Require("outil_atelier.lua")
 
     -- Evenements relayes tels quels, sous leur nom court.
     local EVENTS = {
@@ -69,13 +71,13 @@ return function(config, Journal, send_intent, cartes_cfg)
     -- Clic gauche : choisir la carte sous le curseur, a son tour seulement.
     -- Retenus quand ils servent, pour ne pas declencher d'action native.
     Input.Subscribe("MouseScroll", function(mouse_x, mouse_y, delta)
-        if chat_ouvert or #journal.hand == 0 or delta == 0 then return end
+        if chat_ouvert or outil_atelier.actif or #journal.hand == 0 or delta == 0 then return end
         journal:MoveCursor(delta > 0 and -1 or 1)
         return false
     end)
 
     Input.Subscribe("MouseDown", function(key_name)
-        if chat_ouvert or key_name ~= "LeftMouseButton" then return end
+        if chat_ouvert or outil_atelier.actif or key_name ~= "LeftMouseButton" then return end
         if not journal:IsMyTurn() or not journal.cursor then return end
         journal:ToggleCursor()
         return false
