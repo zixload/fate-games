@@ -42,7 +42,7 @@ return function(config, Journal, send_intent, cartes_cfg)
     -- Input) : elle ne doit pas aussi declencher son action native. Hors de
     -- mon tour, on ne touche a rien.
     Input.Subscribe("KeyPress", function(key_name)
-        if chat_ouvert or not journal:IsMyTurn() then return end
+        if chat_ouvert or outil_atelier.actif or not journal:IsMyTurn() then return end
         local keys = config.keys
 
         for i, noms in ipairs(keys.select) do

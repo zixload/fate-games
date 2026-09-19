@@ -22,6 +22,8 @@ Interaction.Start()
 
 -- Posture assise des personnages d'essai, publiee par le serveur.
 Package.Require("posture.lua")
+-- Premiere personne ou vue epaule pendant un outil de l'atelier (F2).
+Package.Require("camera_outil.lua")
 
 -- Marcher par defaut, Maj pour courir.
 Package.Require("course.lua")

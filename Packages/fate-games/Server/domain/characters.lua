@@ -109,6 +109,14 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
     -- squelette, anime par sa propre Animation Blueprint. CharacterSimple
     -- accepte n'importe quel maillage (doc CharacterSimple), Character exige
     -- le squelette UE4 Mannequin, que ce pack n'a pas.
+    -- La camera du jeu, reglee ici et publiee sur le personnage : un outil
+    -- de l'atelier la remplace chez son client (premiere personne, epaule),
+    -- puis la remet a l'identique (Client/camera_outil.lua).
+    local function regler_camera(c, relative, bras)
+        c:SetSpringArmSettings(relative, bras)
+        c:SetValue("camera_jeu", { x = relative.X, y = relative.Y, z = relative.Z, bras = bras }, true)
+    end
+
     local function creer_essai(point, essai)
         local character = CharacterSimple(
             Vector(point.x, point.y, point.z),
@@ -126,7 +134,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         -- Rotation fixee ici plutot que laissee au defaut : Stand doit pouvoir
         -- la retablir, et la doc ne donne pas la valeur par defaut.
         character:SetRotationSettings(Rotator(0, essai.rotation_rate, 0), false, true)
-        character:SetSpringArmSettings(Vector(0, 0, essai.eye_height), essai.arm_length)
+        regler_camera(character, Vector(0, 0, essai.eye_height), essai.arm_length)
         return character
     end
 
@@ -196,7 +204,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         -- Premiere personne a hauteur des yeux : derriere, le bras de la camera
         -- butait sur le dossier et rentrait dans le corps.
         local cam = session.essai.seated_camera
-        c:SetSpringArmSettings(Vector(cam.forward, cam.side or 0, cam.up), 0)
+        regler_camera(c, Vector(cam.forward, cam.side or 0, cam.up), 0)
         return true
     end
 
@@ -207,7 +215,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         if not (session and session.essai) then return false end
         session.essai.seated_camera = { forward = forward, up = up, side = side or 0 }
         if session.assis and session.character then
-            session.character:SetSpringArmSettings(Vector(forward, side or 0, up), 0)
+            regler_camera(session.character, Vector(forward, side or 0, up), 0)
         end
         return true
     end
@@ -245,7 +253,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         c:SetGravityEnabled(true)
         c:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
         c:SetRotationSettings(Rotator(0, essai.rotation_rate, 0), false, true)
-        c:SetSpringArmSettings(Vector(0, 0, essai.eye_height), essai.arm_length)
+        regler_camera(c, Vector(0, 0, essai.eye_height), essai.arm_length)
         session.assis = nil
         return true
     end
