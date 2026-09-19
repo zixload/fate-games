@@ -14,6 +14,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     -- Le Nagant M1895 n'est pas encore cuit. Tant que ce drapeau est faux, un
     -- maillage integre sert de revolver : sans maillage, la trace du client ne
     -- touche rien et aucune partie ne peut demarrer.
+    --
+    -- Le FBX prepare (Downloads/nagant-m1895) est a l'echelle reelle, 23.5 cm
+    -- de long et 4.3 d'epaisseur, pivot au centre : debout a l'import, canon
+    -- sur Y. On le couche sur le flanc (tangage 90) et on le leve de la moitie
+    -- de son epaisseur pour qu'il repose sur le plateau.
     local REVOLVER_CUIT = false
 
     -- Les dix apparences sont cuites dans my-asset-pack (bilan du 19/09/2026 :
@@ -30,9 +35,14 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         seat_marker = "nanos-world::SM_Cube",
         bot_body    = "nanos-world::SK_Male",
 
-        revolver = REVOLVER_CUIT and "liars-props::SM_Nagant_M1895"
+        revolver = REVOLVER_CUIT and "my-asset-pack::SM_Nagant_M1895"
             or "nanos-world::SM_Bottle_01",
     }
+
+    -- Pose du revolver sur la table : hauteur au-dessus du plateau (cm) et
+    -- orientation. La bouteille tient debout sur son pied.
+    local POSE_REVOLVER = REVOLVER_CUIT and { lever = 2.2, rot = Rotator(90, 0, 0) }
+        or { lever = 0, rot = Rotator(0, 0, 0) }
 
     -- Les cinq FBX Mixamo attendent leur retargeting dans l'ADK. Tant que ces
     -- references sont vides, l'adaptateur ne joue rien : le jeu fonctionne sans,
@@ -716,7 +726,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     function Adapter.Init()
         local layout = config.layout
         local home = layout.revolver_home
-        revolver_home = Vector(home.x, home.y, home.z)
+        revolver_home = Vector(home.x, home.y, home.z + POSE_REVOLVER.lever)
 
         for chair_n, marker in ipairs(layout.chairs) do
             local loc = marker.location
@@ -726,7 +736,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             devant_chaise[chair_n] = Vector(
                 home.x + (loc.x - home.x) * 0.66,
                 home.y + (loc.y - home.y) * 0.66,
-                home.z)
+                home.z + POSE_REVOLVER.lever)
 
             -- IgnoreOnlyPawn laisse traverser le volume par le personnage
             -- tout en le gardant detectable par la trace d'interaction.
@@ -765,7 +775,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         -- C'est le meme objet parce que c'est le meme geste — on y pose la main.
         revolver_prop = Prop(
             revolver_home,
-            Rotator(0, 0, 0),
+            POSE_REVOLVER.rot,
             ASSETS.revolver,
             CollisionType.IgnoreOnlyPawn,
             false,
