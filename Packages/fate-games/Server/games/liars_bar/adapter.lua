@@ -11,15 +11,16 @@
 return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, Appearances, config, spawn)
     local Adapter = {}
 
-    -- Le Nagant M1895 n'est pas encore cuit. Tant que ce drapeau est faux, un
-    -- maillage integre sert de revolver : sans maillage, la trace du client ne
-    -- touche rien et aucune partie ne peut demarrer.
+    -- Le Nagant M1895 est cuit dans my-asset-pack (MyAssetPack/Revolver) depuis
+    -- le 19/09/2026. Faux, la bouteille integre reprend sa place : sans
+    -- maillage, la trace du client ne touche rien et aucune partie ne peut
+    -- demarrer.
     --
     -- Le FBX prepare (Downloads/nagant-m1895) est a l'echelle reelle, 23.5 cm
     -- de long et 4.3 d'epaisseur, pivot au centre : debout a l'import, canon
     -- sur Y. On le couche sur le flanc (tangage 90) et on le leve de la moitie
     -- de son epaisseur pour qu'il repose sur le plateau.
-    local REVOLVER_CUIT = false
+    local REVOLVER_CUIT = true
 
     -- Les dix apparences sont cuites dans my-asset-pack (bilan du 19/09/2026 :
     -- toutes leurs pieces y sont). Faux, l'apparence serait seulement
