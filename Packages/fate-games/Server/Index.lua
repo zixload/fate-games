@@ -108,6 +108,24 @@ if essai and essai.enabled then
         return false
     end)
 
+    -- ESSAI : regler les vitesses en direct, "/vitesse <marche> [course]" en
+    -- cm/s, pour trouver celle qui ne fait pas glisser les pieds.
+    Chat.Subscribe("PlayerSubmit", function(message, player)
+        local marche, course = tostring(message):match("^/vitesse%s+([%d%.]+)%s+([%d%.]+)%s*$")
+        if not marche then
+            marche = tostring(message):match("^/vitesse%s+([%d%.]+)%s*$")
+        end
+        if not marche then return end
+
+        if Characters.SetVitesses(player:GetID(), tonumber(marche), tonumber(course)) then
+            Chat.SendMessage(player, ("vitesses : marche %s, course %s"):format(
+                marche, course or essai.run_speed))
+        else
+            Chat.SendMessage(player, "pas de personnage d'essai a regler")
+        end
+        return false
+    end)
+
     -- Maj pour courir. Hors du pipeline des intentions : un reglage de
     -- vitesse sans enjeu de jeu ne merite pas une ligne d'audit par appui.
     Events.SubscribeRemote("zix:course", function(player, course)

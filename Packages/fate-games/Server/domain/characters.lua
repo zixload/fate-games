@@ -236,6 +236,23 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         return true
     end
 
+    -- Reglage en jeu des vitesses (commande /vitesse, mode dev). Le
+    -- personnage d'essai est a l'echelle 0.8 : sa foulee l'est aussi, donc la
+    -- vitesse qui ne fait pas glisser les pieds se trouve en jeu. Les bonnes
+    -- valeurs vont ensuite dans dev.creative_character.
+    function Characters.SetVitesses(player_id, marche, course)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) then return false end
+        local e = session.essai
+        e.walk_speed = marche
+        if course then e.run_speed = course end
+        -- Assis, la vitesse reste nulle : Stand la remettra.
+        if not session.assis then
+            session.character:SetSpeedSettings(marche, marche / 2)
+        end
+        return true
+    end
+
     -- Pose « cartes en main » (ESSAI) : valeur synchronisee que chaque client
     -- recopie dans la variable "Cartes" de ABP_Creative (Client/posture.lua).
     function Characters.SetHolding(player_id, en_main)
