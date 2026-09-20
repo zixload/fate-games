@@ -243,6 +243,27 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         return true
     end
 
+    -- La vitesse du moment : marche ou course, et moins vite en reculant.
+    local function appliquer_vitesse(session)
+        local e = session.essai
+        local vitesse
+        if session.arriere then
+            vitesse = session.course and (e.run_back_speed or e.run_speed)
+                or (e.walk_back_speed or e.walk_speed)
+        else
+            vitesse = session.course and e.run_speed or e.walk_speed
+        end
+        session.character:SetSpeedSettings(vitesse, e.walk_speed / 2)
+    end
+
+    local function peut_regler(player_id)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) or session.assis then
+            return nil
+        end
+        return session
+    end
+
     -- Reglage en jeu des vitesses (commande /vitesse, mode dev). Le
     -- personnage d'essai est a l'echelle 0.8 : sa foulee l'est aussi, donc la
     -- vitesse qui ne fait pas glisser les pieds se trouve en jeu. Les bonnes
@@ -254,9 +275,18 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         e.walk_speed = marche
         if course then e.run_speed = course end
         -- Assis, la vitesse reste nulle : Stand la remettra.
-        if not session.assis then
-            session.character:SetSpeedSettings(marche, marche / 2)
-        end
+        if not session.assis then appliquer_vitesse(session) end
+        return true
+    end
+
+    -- Memes reglages, pour le recul.
+    function Characters.SetVitessesArriere(player_id, marche, course)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) then return false end
+        local e = session.essai
+        e.walk_back_speed = marche
+        if course then e.run_back_speed = course end
+        if not session.assis then appliquer_vitesse(session) end
         return true
     end
 
@@ -271,13 +301,20 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
 
     -- Maj pour courir (ESSAI). Assis, la vitesse reste bloquee.
     function Characters.SetRunning(player_id, course)
-        local session = sessions[player_id]
-        if not (session and session.essai and session.character) or session.assis then
-            return false
-        end
-        local e = session.essai
-        local vitesse = course and e.run_speed or e.walk_speed
-        session.character:SetSpeedSettings(vitesse, e.walk_speed / 2)
+        local session = peut_regler(player_id)
+        if not session then return false end
+        session.course = course == true
+        appliquer_vitesse(session)
+        return true
+    end
+
+    -- Le client a vu que le personnage recule (il s'eloigne de la direction
+    -- qu'il regarde) : on ralentit, le temps que dure ce recul.
+    function Characters.SetArriere(player_id, arriere)
+        local session = peut_regler(player_id)
+        if not session then return false end
+        session.arriere = arriere == true
+        appliquer_vitesse(session)
         return true
     end
 

@@ -111,15 +111,21 @@ if essai and essai.enabled then
     -- ESSAI : regler les vitesses en direct, "/vitesse <marche> [course]" en
     -- cm/s, pour trouver celle qui ne fait pas glisser les pieds.
     Chat.Subscribe("PlayerSubmit", function(message, player)
-        local marche, course = tostring(message):match("^/vitesse%s+([%d%.]+)%s+([%d%.]+)%s*$")
+        local texte = tostring(message)
+        -- "/vitesse arriere <marche> [course]" regle le recul.
+        local arriere = texte:match("^/vitesse%s+arriere%s+") ~= nil
+        local motif = arriere and "^/vitesse%s+arriere%s+" or "^/vitesse%s+"
+        local marche, course = texte:match(motif .. "([%d%.]+)%s+([%d%.]+)%s*$")
         if not marche then
-            marche = tostring(message):match("^/vitesse%s+([%d%.]+)%s*$")
+            marche = texte:match(motif .. "([%d%.]+)%s*$")
         end
         if not marche then return end
 
-        if Characters.SetVitesses(player:GetID(), tonumber(marche), tonumber(course)) then
-            Chat.SendMessage(player, ("vitesses : marche %s, course %s"):format(
-                marche, course or essai.run_speed))
+        local regler = arriere and Characters.SetVitessesArriere or Characters.SetVitesses
+        if regler(player:GetID(), tonumber(marche), tonumber(course)) then
+            Chat.SendMessage(player, ("vitesses %s : marche %s, course %s"):format(
+                arriere and "en arriere" or "en avant", marche,
+                course or (arriere and essai.run_back_speed or essai.run_speed)))
         else
             Chat.SendMessage(player, "pas de personnage d'essai a regler")
         end
@@ -130,6 +136,11 @@ if essai and essai.enabled then
     -- vitesse sans enjeu de jeu ne merite pas une ligne d'audit par appui.
     Events.SubscribeRemote("zix:course", function(player, course)
         Characters.SetRunning(player:GetID(), course == true)
+    end)
+
+    -- Le client a vu qu'il recule : on ralentit, meme raison.
+    Events.SubscribeRemote("zix:recul", function(player, recul)
+        Characters.SetArriere(player:GetID(), recul == true)
     end)
 end
 

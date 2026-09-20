@@ -68,6 +68,12 @@ return {
             scale      = 0.8,    -- le corps du pack mesure ~190 cm, un peu grand
             walk_speed = 150,    -- cm/s, marche : le point Walk du Blend Space
             run_speed  = 450,    -- cm/s, Maj enfoncee : le point Run du Blend Space
+            -- On recule moins vite qu'on avance : les animations de recul du
+            -- pack ont une foulee plus lente, et sans cela les pieds glissent.
+            -- A regler en jeu avec "/vitesse arriere <marche> [course]", puis
+            -- a reporter sur les echantillons de recul du Blend Space.
+            walk_back_speed = 100,
+            run_back_speed  = 300,
             rotation_rate = 540, -- degres par seconde
             -- Debout, le corps suit la camera au lieu de pivoter vers sa
             -- marche : sans cela, les pas de cote et le recul du Blend Space
