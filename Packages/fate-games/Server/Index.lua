@@ -132,6 +132,24 @@ if essai and essai.enabled then
         return false
     end)
 
+    -- ESSAI : regler le saut en direct, "/saut <impulsion> [pesanteur]".
+    -- Le temps en l'air doit correspondre a l'animation de chute.
+    Chat.Subscribe("PlayerSubmit", function(message, player)
+        local texte = tostring(message)
+        local z, pesanteur = texte:match("^/saut%s+([%d%.]+)%s+([%d%.]+)%s*$")
+        if not z then z = texte:match("^/saut%s+([%d%.]+)%s*$") end
+        if not z then return end
+
+        if Characters.SetSaut(player:GetID(), tonumber(z), tonumber(pesanteur)) then
+            local p = tonumber(pesanteur) or essai.gravity_scale
+            Chat.SendMessage(player, ("saut : impulsion %s, pesanteur %s, environ %.2f s en l'air")
+                :format(z, tostring(p), 2 * tonumber(z) / (981 * p)))
+        else
+            Chat.SendMessage(player, "pas de personnage d'essai a regler")
+        end
+        return false
+    end)
+
     -- Maj pour courir. Hors du pipeline des intentions : un reglage de
     -- vitesse sans enjeu de jeu ne merite pas une ligne d'audit par appui.
     Events.SubscribeRemote("zix:course", function(player, course)

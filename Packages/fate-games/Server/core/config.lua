@@ -74,6 +74,12 @@ return {
             -- a reporter sur les echantillons de recul du Blend Space.
             walk_back_speed = 100,
             run_back_speed  = 250,
+            -- Saut : l'animation en l'air dure plus longtemps que le saut par
+            -- defaut. On monte l'impulsion et on allege la pesanteur pour que
+            -- le temps en l'air corresponde. A regler en jeu : "/saut <z>
+            -- [pesanteur]". Temps en l'air = 2 x z / (981 x pesanteur).
+            jump_z        = 600.0,
+            gravity_scale = 0.9,
             rotation_rate = 540, -- degres par seconde
             -- Debout, le corps suit la camera au lieu de pivoter vers sa
             -- marche : sans cela, les pas de cote et le recul du Blend Space

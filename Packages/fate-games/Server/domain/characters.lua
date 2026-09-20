@@ -126,6 +126,12 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         c:SetRotationSettings(Rotator(0, essai.rotation_rate, 0), face, not face)
     end
 
+    -- Impulsion et pesanteur, pour accorder le temps en l'air a l'animation.
+    local function regler_saut(c, essai)
+        if essai.jump_z then c:SetJumpZVelocity(essai.jump_z) end
+        if essai.gravity_scale then c:SetGravityScale(essai.gravity_scale) end
+    end
+
     local function creer_essai(point, essai)
         local character = CharacterSimple(
             Vector(point.x, point.y, point.z),
@@ -141,6 +147,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         end
         character:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
         rotation_debout(character, essai)
+        regler_saut(character, essai)
         regler_camera(character, Vector(0, 0, essai.eye_height), essai.arm_length)
         return character
     end
@@ -276,6 +283,17 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         if course then e.run_speed = course end
         -- Assis, la vitesse reste nulle : Stand la remettra.
         if not session.assis then appliquer_vitesse(session) end
+        return true
+    end
+
+    -- Reglage en jeu du saut (commande /saut, mode dev).
+    function Characters.SetSaut(player_id, z, pesanteur)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) then return false end
+        local e = session.essai
+        e.jump_z = z
+        if pesanteur then e.gravity_scale = pesanteur end
+        regler_saut(session.character, e)
         return true
     end
 
