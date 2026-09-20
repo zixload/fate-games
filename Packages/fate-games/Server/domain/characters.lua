@@ -117,6 +117,15 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         c:SetValue("camera_jeu", { x = relative.X, y = relative.Y, z = relative.Z, bras = bras }, true)
     end
 
+    -- Rotation d'un personnage debout. Face camera (use_controller_desired
+    -- _rotation) pour que les pas de cote se voient ; sinon oriente vers son
+    -- mouvement, comme avant. Fixee ici plutot que laissee au defaut : Stand
+    -- doit pouvoir la retablir, et la doc ne donne pas la valeur par defaut.
+    local function rotation_debout(c, essai)
+        local face = essai.face_camera == true
+        c:SetRotationSettings(Rotator(0, essai.rotation_rate, 0), face, not face)
+    end
+
     local function creer_essai(point, essai)
         local character = CharacterSimple(
             Vector(point.x, point.y, point.z),
@@ -131,9 +140,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
             character:SetScale(Vector(essai.scale, essai.scale, essai.scale))
         end
         character:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
-        -- Rotation fixee ici plutot que laissee au defaut : Stand doit pouvoir
-        -- la retablir, et la doc ne donne pas la valeur par defaut.
-        character:SetRotationSettings(Rotator(0, essai.rotation_rate, 0), false, true)
+        rotation_debout(character, essai)
         regler_camera(character, Vector(0, 0, essai.eye_height), essai.arm_length)
         return character
     end
@@ -285,7 +292,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         c:SetCollision(CollisionType.Normal)
         c:SetGravityEnabled(true)
         c:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
-        c:SetRotationSettings(Rotator(0, essai.rotation_rate, 0), false, true)
+        rotation_debout(c, essai)
         regler_camera(c, Vector(0, 0, essai.eye_height), essai.arm_length)
         session.assis = nil
         return true

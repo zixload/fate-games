@@ -68,7 +68,12 @@ return {
             scale      = 0.8,    -- le corps du pack mesure ~190 cm, un peu grand
             walk_speed = 150,    -- cm/s, marche : le point Walk du Blend Space
             run_speed  = 450,    -- cm/s, Maj enfoncee : le point Run du Blend Space
-            rotation_rate = 540, -- degres par seconde, corps oriente vers le mouvement
+            rotation_rate = 540, -- degres par seconde
+            -- Debout, le corps suit la camera au lieu de pivoter vers sa
+            -- marche : sans cela, les pas de cote et le recul du Blend Space
+            -- 2D ne se verraient jamais, le personnage se tournant toujours
+            -- dans le sens de son deplacement. Faux = comportement d'avant.
+            face_camera = true,
             eye_height = 60.0,   -- hauteur de la camera depuis le centre du corps
             arm_length = 250.0,  -- recul de la camera ; 0 = premiere personne
             -- Camera assise, en premiere personne. Reglee en jeu avec /cam le
