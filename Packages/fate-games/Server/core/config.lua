@@ -73,7 +73,7 @@ return {
             -- A regler en jeu avec "/vitesse arriere <marche> [course]", puis
             -- a reporter sur les echantillons de recul du Blend Space.
             walk_back_speed = 100,
-            run_back_speed  = 300,
+            run_back_speed  = 250,
             rotation_rate = 540, -- degres par seconde
             -- Debout, le corps suit la camera au lieu de pivoter vers sa
             -- marche : sans cela, les pas de cote et le recul du Blend Space
