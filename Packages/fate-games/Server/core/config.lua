@@ -78,7 +78,7 @@ return {
             -- defaut. On monte l'impulsion et on allege la pesanteur pour que
             -- le temps en l'air corresponde. A regler en jeu : "/saut <z>
             -- [pesanteur]". Temps en l'air = 2 x z / (981 x pesanteur).
-            jump_z        = 600.0,
+            jump_z        = 400.0,
             gravity_scale = 0.9,
             rotation_rate = 540, -- degres par seconde
             -- Debout, le corps suit la camera au lieu de pivoter vers sa
