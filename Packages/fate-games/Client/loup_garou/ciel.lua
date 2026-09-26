@@ -7,7 +7,7 @@
 --
 -- Chaque phase fait passer l'heure par des points (part de la phase ecoulee,
 -- heure), a vitesse constante entre deux points. L'aube, le plus beau moment,
--- dure : de 5h, elle court jusqu'a la moitie du debat (chrono a 1:30), puis
+-- dure : de 6h, elle court jusqu'a la moitie du debat (chrono a 1:30), puis
 -- la journee defile. Si l'heure est loin du premier point, elle y court
 -- d'abord (quelques secondes, toujours vers l'avant). L'heure est tenue ici,
 -- a la minute, et poussee au ciel par petits pas : relire le ciel pendant
@@ -24,9 +24,9 @@ return function()
     local PHASES = {
         night_cupid = NUIT, night_guard = NUIT, night_wolves = NUIT, night_white_wolf = NUIT,
         night_witch = NUIT, night_seer = NUIT,
-        dawn = { { 0, hm(5) }, { 1, hm(5, 20) } },
-        day_mayor = { { 0, hm(5, 20) }, { 1, hm(5, 45) } },
-        day_debate = { { 0, hm(5, 45) }, { 0.5, hm(6, 30) }, { 1, hm(15) } },
+        dawn = { { 0, hm(6) }, { 1, hm(6, 15) } },
+        day_mayor = { { 0, hm(6, 15) }, { 1, hm(6, 35) } },
+        day_debate = { { 0, hm(6, 35) }, { 0.5, hm(7, 15) }, { 1, hm(15) } },
         day_vote = { { 0, hm(15) }, { 1, hm(18) } },
         execution = { { 0, hm(18) }, { 1, hm(19, 30) } },
     }
