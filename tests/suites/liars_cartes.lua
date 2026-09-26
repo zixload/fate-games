@@ -62,7 +62,7 @@ return function(H, Stubs)
 
         H.it("chaque axe ouvre l'eventail dans le plan de la carte", function()
             for _, axe in ipairs(Cartes.Axes()) do
-                local fan = { axe = axe, ecart = 20, rayon = 4.5, profondeur = 0.2 }
+                local fan = { axe = axe, ecart = 20, rayon = 4.5, profondeur = 0.2, coin = -2.2 }
                 local m = Cartes.Fente(5, 3, fan, 0)
                 H.assert_true(proche(m.x, 0) and proche(m.y, 0) and proche(m.z, 0), axe .. " : milieu a l'origine")
                 local g = Cartes.Fente(5, 1, fan, 0)
@@ -71,10 +71,19 @@ return function(H, Stubs)
             end
         end)
 
+        H.it("garde le bord gauche de chaque carte visible : pivot pres du coin", function()
+            local fan = { axe = "y", ecart = 20, rayon = 5, profondeur = 0.2, coin = -2.2, sens = 1, empilement = 1 }
+            local a, b = Cartes.Fente(5, 2, fan, 0), Cartes.Fente(5, 3, fan, 0)
+            H.assert_true(b.y > a.y, "la suivante devant")
+            H.assert_true(b.p > a.p, "et tournee un peu plus")
+            local inv = setmetatable({ empilement = -1 }, { __index = fan })
+            H.assert_true(Cartes.Fente(5, 3, inv, 0).y < Cartes.Fente(5, 2, inv, 0).y, "empilement inverse")
+        end)
+
         H.it("ouvre l'eventail symetriquement", function()
             -- Geometrie decrite pour l'axe z ; les autres axes n'en sont que des
             -- permutations (test precedent).
-            local fan = setmetatable({ axe = "z" }, { __index = cfg.fan })
+            local fan = setmetatable({ axe = "z", coin = 0, sens = 1, empilement = 1 }, { __index = cfg.fan })
             local g = Cartes.Fente(5, 1, fan, 0)
             local d = Cartes.Fente(5, 5, fan, 0)
             H.assert_true(proche(g.y, -d.y), "de part et d'autre de l'axe")
@@ -84,7 +93,7 @@ return function(H, Stubs)
         end)
 
         H.it("souleve une carte le long de son axe", function()
-            local fan = setmetatable({ axe = "z" }, { __index = cfg.fan })
+            local fan = setmetatable({ axe = "z", coin = 0, sens = 1, empilement = 1 }, { __index = cfg.fan })
             local bas  = Cartes.Fente(3, 2, fan, 0)
             local haut = Cartes.Fente(3, 2, fan, 5)
             H.assert_true(proche(haut.x - bas.x, 5), "levee, loin du pivot")

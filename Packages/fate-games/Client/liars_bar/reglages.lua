@@ -17,6 +17,9 @@
 --   /fan face p y r          face (carte revelee sur la table)
 --   /fan os <nom>          os qui tient l'eventail (LeftHand, RightHand...)
 --   /fan axe z|zy|y|x      axe autour duquel les cartes s'ouvrent
+--   /fan sens              inverse le sens de rotation de l'eventail
+--   /fan empilement        inverse quelle carte passe devant
+--   /fan coin -0.5         deplace le pivot en largeur (negatif : a gauche)
 --   /fan ecart -1          ajuste un nombre (avec signe), ou /fan ecart 3 le
 --                          remplace, ou /fan ecart l'affiche :
 --   /fan <nombre> n        ecart, rayon, taille, levee, curseur, profondeur,
@@ -35,9 +38,10 @@ return function(config, Rendu)
         ecart = config.fan, rayon = config.fan, taille = config.fan,
         levee = config.fan, curseur = config.fan, profondeur = config.fan,
         epaisseur = config.table, dispersion = config.table,
+        coin = config.fan,
     }
     local ORDRE_V = { "pos", "rot", "carte", "table", "dos", "face" }
-    local ORDRE_N = { "ecart", "rayon", "taille", "levee", "curseur", "profondeur",
+    local ORDRE_N = { "ecart", "rayon", "coin", "taille", "levee", "curseur", "profondeur",
         "epaisseur", "dispersion" }
 
     local function afficher()
@@ -51,6 +55,7 @@ return function(config, Rendu)
             Chat.AddMessage(("/fan %s %s"):format(cle, tostring(NOMBRES[cle][cle])))
         end
         Chat.AddMessage("/fan axe " .. tostring(config.fan.axe))
+        Chat.AddMessage(("/fan sens %s   /fan empilement %s"):format(tostring(config.fan.sens), tostring(config.fan.empilement)))
     end
 
     Chat.Subscribe("PlayerSubmit", function(message)
@@ -67,6 +72,12 @@ return function(config, Rendu)
             Rendu.Demo(not Rendu.IsDemo())
             Events.CallRemote("liars:fan_demo", Reliability.Reliable, Rendu.IsDemo())
             Chat.AddMessage("demo : " .. (Rendu.IsDemo() and "active" or "coupee"))
+        elseif cle == "sens" or cle == "empilement" then
+            -- Bascule : les cartes tournent dans l'autre sens, ou l'autre carte
+            -- passe devant.
+            config.fan[cle] = -(config.fan[cle] or 1)
+            Rendu.Reconstruire()
+            Chat.AddMessage(("/fan %s %d"):format(cle, config.fan[cle]))
         elseif cle == "axe" then
             -- L'axe autour duquel les cartes pivotent (Client/liars_bar/cartes.lua).
             -- Le bon : les cartes s'ouvrent en eventail au lieu de glisser en ligne.

@@ -53,36 +53,43 @@ return function(config)
         return out
     end
 
-    -- Comme dans une vraie main, les cartes tournent dans leur propre plan
-    -- autour d'un point commun en bas, et s'empilent le long de leur face
-    -- sans se traverser. L'axe qui traverse la face depend de l'orientation
-    -- du FBX, inconnue : fan.axe le choisit, reglable en jeu (/fan axe).
-    --   axe  pivote autour de   hauteur de la carte le long de
-    --   z    Z (lacet)          X
-    --   zy   Z (lacet)          Y
-    --   y    Y (tangage)        Z
-    --   x    X (roulis)         Z
-    -- Mauvais axe : les cartes glissent en ligne au lieu de s'ouvrir.
-    -- rayon : du bas commun au centre d'une carte ; a la moitie de sa
-    -- hauteur, les bases se rejoignent. La levee eloigne la carte du bas.
+    -- Comme dans une vraie main : les cartes tournent dans leur plan autour
+    -- d'un point commun pres du coin bas gauche, chacune un peu plus que la
+    -- precedente et posee devant elle, si bien que le bord gauche de chaque
+    -- carte (et son indice) reste visible.
+    --
+    -- Dans le plan de la carte : u le long de sa largeur, v de sa hauteur,
+    -- d le long de son epaisseur. fan.coin : ou est le pivot en largeur (cm
+    -- depuis le centre, negatif = a gauche) ; fan.rayon : du pivot au centre
+    -- en hauteur. fan.sens et fan.empilement (1 ou -1) : sens de rotation et
+    -- quelle carte passe devant, selon la face du modele tournee vers soi.
     -- La carte du milieu reste a l'origine du support : /fan pos la place.
+    --
+    -- L'axe qui traverse la face depend du FBX (fan.axe, /fan axe) :
+    --   axe  pivote autour de   hauteur le long de   largeur le long de
+    --   y    Y (tangage)        Z                    X
+    --   z    Z (lacet)          X                    Y
+    --   zy   Z (lacet)          Y                    X
+    --   x    X (roulis)         Z                    Y
     local AXES = {
-        -- a partir de (s, c, r, d) : sinus, cosinus - 1 fois le rayon, rayon,
-        -- profondeur -> x, y, z et la rotation { p, y, r }
-        z  = function(s, c, d, a) return c, s, d, 0, a, 0 end,
-        zy = function(s, c, d, a) return -s, c, d, 0, a, 0 end,
-        y  = function(s, c, d, a) return -s, d, c, a, 0, 0 end,
-        x  = function(s, c, d, a) return d, -s, c, 0, 0, a end,
+        -- (u, v, d, angle) -> x, y, z, tangage, lacet, roulis
+        y  = function(u, v, d, a) return u, d, v, a, 0, 0 end,
+        z  = function(u, v, d, a) return v, -u, d, 0, a, 0 end,
+        zy = function(u, v, d, a) return u, v, d, 0, a, 0 end,
+        x  = function(u, v, d, a) return d, u, v, 0, 0, a end,
     }
 
     function Cartes.Fente(n, i, fan, levee)
-        local angle = (i - (n + 1) / 2) * fan.ecart
+        local rel   = i - (n + 1) / 2
+        local angle = rel * fan.ecart * (fan.sens or 1)
         local rad   = math.rad(angle)
+        local cu    = fan.coin or 0
         local r     = fan.rayon + (levee or 0)
-        local s     = math.sin(rad) * r
-        local c     = math.cos(rad) * r - fan.rayon
-        local d     = (i - (n + 1) / 2) * fan.profondeur
-        local x, y, z, p, ya, ro = (AXES[fan.axe or "z"] or AXES.z)(s, c, d, angle)
+        -- Centre de la carte : pivot (cu, -rayon) + la rotation de (-cu, r).
+        local u = cu + (-cu) * math.cos(rad) - r * math.sin(rad)
+        local v = -fan.rayon + (-cu) * math.sin(rad) + r * math.cos(rad)
+        local d = rel * fan.profondeur * (fan.empilement or 1)
+        local x, y, z, p, ya, ro = (AXES[fan.axe or "y"] or AXES.y)(u, v, d, angle)
         return { x = x, y = y, z = z, p = p, yaw = ya, r = ro }
     end
 
