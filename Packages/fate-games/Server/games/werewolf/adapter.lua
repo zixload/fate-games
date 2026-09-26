@@ -282,6 +282,23 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         c:SetValue("ww_pose", pose.anim, true)
     end
 
+    -- Change seulement la pose d'un joueur deja assis : animation, hauteur, et
+    -- l'orientation du corps si `lacet`. Characters.Sit remettrait sa camera
+    -- droit devant a chaque geste.
+    local function changer_pose(id, pose, lacet)
+        local siege = decor.sieges[decor.siege_de[id] or 0]
+        local c = personnage(id)
+        if not (siege and c and c:IsValid() and decor.centre) then return end
+        local z = decor.centre.debout + pose.z + AJUSTEMENT
+        local l = c:GetLocation()
+        if math.abs(l.Z - z) > 0.5 then c:SetLocation(Vector(l.X, l.Y, z)) end
+        c:SetRotation(Rotator(0, lacet or siege.yaw, 0))
+        local ancienne = c:GetValue("ww_pose", nil)
+        if ancienne and ancienne ~= pose.anim then pcall(function() c:StopAnimation(ancienne) end) end
+        pcall(function() c:PlayAnimation(pose.anim, "DefaultSlot", true, 0.15, 0.15, 1.0, true) end)
+        c:SetValue("ww_pose", pose.anim, true)
+    end
+
     local function relever(id)
         local c = personnage(id)
         if c and c:IsValid() then
@@ -311,12 +328,12 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         if not (g and c and c:IsValid() and decor.siege_de[id]) then return end
         local jeton = {}
         gestes[id] = jeton
-        if lacet then asseoir(id, pose_actuelle(id), lacet) end
+        if lacet then c:SetRotation(Rotator(0, lacet, 0)) end
         pcall(function() c:PlayAnimation(g.anim, "DefaultSlot", false, 0.15, 0.25, 1.0, true) end)
         Timer.SetTimeout(function()
             if gestes[id] ~= jeton then return end
             gestes[id] = nil
-            if decor.siege_de[id] then asseoir(id, pose_actuelle(id)) end
+            if decor.siege_de[id] then changer_pose(id, pose_actuelle(id)) end
         end, math.max(200, math.floor(g.duree * 1000) - 200))
     end
 
@@ -728,7 +745,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
                 local dort = nuit ~= nil and not nuit[Match.role(s.match, id)]
                 if (endormis[id] or false) ~= dort then
                     endormis[id] = dort or nil
-                    if not gestes[id] then asseoir(id, pose_actuelle(id)) end
+                    if not gestes[id] then changer_pose(id, pose_actuelle(id)) end
                 end
             end
         end
