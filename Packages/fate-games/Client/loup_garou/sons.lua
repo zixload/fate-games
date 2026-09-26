@@ -1,4 +1,4 @@
--- Sons du loup-garou (fichiers dans Client/Sounds/loup_garou/, hors depot) :
+-- Sons du loup-garou (assets de my-asset-pack, voir Client/son.lua) :
 -- ambiance de jour et de nuit en boucle, en fondu ; sons des moments de la
 -- partie ; battement de coeur tant qu'on est le plus vise. Ecoute les memes
 -- evenements que le HUD (loup_garou/hud.lua), joue en 2D chez chacun.
@@ -9,7 +9,7 @@
 return function(config)
     config = config or {}
     local VOLUMES = config.volumes or { ambiance = 0.18, sons = 0.6, coeur = 0.35 }
-    local DOSSIER = "package://fate-games/Client/Sounds/loup_garou/"
+    local chemin = Package.Require("son.lua")
 
     local ambiance, ambiance_nom = nil, nil
     local coeur = nil
@@ -20,14 +20,14 @@ return function(config)
     -- un echec ne doit plus etre muet.
     local function jouer(nom, volume)
         local ok, err = pcall(function()
-            Sound(Vector(), DOSSIER .. nom .. ".ogg", true, true, SoundType.SFX, volume or VOLUMES.sons, 1)
+            Sound(Vector(), chemin(nom), true, true, SoundType.SFX, volume or VOLUMES.sons, 1)
         end)
         if ok then Console.Log("[loup-garou sons] " .. nom) else Console.Error("[loup-garou sons] " .. nom .. " : " .. tostring(err)) end
     end
 
     local function boucle(nom, volume, fondu)
         local ok, son = pcall(function()
-            local s = Sound(Vector(), DOSSIER .. nom .. ".ogg", true, false, SoundType.Ambient, volume, 1,
+            local s = Sound(Vector(), chemin(nom), true, false, SoundType.Ambient, volume, 1,
                 400, 3600, AttenuationFunction.Linear, true, SoundLoopMode.Forever, false)
             s:FadeIn(fondu or 2, 1)
             return s
@@ -172,10 +172,10 @@ return function(config)
         local ok, son = pcall(function()
             if en3d then
                 local p = Client.GetLocalPlayer()
-                return Sound(p:GetCameraLocation(), DOSSIER .. nom .. ".ogg", false, false, SoundType.SFX,
+                return Sound(p:GetCameraLocation(), chemin(nom), false, false, SoundType.SFX,
                     volume, 1, 400, 3600)
             end
-            return Sound(Vector(), DOSSIER .. nom .. ".ogg", true, false, SoundType.SFX, volume, 1)
+            return Sound(Vector(), chemin(nom), true, false, SoundType.SFX, volume, 1)
         end)
         if not ok then return noter("son " .. nom .. " : erreur " .. tostring(son)) end
         local function etat_son(quand)
@@ -188,16 +188,11 @@ return function(config)
         Timer.SetTimeout(function() if son:IsValid() then son:Destroy() end end, 15000)
     end
 
-    -- /lg son tout : chaque fichier du dossier, un toutes les 4 secondes.
+    -- /lg son tout : chaque son du loup-garou, un toutes les 4 secondes.
     local function tout_jouer()
-        local fichiers = {}
-        pcall(function()
-            for _, f in ipairs(File.GetFiles("../fate-games/Client/Sounds/loup_garou/", ".ogg") or {}) do
-                local nom = tostring(f):match("([^/\\]+)%.ogg$")
-                if nom then fichiers[#fichiers + 1] = nom end
-            end
-        end)
-        table.sort(fichiers)
+        local fichiers = { "lg_cloche", "lg_coeur", "lg_gardien", "lg_hurlement", "lg_jour", "lg_loups",
+            "lg_maire", "lg_mort", "lg_nuit", "lg_potion", "lg_role", "lg_tictac", "lg_victoire", "lg_vote",
+            "lg_vote_contre_toi", "lg_voyante" }
         noter("son tout : " .. #fichiers .. " fichiers")
         for i, nom in ipairs(fichiers) do
             Timer.SetTimeout(function() diagnostiquer(nom, false, VOLUMES.sons) end, (i - 1) * 4000)

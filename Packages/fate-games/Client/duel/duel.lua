@@ -5,6 +5,7 @@
 return function(SharedConfig)
     SharedConfig = SharedConfig or {}
     Package.Require("duel/contour.lua")(SharedConfig.duel_contour)
+    local chemin = Package.Require("son.lua")
     local Catalogue = Package.Require("Shared/catalogue.lua")
     local vm = SharedConfig.duel_arme or {}
 
@@ -65,7 +66,7 @@ return function(SharedConfig)
 
     local function son(position)
         pcall(function()
-            Sound(position, "package://fate-games/Client/Sounds/gunshot.ogg", false, true, SoundType.SFX, 0.7, 1.0, 180, 2500)
+            Sound(position, chemin("gunshot"), false, true, SoundType.SFX, 0.7, 1.0, 180, 2500)
         end)
     end
 
@@ -307,7 +308,7 @@ return function(SharedConfig)
             -- Le niveau de FadeIn multiplie le volume du son (doc Sound) : cree
             -- a 0, il montait vers 0 et restait muet. Volume voulu a la
             -- creation, fondu jusqu'a 1.
-            musique = Sound(Vector(), "package://fate-games/Client/Sounds/musique_duel.ogg", true, false,
+            musique = Sound(Vector(), chemin("musique_duel"), true, false,
                 SoundType.Music, mu.volume or 0.22, 1, 400, 3600, AttenuationFunction and AttenuationFunction.Linear or nil,
                 true, boucle, false)
             musique:FadeIn(mu.fondu_entree or 3, 1)

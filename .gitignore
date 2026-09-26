@@ -42,6 +42,8 @@ art/animations/
 art/werewolf/
 # Sons d origine inconnue (gunshot, dryfire) : a verifier avant publication.
 Packages/fate-games/Client/Sounds/
+# Sons en WAV pour l import Unreal (scripts/unreal/import_sons.py)
+art/sons/
 # Sauvegardes automatiques de Blender
 *.blend1
 

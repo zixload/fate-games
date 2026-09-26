@@ -1,7 +1,8 @@
 # Sons du Loup-Garou : origine et licences
 
-Les fichiers vivent dans `Packages/fate-games/Client/Sounds/loup_garou/`, hors du dépôt public. Ils
-ont été convertis en OGG et normalisés (loudnorm −18 LUFS). La source exacte de chaque son reste à
+Les originaux, convertis en WAV, vivent dans `art/sons/`, hors du dépôt public, et sont importés dans
+my-asset-pack par `scripts/unreal/import_sons.py` (asset `A_<nom>`). La première colonne garde
+l'ancien nom de fichier OGG, qui est aussi le nom de l'asset sans le préfixe. La source exacte de chaque son reste à
 compléter quand elle n'est pas connue : elle sert aux crédits du jeu.
 
 | Fichier en jeu | Fichier d'origine | Source et licence |
