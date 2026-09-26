@@ -20,18 +20,30 @@ return function(config)
     local focused_id = nil
     local tick_handle = nil
 
-    -- Filtre pose par un jeu (ex. Liar's Bar en partie) : fonction(entite) ->
-    -- vrai si l'objet peut etre vise. Aucun filtre : tout ce qui est connu.
+    -- Filtres poses par les jeux (Liar's Bar, loup-garou en partie) :
+    -- fonction(entite) -> vrai si l'objet peut etre vise. Tous doivent dire
+    -- oui ; aucun filtre : tout ce qui est connu.
     local filtre = nil
+    local autres = {}
 
     function Interaction.SetFiltre(f)
         filtre = f
     end
 
+    function Interaction.AjouterFiltre(f)
+        autres[#autres + 1] = f
+    end
+
     local function permis(entite)
-        if not filtre then return true end
-        local ok, oui = pcall(filtre, entite)
-        return ok and oui == true
+        if filtre then
+            local ok, oui = pcall(filtre, entite)
+            if not (ok and oui == true) then return false end
+        end
+        for _, f in ipairs(autres) do
+            local ok, oui = pcall(f, entite)
+            if not (ok and oui == true) then return false end
+        end
+        return true
     end
 
     local REACH = (config and config.reach) or 400.0

@@ -207,6 +207,8 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
                     CollisionType.IgnoreOnlyPawn, false, GrabMode.Disabled)
                 repere:SetScale(Vector(0.6, 0.6, 0.6))
                 repere:SetVisibility(false)
+                -- En partie, le client ne propose plus ces places (loup_garou/hud.lua).
+                repere:SetValue("ww_siege", i, true)
                 decor.objets[#decor.objets + 1] = repere
                 local numero = i
                 decor.reperes[#decor.reperes + 1] = Interactables.Register(repere, {
@@ -453,6 +455,18 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         return id
     end
 
+    -- Des pseudos ordinaires pour les bots, tires sans doublon.
+    local PSEUDOS = config.pseudos_bots or { "Lilou", "Sacha", "Nino", "Jade", "Milo", "Inès", "Hugo", "Lina",
+        "Enzo", "Zoé", "Noa", "Tom", "Kiwi", "Moka", "Pixel", "Bambou", "Nala", "Oscar", "Maé", "Léon" }
+    local function pseudo_libre()
+        local pris = {}
+        for _, b in pairs(bots) do pris[b.nom] = true end
+        local libres = {}
+        for _, n in ipairs(PSEUDOS) do if not pris[n] then libres[#libres + 1] = n end end
+        if #libres == 0 then return "Invité " .. math.random(100, 999) end
+        return libres[math.random(#libres)]
+    end
+
     -- Des bots sur les places libres, assis, habilles au hasard, deja prets.
     function A.AjouterBots(player, n)
         if s.statut == "partie" then return dire(player, "Une partie est en cours.") end
@@ -465,7 +479,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             local siege = decor.sieges[place]
             local ok, corps = pcall(Characters.CorpsAssis, siege.x, siege.y,
                 decor.centre.debout + POSES[1].z + AJUSTEMENT, siege.yaw)
-            bots[id] = { nom = "Bot " .. (-id), corps = ok and corps or nil }
+            bots[id] = { nom = pseudo_libre(), corps = ok and corps or nil }
             bots[id].look = ok and habiller_bot(corps) or nil
             -- Les pseudos au-dessus des tetes (Client/pseudos.lua) le lisent.
             if ok and corps then corps:SetValue("pseudo", bots[id].nom, true) end
@@ -599,6 +613,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
 
     TRADUIRE.match_ended = function(e)
         local texte = GAGNANTS[e.winner] or GAGNANTS.none
+        diffuser("ww:victoire", e.winner)
         diffuser("ww:annonce", texte)
         Log.Info("werewolf", "partie terminee : " .. tostring(e.winner))
         local ok, err = pcall(enregistrer, e.winner, e.summary or {})
@@ -653,8 +668,12 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         if s.statut ~= "partie" then return end
         local cible = par_personnage(tonumber(cid))
         if not cible then return end
+        local phase = Engine.phase(s)
         local fx, raison = Engine.designer(s, player:GetID(), cible)
-        if fx then return A.Appliquer(fx) end
+        if fx then
+            envoyer(player:GetID(), "ww:action", phase)   -- le son de son geste (loup_garou/sons.lua)
+            return A.Appliquer(fx)
+        end
         if REFUS[raison] then envoyer(player:GetID(), "ww:annonce", REFUS[raison]) end
     end
 

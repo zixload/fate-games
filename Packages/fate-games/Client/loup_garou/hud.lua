@@ -26,7 +26,7 @@
 -- Fixe a l'ecran : page WebUI (hud.html). Au-dessus des tetes (invites,
 -- compteurs de voix, loups allies, amoureux) : Canvas, sans retard.
 
-return function(config)
+return function(config, Interaction)
     config = config or {}
     local PORTEE = config.portee or 1500
     local CONE = math.cos(math.rad(config.cone or 10))
@@ -276,6 +276,15 @@ return function(config)
 
     for nom, f in pairs(H) do
         Events.SubscribeRemote("ww:" .. nom, f)
+    end
+
+    -- En partie, l'invite d'interaction ne propose plus les places du cercle :
+    -- E sert a designer, et on reste assis jusqu'au bout.
+    if Interaction and Interaction.AjouterFiltre then
+        Interaction.AjouterFiltre(function(entite)
+            if not (etat.phase or etat.role) then return true end
+            return not (entite and entite:IsValid() and entite:GetValue("ww_siege", nil))
+        end)
     end
 
     ---------------------------------------------------------------- au-dessus des tetes
