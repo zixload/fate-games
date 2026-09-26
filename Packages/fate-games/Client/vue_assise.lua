@@ -3,6 +3,10 @@
 -- sans pouvoir rentrer dans le costume ou regarder a travers la chaise.
 
 local R = Package.Require("Shared/config.lua").regard_assis
+-- Nuit du loup-garou : qui dort garde la tete baissee (Ecran.baisse).
+local Ecran = Package.Require("loup_garou/ecran.lua")
+local baisse_faite = false
+local baisse_depuis = 0
 local vue = "jeu"
 local PITCH_MIN = -55 -- assez bas pour voir les jambes, sans basculer sous le corps
 local erreur_signalee = false
@@ -37,9 +41,10 @@ local function assis_en_vue_jeu()
 end
 
 Input.Subscribe("MouseMove", function(dx, dy)
-    if not dy or dy == 0 then return end
     local player = assis_en_vue_jeu()
     if not player then return end
+    if Ecran.baisse then return false end
+    if not dy or dy == 0 then return end
     local rotation = player:GetCameraRotation()
     if not rotation then return end
     local descend = dy * sens_bas > 0
@@ -78,6 +83,22 @@ Timer.SetInterval(function()
             place_initialisee = identifiant
             dernier_yaw = nil
             return
+        end
+        if (Ecran.baisse == true) ~= baisse_faite then
+            baisse_faite = Ecran.baisse == true
+            if baisse_faite then
+                -- Face a sa place, le regard au sol, en une seconde.
+                player:RotateCameraTo(Rotator(PITCH_MIN, perso:GetValue("seat_yaw", rotation.Yaw), 0), 1.0)
+                baisse_depuis = Client.GetTime()
+            end
+        elseif baisse_faite and Client.GetTime() - baisse_depuis > 1100 then
+            -- La souris est bloquee ; au cas ou la vue bougerait quand meme.
+            local voulu = Rotator(PITCH_MIN, perso:GetValue("seat_yaw", rotation.Yaw), 0)
+            if math.abs(angle(rotation.Pitch - voulu.Pitch)) > 1 or math.abs(angle(rotation.Yaw - voulu.Yaw)) > 1 then
+                perso:SetControlRotation(voulu)
+                player:SetCameraRotation(voulu)
+                rotation = voulu
+            end
         end
         local pitch = angle(rotation.Pitch)
         if pitch_precedent and cumul_y ~= 0 and math.abs(pitch - pitch_precedent) > 0.5 then

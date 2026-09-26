@@ -129,21 +129,38 @@ return function(config, Interaction)
         return ph.qui == "tous" or ph.qui[etat.role] == true
     end
 
-    -- La nuit, on ne voit pas : noir complet pour qui dort, un brouillard
+    -- La nuit, qui dort garde la tete baissee (vue_assise.lua), dans le
+    -- brouillard, l'image voilee, sombre et presque sans couleur ; un voile
     -- sombre ou l'on devine les silhouettes pour qui agit (loups, voyante...),
     -- un voile leger pour les morts qui suivent la partie. Le jour, rien.
-    -- StartCameraFade (doc Player) ; le HUD reste au-dessus.
-    local NUIT = config.nuit or { dort = 1.0, agit = 0.72, mort = 0.35, fondu = 1.5 }
+    -- StartCameraFade (doc Player), Sky.SetFog, PostProcess ; le HUD reste
+    -- au-dessus.
+    local NUIT = config.nuit or { dort = 0.45, agit = 0.72, mort = 0.35, fondu = 1.5,
+        brume = 100, brume_jour = 0, vignette = 1.6, grain = 0.4, couleur = 0.2 }
     local COULEUR_NUIT = Color(0.02, 0.03, 0.07)
+    local endormi = false
+
+    local function sommeil(oui)
+        if oui == endormi then return end
+        endormi = oui
+        pcall(Sky.SetFog, oui and NUIT.brume or NUIT.brume_jour)
+        pcall(PostProcess.SetImageEffects, oui and NUIT.vignette or 0.6, oui and NUIT.grain or 0)
+        pcall(PostProcess.SetGlobalSaturation, Color(1, 1, 1, oui and NUIT.couleur or 1))
+    end
+
     local function ambiance()
         local player = Client.GetLocalPlayer()
         if not player then return end
         local ph = etat.phase and PHASES[etat.phase]
         local voile = 0
+        local dort = false
         if ph and ph.icone == "lune" then
+            dort = not etat.mort and not peut_designer()
             voile = etat.mort and NUIT.mort or (peut_designer() and NUIT.agit or NUIT.dort)
         end
-        Ecran.noir = voile >= 1
+        Ecran.noir = dort        -- pseudos et marques caches
+        Ecran.baisse = dort      -- tete baissee, souris bloquee (vue_assise.lua)
+        sommeil(dort)
         if voile == etat.voile then return end
         local depuis = etat.voile or 0
         etat.voile = voile
