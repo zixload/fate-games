@@ -80,4 +80,31 @@ return function(disposition, reglage)
             erreur_signalee = false
         end
     end)
+    -- Le coeur bat chez celui qui doit prendre le revolver, jusqu'au coup
+    -- (A_lg_coeur, le battement du loup-garou).
+    local coeur = nil
+    local function ma_chaise()
+        local p = Client.GetLocalPlayer()
+        local perso = p and p:GetControlledCharacter()
+        local chaise = perso and perso:IsValid() and perso:GetValue("liars_chair", 0) or 0
+        return type(chaise) == "number" and chaise or 0
+    end
+    local function coeur_off()
+        if coeur and coeur:IsValid() then pcall(function() coeur:FadeOut(0.6, 0, true) end) end
+        coeur = nil
+    end
+    Events.SubscribeRemote("liars:designated", function(chaise)
+        coeur_off()
+        if not chaise or chaise ~= ma_chaise() or chaise == 0 then return end
+        local ok, son = pcall(function()
+            local s = Sound(Vector(), chemin("lg_coeur"), true, false, SoundType.SFX, reglage.volume_coeur or 0.5, 1,
+                400, 3600, AttenuationFunction and AttenuationFunction.Linear or nil, true, SoundLoopMode.Forever, false)
+            s:FadeIn(0.8, 1)
+            return s
+        end)
+        if ok then coeur = son else Console.Error("[liars] coeur : " .. tostring(son)) end
+    end)
+    for _, evenement in ipairs({ "liars:shoot", "liars:gun_cancelled", "liars:round_ended", "liars:match_ended" }) do
+        Events.SubscribeRemote(evenement, coeur_off)
+    end
 end
