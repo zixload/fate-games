@@ -155,6 +155,22 @@ return {
         -- Cartes 3D dans les mains, rallumees le 26/09 sur l'os de la main.
         en_main = true,
 
+        -- Cartes plates : nos dessins (scripts/cartes/cartes.html, copies dans
+        -- Client/liars_bar/cartes/) sur deux SM_Plane dos a dos, a la place des
+        -- modeles du jeu de 52. rot : la plaque face dans le repere de la carte
+        -- (face traversee par Y, hauteur Z) ; rot_dos : la plaque dos dans celui
+        -- de la face. A verifier en jeu : /fan plaque face|dos p y r, /fan
+        -- plaque retourner (echange les cotes), /fan plaque taille l h.
+        plates = {
+            actif     = true,
+            images    = "package://fate-games/Client/liars_bar/cartes/",
+            materiau  = "nanos-world::M_Default_Masked_Lit",
+            largeur   = 5.9, hauteur = 8.9,   -- cm, comme les anciens modeles
+            rot       = { p = 0, y = 0, r = -90 },
+            rot_dos   = { p = 180, y = 0, r = 0 },
+            retourner = false,
+        },
+
         -- Mouvements des cartes (Client/liars_bar/rendu.lua), en secondes et cm :
         -- duree d'un vol, hauteur de l'arc, ecart entre deux cartes d'une meme
         -- donne, pose ou revelation, et fenetre ou une main qui se remplit fait

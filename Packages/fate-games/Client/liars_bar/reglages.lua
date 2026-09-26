@@ -23,7 +23,11 @@
 --   /fan ecart -1          ajuste un nombre (avec signe), ou /fan ecart 3 le
 --                          remplace, ou /fan ecart l'affiche :
 --   /fan <nombre> n        ecart, rayon, taille, levee, curseur, profondeur,
---                          epaisseur, dispersion
+--                          epaisseur, dispersion, echelle, ecart_revelation
+--   /fan plaque face p y r cartes plates : plaque face dans la carte,
+--   /fan plaque dos p y r    plaque dos dans la face,
+--   /fan plaque taille l h   largeur et hauteur (cm),
+--   /fan plaque retourner    echange face et dos
 
 return function(config, Rendu)
     local VECTEURS = {
@@ -73,6 +77,22 @@ return function(config, Rendu)
             Rendu.Demo(not Rendu.IsDemo())
             Events.CallRemote("liars:fan_demo", Reliability.Reliable, Rendu.IsDemo())
             Chat.AddMessage("demo : " .. (Rendu.IsDemo() and "active" or "coupee"))
+        elseif cle == "plaque" and config.plates then
+            local pl = config.plates
+            local quoi = mots[3]
+            local a, b, c = tonumber(mots[4]), tonumber(mots[5]), tonumber(mots[6])
+            if quoi == "retourner" then
+                pl.retourner = not pl.retourner
+            elseif (quoi == "face" or quoi == "dos") and a and b and c then
+                pl[quoi == "face" and "rot" or "rot_dos"] = { p = a, y = b, r = c }
+            elseif quoi == "taille" and a and b then
+                pl.largeur, pl.hauteur = a, b
+            end
+            Rendu.Reconstruire()
+            Chat.AddMessage(("/fan plaque face %s %s %s   /fan plaque dos %s %s %s"):format(
+                pl.rot.p, pl.rot.y, pl.rot.r, pl.rot_dos.p, pl.rot_dos.y, pl.rot_dos.r))
+            Chat.AddMessage(("/fan plaque taille %s %s   retourner : %s"):format(
+                pl.largeur, pl.hauteur, tostring(pl.retourner)))
         elseif cle == "sens" or cle == "empilement" then
             -- Bascule : les cartes tournent dans l'autre sens, ou l'autre carte
             -- passe devant.

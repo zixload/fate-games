@@ -24,7 +24,11 @@ return function(config, Cartes, journal, disposition)
 
     -- Du pivot du modele au centre visible de la carte, tourne par r ; e :
     -- echelle de la carte (1 en main, table.echelle sur la table).
+    local plates = config.plates and config.plates.actif and config.plates or nil
+
     local function vers_centre(modele, r, e)
+        -- Les cartes plates ont leur centre a l'origine.
+        if plates then return Vector(0, 0, 0) end
         local o = Cartes.Centre(modele)
         e = e or 1
         return r:RotateVector(Vector(o.x * e, o.y * e, o.z * e))
@@ -36,9 +40,33 @@ return function(config, Cartes, journal, disposition)
         return config.table.echelle or 1
     end
 
+    -- Cartes plates : les plaques de chaque carte (face et dos), pour les
+    -- montrer, les cacher et les detruire avec elle.
+    local plaques = setmetatable({}, { __mode = "k" })
+
+    local function detruire_carte(o)
+        for _, pl in ipairs(plaques[o] or {}) do
+            if pl:IsValid() then pl:Destroy() end
+        end
+        plaques[o] = nil
+        if o and o:IsValid() then o:Destroy() end
+    end
+
     local function detruire(objets)
-        for _, o in ipairs(objets or {}) do
-            if o and o:IsValid() then o:Destroy() end
+        for _, o in ipairs(objets or {}) do detruire_carte(o) end
+    end
+
+    -- La visibilite d'un acteur ne passe pas a ce qui lui est accroche (les
+    -- supports invisibles portent des cartes visibles) : une carte plate
+    -- montre ou cache ses deux plaques.
+    local function montrer(c, oui)
+        if not (c and c:IsValid()) then return end
+        if plaques[c] then
+            for _, pl in ipairs(plaques[c]) do
+                if pl:IsValid() then pl:SetVisibility(oui) end
+            end
+        else
+            c:SetVisibility(oui)
         end
     end
 
@@ -49,6 +77,60 @@ return function(config, Cartes, journal, disposition)
     local function sans_collision(objet)
         objet:SetCollision(CollisionType.NoCollision)
         pcall(function() objet:SetCastShadow(false) end)
+    end
+
+    -- Le dessin (Client/liars_bar/cartes/<nom>.png) d'un modele du jeu de 52 :
+    -- les anciens noms de modeles restent la cle, pour que la main, le tas et
+    -- la revelation ne changent pas. DOS : une carte vue de dos des deux cotes.
+    local DOS = plates and "dos" or config.back_mesh
+    local DESSINS = { Ace = "as", King = "roi", Queen = "dame" }
+    local function dessin(modele)
+        if modele == "dos" then return "dos" end
+        if modele == config.joker_mesh then return "joker" end
+        local valeur = tostring(modele):match("::(%a+)_of_")
+        return DESSINS[valeur] or "dos"
+    end
+
+    local function plaque(parent, image, r, l)
+        local pl = StaticMesh(Vector(), Rotator(), "nanos-world::SM_Plane", CollisionType.NoCollision)
+        sans_collision(pl)
+        pl:AttachTo(parent, AttachmentRule.SnapToTarget, "", 0)
+        pl:SetRelativeRotation(r)
+        if l then pl:SetRelativeLocation(l) end
+        local ok, err = pcall(function()
+            pl:SetMaterial(plates.materiau)
+            pl:SetMaterialTextureParameter("Texture", plates.images .. image .. ".png")
+        end)
+        if not ok then Console.Error("[cartes plates] " .. tostring(err)) end
+        return pl
+    end
+
+    -- Une carte. Plate : un support invisible qui garde la convention des
+    -- anciens modeles (face traversee par Y, largeur X, hauteur Z, centre a
+    -- l'origine), et deux SM_Plane dos a dos (plan de 100 x 100, normale Z) :
+    -- l'eventail, le tas et les vols gardent leurs reglages.
+    local function nouvelle_carte(modele, position, rotation)
+        if not plates then
+            local c = StaticMesh(position, rotation, modele, CollisionType.NoCollision)
+            sans_collision(c)
+            return c
+        end
+        local c = StaticMesh(position, rotation, config.pivot_mesh, CollisionType.NoCollision)
+        sans_collision(c)
+        c:SetVisibility(false)
+        local recto, verso = dessin(modele), "dos"
+        if plates.retourner then recto, verso = verso, recto end
+        local face = plaque(c, recto, rot(plates.rot))
+        face:SetScale(Vector(plates.largeur / 100, plates.hauteur / 100, 1))
+        local dos = plaque(face, verso, rot(plates.rot_dos), Vector(0, 0, -0.03))
+        plaques[c] = { face, dos }
+        return c
+    end
+
+    -- Taille d'une carte : e = 1 en main, table.echelle sur la table.
+    local function mettre_a_l_echelle(c, e)
+        local t = (plates and 1 or config.fan.taille) * (e or 1)
+        c:SetScale(Vector(t, t, t))
     end
 
     -- Support invisible accroche a parent (a un os si os_nom est donne).
@@ -63,13 +145,11 @@ return function(config, Cartes, journal, disposition)
     end
 
     local function carte_accrochee(modele, parent)
-        local c = StaticMesh(Vector(), Rotator(), modele, CollisionType.NoCollision)
-        sans_collision(c)
+        local c = nouvelle_carte(modele, Vector(), Rotator())
         c:AttachTo(parent, AttachmentRule.SnapToTarget, "", 0)
         local r = rot(config.fan.carte)
         c:SetRelativeRotation(r)
-        local t = config.fan.taille
-        c:SetScale(Vector(t, t, t))
+        mettre_a_l_echelle(c, 1)
         -- Le pivot du modele est loin de la carte : on la recule d'autant,
         -- pour que ce soit son centre qui soit sur la fente.
         c:SetRelativeLocation(vers_centre(modele, r) * -1)
@@ -119,10 +199,8 @@ return function(config, Cartes, journal, disposition)
     end
 
     local function carte_libre(modele, position, rotation, e)
-        local c = StaticMesh(position, rotation, modele, CollisionType.NoCollision)
-        sans_collision(c)
-        local t = config.fan.taille * (e or 1)
-        c:SetScale(Vector(t, t, t))
+        local c = nouvelle_carte(modele, position, rotation)
+        mettre_a_l_echelle(c, e)
         return c
     end
 
@@ -187,7 +265,7 @@ return function(config, Cartes, journal, disposition)
             local v = vols[i]
             v.t = v.t + delta
             if v.t >= v.duree or not v.c:IsValid() then
-                if v.c:IsValid() then v.c:Destroy() end
+                detruire_carte(v.c)
                 table.remove(vols, i)
                 if v.fin then pcall(v.fin) end
             elseif v.t > 0 then
@@ -202,8 +280,7 @@ return function(config, Cartes, journal, disposition)
                     v.de.Y + (v.vers.Y - v.de.Y) * k,
                     v.de.Z + (v.vers.Z - v.de.Z) * k + haut)
                 local e = v.e_de + (v.e_vers - v.e_de) * k
-                local t = config.fan.taille * e
-                v.c:SetScale(Vector(t, t, t))
+                mettre_a_l_echelle(v.c, e)
                 v.c:SetRotation(r)
                 v.c:SetLocation(centre - vers_centre(v.modele, r, e))
             end
@@ -263,10 +340,10 @@ return function(config, Cartes, journal, disposition)
         local de, de_rot = lieu_table(config.table.decalage, config.table.dos, 0, centre)
         for i, c in ipairs(cartes) do
             if c:IsValid() then
-                local vers, vers_rot = visuel(c, modeles[i] or config.back_mesh)
-                c:SetVisibility(false)
-                voler(config.back_mesh, de, de_rot, vers, vers_rot, (i - 1) * (anim.ecart_donne or 0.09), function()
-                    if c:IsValid() then c:SetVisibility(true) end
+                local vers, vers_rot = visuel(c, modeles[i] or DOS)
+                montrer(c, false)
+                voler(DOS, de, de_rot, vers, vers_rot, (i - 1) * (anim.ecart_donne or 0.09), function()
+                    montrer(c, true)
                 end, echelle_table(), 1)
             end
         end
@@ -334,7 +411,7 @@ return function(config, Cartes, journal, disposition)
                         for i = 1, nombre do
                             -- En demo, des faces : on voit dans quel sens la carte tient.
                             modeles[i] = demo and not next(journal.counts)
-                                and Cartes.Mesh(DEMO_MAIN[i] or "king", (i % 4) + 1) or config.back_mesh
+                                and Cartes.Mesh(DEMO_MAIN[i] or "king", (i % 4) + 1) or DOS
                         end
                         groupe.objets, groupe.cartes = eventail(perso, os_de(perso), modeles, {})
                         groupe.cle, groupe.nombre = cle, nombre
@@ -378,7 +455,7 @@ return function(config, Cartes, journal, disposition)
         local tbl = config.table
         for k = 1, caches do
             local p = Cartes.Tas(k, tbl)
-            tas.objets[#tas.objets + 1] = carte_posee(config.back_mesh, p, tbl.dos, p.yaw, centre)
+            tas.objets[#tas.objets + 1] = carte_posee(DOS, p, tbl.dos, p.yaw, centre)
         end
         for i, rang in ipairs(revelees) do
             local p = Cartes.Revelee(#revelees, i, tbl)
@@ -389,18 +466,23 @@ return function(config, Cartes, journal, disposition)
 
     ---------------------------------------------------------------- mouvements du jeu
 
-    -- Une copie de la carte c, a sa place exacte, accrochee a l'os de la main
-    -- qui tient l'eventail : elle suit le geste de pose (ANIM_Seated_Card_Play,
-    -- joue par le serveur au meme moment) meme quand l'eventail est redessine
-    -- sans elle.
-    local function carte_tenue(c, modele, perso)
+    -- La carte i (sur n) de l'eventail, refaite seule avec sa propre chaine :
+    -- os de la main, pivot, fente, exactement comme eventail(). Elle suit le
+    -- geste de pose (ANIM_Seated_Card_Play, joue par le serveur au meme
+    -- moment) meme quand l'eventail est redessine sans elle. Une copie
+    -- accrochee en KeepWorld, lue sur la carte d'origine, partait en l'air et
+    -- tournee : ici rien n'est lu dans le monde, tout est relatif. Rend la
+    -- carte et le pivot a detruire.
+    local function carte_tenue(perso, modele, n, i, levee)
         if not (perso and perso:IsValid()) then return nil end
-        local tenue = StaticMesh(c:GetLocation(), c:GetRotation(), modele, CollisionType.NoCollision)
-        sans_collision(tenue)
-        local t = config.fan.taille
-        tenue:SetScale(Vector(t, t, t))
-        tenue:AttachTo(perso, AttachmentRule.KeepWorld, os_de(perso), 0)
-        return tenue
+        local pivot = support(perso, os_de(perso))
+        pivot:SetRelativeLocation(vec(config.fan.pos))
+        pivot:SetRelativeRotation(rot(config.fan.rot))
+        local f = Cartes.Fente(n, i, config.fan, levee or 0)
+        local fente = support(pivot)
+        fente:SetRelativeLocation(Vector(f.x, f.y, f.z))
+        fente:SetRelativeRotation(Rotator(f.p, f.yaw, f.r))
+        return carte_accrochee(modele, fente), pivot, fente
     end
 
     -- Quelqu'un pose : comme dans l'animation, ses cartes restent dans sa main
@@ -415,20 +497,22 @@ return function(config, Cartes, journal, disposition)
         if chaise == journal.my_chair then
             for i, c in ipairs(ma_main.cartes) do
                 if (ma_main.levees[i] or 0) >= config.fan.levee and c:IsValid() then
-                    depart[#depart + 1] = { c = c, modele = ma_main.modeles[i] }
+                    depart[#depart + 1] = { c = c, modele = ma_main.modeles[i],
+                        i = i, n = #ma_main.cartes, levee = ma_main.levees[i] }
                 end
             end
             if #depart ~= nombre then
                 depart = {}
                 for i = #ma_main.cartes, math.max(1, #ma_main.cartes - nombre + 1), -1 do
-                    depart[#depart + 1] = { c = ma_main.cartes[i], modele = ma_main.modeles[i] }
+                    depart[#depart + 1] = { c = ma_main.cartes[i], modele = ma_main.modeles[i],
+                        i = i, n = #ma_main.cartes, levee = ma_main.levees[i] }
                 end
             end
         else
             local groupe = autres[chaise]
             local cartes = groupe and groupe.cartes or {}
             for i = #cartes, math.max(1, #cartes - nombre + 1), -1 do
-                depart[#depart + 1] = { c = cartes[i], modele = config.back_mesh }
+                depart[#depart + 1] = { c = cartes[i], modele = DOS, i = i, n = #cartes, levee = 0 }
             end
         end
 
@@ -446,12 +530,12 @@ return function(config, Cartes, journal, disposition)
             local p = Cartes.Tas(premiere + n - 1, tbl)
             local vers, vers_rot = lieu_table(p, tbl.dos, p.yaw, centre)
             local src = depart[n]
-            local modele = src and src.modele or config.back_mesh
-            local tenue = nil
+            local modele = src and src.modele or DOS
+            local tenue, chaine = nil, {}
             if src and src.c and src.c:IsValid() then
-                local ok, t = pcall(carte_tenue, src.c, modele, perso)
-                tenue = ok and t or nil
-                src.c:SetVisibility(false)
+                local ok, t, pivot, fente = pcall(carte_tenue, perso, modele, src.n, src.i, src.levee)
+                if ok then tenue, chaine = t, { fente, pivot } end
+                montrer(src.c, false)
             end
             vers_le_tas = vers_le_tas + 1
             local function arrivee()
@@ -464,7 +548,8 @@ return function(config, Cartes, journal, disposition)
                 local de, de_rot
                 if tenue and tenue:IsValid() then
                     de, de_rot = visuel(tenue, modele)
-                    tenue:Destroy()
+                    detruire_carte(tenue)
+                    detruire(chaine)
                 elseif perso and perso:IsValid() then
                     de, de_rot = perso:GetLocation() + Vector(0, 0, 40), perso:GetRotation()
                 end
