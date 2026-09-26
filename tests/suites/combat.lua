@@ -615,4 +615,81 @@ return function(H)
             H.assert_eq(a.pos.x, 5, "deplace")
         end)
     end)
+
+    H.describe("combat/robustesse", function()
+        H.it("150 melees au hasard : jauges bornees, les morts ne font rien", function()
+            local function lcg(graine)
+                local x = graine
+                return function(k)
+                    x = (x * 1103515245 + 12345) % 2147483648
+                    return (x // 65536) % k + 1
+                end
+            end
+            local ARMES = { "poings", "dague", "epee_courte", "epee_longue", "hache", "masse", "lance",
+                "epee_bouclier", "baton", "pistolet", "revolver", "fusil", "fusil_pompe", "arc", "arbalete" }
+            local SORTS = { "trait_de_feu", "onde_de_choc", "eclair", "gel", "soin", "barriere", "bond" }
+            local DIRS = { "gauche", "droite", "haut" }
+            local ARMURES = { "aucune", "tissu", "cuir", "mailles", "plaques" }
+            for graine = 1, 150 do
+                local r = lcg(graine)
+                local w = Combat.nouveau({ a_terre = { actif = graine % 3 == 0 } })
+                local ids = {}
+                for i = 1, 2 + r(4) do
+                    local id = "c" .. i
+                    ids[i] = id
+                    Combat.ajouter(w, id, { arme = ARMES[r(#ARMES)], armure = ARMURES[r(#ARMURES)],
+                        camp = r(3), pos = G.v(r(600) - 300, r(600) - 300, 90), yaw = r(360) })
+                end
+                for _ = 1, 600 do
+                    for _, id in ipairs(ids) do
+                        local f = w.combattants[id]
+                        local cible = w.combattants[ids[r(#ids)]]
+                        Combat.placer(w, id, G.plus(f.pos, G.v(r(21) - 11, r(21) - 11, 0)),
+                            G.lacet_vers(f.pos, cible.pos) + r(40) - 20, r(40) - 25)
+                        local choix = r(14)
+                        local mort = f.etat == "mort"
+                        local fx
+                        if choix == 1 then fx = Combat.attaquer(w, id, r(2) == 1 and "legere" or "lourde", DIRS[r(3)])
+                        elseif choix == 2 then fx = Combat.garder(w, id, DIRS[r(3)])
+                        elseif choix == 3 then fx = Combat.lacher_garde(w, id)
+                        elseif choix == 4 then fx = Combat.esquiver(w, id, "gauche")
+                        elseif choix == 5 then fx = Combat.feinter(w, id)
+                        elseif choix == 6 then
+                            local o = G.v(f.pos.x, f.pos.y, f.pos.z + 62)
+                            fx = Combat.tirer(w, id, { origine = o, cible = cible.id, ping = r(30) / 100,
+                                direction = G.moins(G.v(cible.pos.x, cible.pos.y, cible.pos.z + r(100) - 50), o) })
+                        elseif choix == 7 then fx = Combat.recharger(w, id)
+                        elseif choix == 8 then fx = Combat.bander(w, id)
+                        elseif choix == 9 then
+                            fx = Combat.decocher(w, id, G.v(f.pos.x, f.pos.y, f.pos.z + 62), G.moins(cible.pos, f.pos))
+                        elseif choix == 10 then fx = Combat.incanter(w, id, SORTS[r(#SORTS)], cible.id)
+                        elseif choix == 11 then fx = Combat.sprinter(w, id, r(2) == 1)
+                        elseif choix == 12 then fx = Combat.relever(w, id, cible.id)
+                        elseif choix == 13 then fx = Combat.achever(w, id, cible.id)
+                        elseif choix == 14 and r(40) == 1 then fx = Combat.equiper(w, id, ARMES[r(#ARMES)])
+                        end
+                        if mort and choix ~= 3 and choix ~= 11 then
+                            for _, e in ipairs(fx or {}) do
+                                H.assert_true(e.kind ~= "attaque" and e.kind ~= "tir" and e.kind ~= "incantation",
+                                    "un mort ne fait rien (graine " .. graine .. ")")
+                            end
+                        end
+                    end
+                    Combat.avancer(w, 0.05)
+                    for _, id in ipairs(ids) do
+                        local f = w.combattants[id]
+                        H.assert_true(f.sante >= 0 and f.sante <= f.sante_max, "sante bornee (graine " .. graine .. ")")
+                        H.assert_true(f.endurance >= 0 and f.endurance <= f.endurance_max, "endurance bornee")
+                        H.assert_true(f.posture >= 0 and f.posture <= f.posture_max, "posture bornee")
+                        H.assert_true(f.mana >= 0 and f.mana <= f.mana_max, "mana borne")
+                        H.assert_true(f.munitions >= 0, "munitions positives")
+                        if f.etat == "mort" then H.assert_eq(f.sante, 0, "un mort a 0") end
+                    end
+                end
+                -- Tout projectile finit par disparaitre.
+                for _ = 1, 120 do Combat.avancer(w, 0.05) end
+                H.assert_nil(next(w.projectiles), "projectiles nettoyes (graine " .. graine .. ")")
+            end
+        end)
+    end)
 end
