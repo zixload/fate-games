@@ -31,7 +31,7 @@ Package.Require("posture.lua")
 Package.Require("vue_assise.lua")
 Package.Require("regard_assis.lua")
 
--- F1 : cacher tout l'affichage superpose, pour les captures d'ecran.
+-- F1 : cacher les logs en haut a gauche, pour les captures d'ecran.
 Package.Require("photo.lua")
 
 -- Marcher par defaut, Maj pour courir.

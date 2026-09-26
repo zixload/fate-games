@@ -220,10 +220,11 @@ return function(config, Journal, send_intent, cartes_cfg)
     local photo = Package.Require("photo.lua")
 
     canvas:Subscribe("Update", function(self, width, height)
-        -- Mode capture (F1) : rien a l'ecran.
-        if photo.cache then return end
         -- Rien a montrer tant que la table n'a rien dit.
         if #journal.lines == 0 then return end
+        -- Mode capture (F1) : l'etat et le journal en haut a gauche
+        -- disparaissent, la main reste.
+        if photo.cache then return dessiner_main(self, width, height) end
 
         -- L'etat, en haut a gauche.
         local etat = { journal.my_chair and ("Ta chaise : %d"):format(journal.my_chair) or "Spectateur" }

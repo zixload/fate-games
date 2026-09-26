@@ -4,11 +4,6 @@
 return function(interaction)
     local page = WebUI("interaction-invite", "file://interaction/invite.html",
         WidgetVisibility.VisibleNotHitTestable, true, true)
-    -- Mode capture (F1, Client/photo.lua) : la page disparait le temps des captures.
-    Events.Subscribe("zix:photo", function(cache)
-        page:SetVisibility(cache and WidgetVisibility.Hidden or WidgetVisibility.VisibleNotHitTestable)
-    end)
-
     local pret = false
     local kind = nil
     local gun_state = nil
