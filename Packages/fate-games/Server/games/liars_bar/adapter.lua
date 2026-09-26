@@ -49,6 +49,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         accuse = "",   -- bras tendu, slot UpperBody, pour garder la posture assise
         take = "my-asset-pack::ANIM_Seated_Revolver_Take",
         fire = "my-asset-pack::ANIM_Seated_Revolver_Fire",
+        fatal = "my-asset-pack::ANIM_Seated_Revolver_Fatal",
+        card_play = "my-asset-pack::ANIM_Seated_Card_Play",
     }
 
     -- Deux numerotations coexistent, et il ne faut jamais les confondre.
@@ -530,6 +532,14 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
     TRANSLATORS.cards_played = function(e)
         send(e.audience, "liars:cards_played", chair(e.seat), e.count)
+        local character = character_of(e.seat)
+        if character and character:IsValid() and character:IsA(CharacterSimple) then
+            local ok, err = pcall(function()
+                character:PlayAnimation(ANIMATIONS.card_play, "DefaultSlot", false,
+                    0.08, 0.12, 1.0, true)
+            end)
+            if not ok then Log.Warn("liars", "pose des cartes : " .. tostring(err)) end
+        end
     end
 
     TRANSLATORS.reveal = function(e)
@@ -581,6 +591,17 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         local character = character_of(e.seat)
         if character and character:IsValid() then
             character:SetValue("liars_alive", false, true)
+            character:SetValue("liars_dead", true, true)
+            character:SetValue("liars_look", { yaw = 0, pitch = 0 }, true)
+            character:SetValue("cartes", false, true)
+            if shot_sequence and shot_sequence.chair == c
+                and character:IsA(CharacterSimple) then
+                local ok, err = pcall(function()
+                    character:PlayAnimation(ANIMATIONS.fatal, "DefaultSlot", false,
+                        0.04, -1, 1.0, true)
+                end)
+                if not ok then Log.Warn("liars", "chute fatale : " .. tostring(err)) end
+            end
         end
         send(e.audience, "liars:eliminated", c)
         Log.Info("liars", ("chaise %s eliminee"):format(tostring(c)))
@@ -868,7 +889,23 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             end
             Timer.SetTimeout(function()
                 if shot_sequence ~= sequence then return end
-                dispatch(effects, cid)
+                -- Une derniere elimination laisse voir la chute avant que la
+                -- fin de partie ne releve les joueurs et detruise les bots.
+                local fin
+                local immediats = {}
+                for _, effect in ipairs(effects) do
+                    if effect.kind == "match_ended" then
+                        fin = effect
+                    else
+                        immediats[#immediats + 1] = effect
+                    end
+                end
+                dispatch(immediats, cid)
+                if fin then
+                    Timer.SetTimeout(function()
+                        if state then dispatch({ fin }, cid) end
+                    end, 1450)
+                end
             end, 70)
             Timer.SetTimeout(function()
                 if shot_sequence ~= sequence then return end
@@ -1113,6 +1150,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             if character and character:IsValid() then
                 character:SetValue("liars_fired", 0, true)
                 character:SetValue("liars_alive", true, true)
+                character:SetValue("liars_dead", false, true)
             end
         end
         send("all", "liars:started", annonce)

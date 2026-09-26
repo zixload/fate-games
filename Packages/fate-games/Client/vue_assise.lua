@@ -62,19 +62,21 @@ Timer.SetInterval(function()
         local yaw = math.max(-R.lacet_max, math.min(R.lacet_max,
             angle(rotation.Yaw - orientation_chaise) * R.gain))
         local regard_pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch * R.gain))
-        -- La rotation du regard est repartie entre cou et tete dans le rig.
-        perso:SetAnimationBlueprintPropertyValue("LookNeck",
-            Rotator(yaw * R.cou, 0, regard_pitch * R.cou))
-        perso:SetAnimationBlueprintPropertyValue("LookHead",
-            Rotator(yaw * R.tete, 0, regard_pitch * R.tete))
+        if not perso:GetValue("liars_dead", false) then
+            -- La tete ne doit pas suivre la camera pendant la chute figee.
+            perso:SetAnimationBlueprintPropertyValue("LookNeck",
+                Rotator(yaw * R.cou, 0, regard_pitch * R.cou))
+            perso:SetAnimationBlueprintPropertyValue("LookHead",
+                Rotator(yaw * R.tete, 0, regard_pitch * R.tete))
 
-        local maintenant = Client.GetTime()
-        if maintenant - dernier_envoi >= 100 and (dernier_yaw == nil
-            or math.abs(yaw - dernier_yaw) >= 1
-            or math.abs(regard_pitch - dernier_pitch) >= 1) then
-            Events.CallRemote("zix:regard_assis", Reliability.Unreliable, yaw, regard_pitch)
-            dernier_envoi = maintenant
-            dernier_yaw, dernier_pitch = yaw, regard_pitch
+            local maintenant = Client.GetTime()
+            if maintenant - dernier_envoi >= 100 and (dernier_yaw == nil
+                or math.abs(yaw - dernier_yaw) >= 1
+                or math.abs(regard_pitch - dernier_pitch) >= 1) then
+                Events.CallRemote("zix:regard_assis", Reliability.Unreliable, yaw, regard_pitch)
+                dernier_envoi = maintenant
+                dernier_yaw, dernier_pitch = yaw, regard_pitch
+            end
         end
     end)
     if not ok and not erreur_signalee then

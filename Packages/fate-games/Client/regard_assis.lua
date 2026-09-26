@@ -15,6 +15,7 @@ end
 
 local function cible(character, regard)
     if est_local(character) then return end
+    if character:GetValue("liars_dead", false) then return end
     if type(regard) ~= "table" then return end
     local yaw, pitch = tonumber(regard.yaw), tonumber(regard.pitch)
     if not (yaw and pitch) then return end
@@ -36,6 +37,10 @@ end
 CharacterSimple.Subscribe("ValueChange", function(self, key, value)
     if key == "liars_look" then
         cible(self, value)
+    elseif key == "liars_dead" and value == true then
+        cibles[self] = nil
+        courants[self] = nil
+        pcall(appliquer, self, 0, 0)
     elseif key == "assis" and value == false then
         cibles[self] = nil
         courants[self] = nil
@@ -44,7 +49,7 @@ CharacterSimple.Subscribe("ValueChange", function(self, key, value)
 end)
 
 CharacterSimple.Subscribe("Spawn", function(self)
-    if self:GetValue("assis", false) then
+    if self:GetValue("assis", false) and not self:GetValue("liars_dead", false) then
         cible(self, self:GetValue("liars_look", nil))
     end
 end)
