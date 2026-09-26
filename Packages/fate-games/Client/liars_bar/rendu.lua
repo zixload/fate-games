@@ -123,9 +123,14 @@ return function(config, Cartes, journal, disposition)
         -- Les deux plaques pendent du support, chacune a sa taille : accrochee
         -- a la face, la plaque dos gardait sa taille du monde (un plan de 1 m).
         local taille = Vector(plates.largeur / 100, plates.hauteur / 100, 1)
-        local face = plaque(c, recto, rot(plates.rot))
+        -- Le materiau s'affiche des deux cotes : c'est la plaque la plus proche
+        -- de l'oeil qui se voit. Le dos se pose donc derriere la face, a
+        -- l'oppose de sa normale (Z de la plaque, tourne par rot).
+        local r_face = rot(plates.rot)
+        local derriere = r_face:RotateVector(Vector(0, 0, 1)) * -0.05
+        local face = plaque(c, recto, r_face)
         face:SetScale(taille)
-        local dos = plaque(c, verso, rot(plates.rot_dos), Vector(0, -0.03, 0))
+        local dos = plaque(c, verso, rot(plates.rot_dos), derriere)
         dos:SetScale(taille)
         plaques[c] = { face, dos }
         return c

@@ -159,8 +159,9 @@ return {
         -- Client/liars_bar/cartes/) sur deux SM_Plane dos a dos, a la place des
         -- modeles du jeu de 52. rot, rot_dos : les plaques face et dos dans le
         -- repere de la carte (face traversee par Y, hauteur Z). Reglees en jeu
-        -- le 26/09 : face r -90 (normale +Y) et p 180 (le dessin etait a
-        -- l'envers), dos r 90 (normale -Y). /fan plaque face|dos p y r,
+        -- le 26/09 : face r -90 (normale -Y, vers le porteur) et p 180 (le
+        -- dessin etait a l'envers), dos r 90. Le materiau est a deux faces : le
+        -- dos est pose juste derriere la face (rendu.lua). /fan plaque face|dos p y r,
         -- /fan plaque retourner (echange les cotes), /fan plaque taille l h.
         plates = {
             actif     = true,
