@@ -165,8 +165,11 @@ return {
 
         table = {
             decalage   = { x = 20, y = 0, z = 0.5 }, -- tas, depuis le centre du plateau
-            dos        = { p = 0, y = 0, r = 180 },   -- carte face cachee
-            face       = { p = 0, y = 0, r = 0 },     -- carte revelee
+            -- La face est traversee par Y : un roulis de 90 couche la carte a
+            -- plat. Si le tas montre ses faces, inverser : /fan dos 0 0 90 et
+            -- /fan face 0 0 -90.
+            dos        = { p = 0, y = 0, r = -90 },   -- carte face cachee
+            face       = { p = 0, y = 0, r = 90 },    -- carte revelee
             epaisseur  = 0.3,   -- entre deux cartes du tas
             dispersion = 4,     -- desordre autour du tas
             ecart_revelation = 7,  -- entre deux cartes revelees

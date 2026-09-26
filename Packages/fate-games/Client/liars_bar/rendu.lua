@@ -22,6 +22,12 @@ return function(config, Cartes, journal, disposition)
     local function vec(t) return Vector(t.x, t.y, t.z) end
     local function rot(t) return Rotator(t.p, t.y, t.r) end
 
+    -- Du pivot du modele au centre visible de la carte, tourne par r.
+    local function vers_centre(modele, r)
+        local o = Cartes.Centre(modele)
+        return r:RotateVector(Vector(o.x, o.y, o.z))
+    end
+
     local function detruire(objets)
         for _, o in ipairs(objets or {}) do
             if o and o:IsValid() then o:Destroy() end
@@ -46,12 +52,6 @@ return function(config, Cartes, journal, disposition)
         s:SetVisibility(false)
         s:AttachTo(parent, AttachmentRule.SnapToTarget, os_nom or "", 0)
         return s
-    end
-
-    -- Du pivot du modele au centre visible de la carte, tourne par r.
-    local function vers_centre(modele, r)
-        local o = Cartes.Centre(modele)
-        return r:RotateVector(Vector(o.x, o.y, o.z))
     end
 
     local function carte_accrochee(modele, parent)
@@ -103,7 +103,8 @@ return function(config, Cartes, journal, disposition)
         return disposition.revolver_home
     end
 
-    -- Lieu et rotation monde d'une carte posee a plat sur la table.
+    -- Lieu (centre visible) et rotation monde d'une carte posee a plat sur la
+    -- table.
     local function lieu_table(lieu, orientation, lacet, centre)
         return Vector(centre.x + lieu.x, centre.y + lieu.y, centre.z + lieu.z),
             Rotator(orientation.p, orientation.y + (lacet or 0), orientation.r)
@@ -117,9 +118,11 @@ return function(config, Cartes, journal, disposition)
         return c
     end
 
+    -- Le modele est place par son pivot, loin de la carte : on le pose de
+    -- sorte que ce soit son centre visible qui soit au lieu voulu.
     local function carte_posee(modele, lieu, orientation, lacet, centre)
         local p, r = lieu_table(lieu, orientation, lacet, centre)
-        return carte_libre(modele, p, r)
+        return carte_libre(modele, p - vers_centre(modele, r), r)
     end
 
     local function os_de(personnage)
@@ -154,15 +157,14 @@ return function(config, Cartes, journal, disposition)
     local function angle(a) return (a + 180) % 360 - 180 end
     local function lisse(t) return t * t * (3 - 2 * t) end
 
-    -- de et vers sont des lieux de pivot (ce que rendent GetLocation et le
-    -- tas) ; le vol deplace le centre visible, sinon la carte tournerait
-    -- autour d'un point a 32 cm d'elle.
+    -- de et vers sont des centres visibles : le vol deplace le centre de la
+    -- carte, sinon elle tournerait autour d'un point a 32 cm d'elle.
     local function voler(modele, de, de_rot, vers, vers_rot, retard, a_l_arrivee)
-        local ok, c = pcall(carte_libre, modele, de, de_rot)
+        local ok, c = pcall(carte_libre, modele, de - vers_centre(modele, de_rot), de_rot)
         if not ok then return end
         vols[#vols + 1] = {
             c = c, modele = modele, de_rot = de_rot, vers_rot = vers_rot,
-            de = de + vers_centre(modele, de_rot), vers = vers + vers_centre(modele, vers_rot),
+            de = de, vers = vers,
             t = -(retard or 0), duree = anim.duree or 0.45, arc = anim.arc or 18,
             fin = a_l_arrivee,
         }
@@ -232,15 +234,21 @@ return function(config, Cartes, journal, disposition)
         derniere_main = sig
     end
 
+    -- Centre visible d'une carte deja posee (dans une main, sur la table).
+    local function visuel(c, modele)
+        local r = c:GetRotation()
+        return c:GetLocation() + vers_centre(modele, r), r
+    end
+
     -- Les cartes d'une main qui vient d'etre donnee partent du centre de la
     -- table, face cachee, et prennent leur place dans l'eventail.
-    local function faire_venir(cartes)
+    local function faire_venir(cartes, modeles)
         if Client.GetTime() > donne_jusqu_a then return end
         local centre = centre_table()
         local de, de_rot = lieu_table(config.table.decalage, config.table.dos, 0, centre)
         for i, c in ipairs(cartes) do
             if c:IsValid() then
-                local vers, vers_rot = c:GetLocation(), c:GetRotation()
+                local vers, vers_rot = visuel(c, modeles[i] or config.back_mesh)
                 c:SetVisibility(false)
                 voler(config.back_mesh, de, de_rot, vers, vers_rot, (i - 1) * (anim.ecart_donne or 0.09), function()
                     if c:IsValid() then c:SetVisibility(true) end
@@ -278,7 +286,7 @@ return function(config, Cartes, journal, disposition)
         ma_main.objets, ma_main.cartes = eventail(perso, os_de(perso), modeles, levees)
         ma_main.levees, ma_main.modeles = levees, modeles
         ma_main.cle = cle
-        if nouvelle then faire_venir(ma_main.cartes) end
+        if nouvelle then faire_venir(ma_main.cartes, modeles) end
     end
 
     -- Les mains a dessiner chez les autres : chaise -> nombre de cartes. En
@@ -315,7 +323,7 @@ return function(config, Cartes, journal, disposition)
                         end
                         groupe.objets, groupe.cartes = eventail(perso, os_de(perso), modeles, {})
                         groupe.cle, groupe.nombre = cle, nombre
-                        if nouvelle then faire_venir(groupe.cartes) end
+                        if nouvelle then faire_venir(groupe.cartes, modeles) end
                     end
                     autres[chaise] = groupe
                 end
@@ -404,7 +412,8 @@ return function(config, Cartes, journal, disposition)
             local src = depart[n]
             local de, de_rot, modele
             if src and src.c and src.c:IsValid() then
-                de, de_rot, modele = src.c:GetLocation(), src.c:GetRotation(), src.modele
+                modele = src.modele
+                de, de_rot = visuel(src.c, modele)
                 src.c:SetVisibility(false)
             elseif perso then
                 de, de_rot, modele = perso:GetLocation() + Vector(0, 0, 40), perso:GetRotation(), config.back_mesh
