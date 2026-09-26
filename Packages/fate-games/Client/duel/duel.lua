@@ -133,11 +133,14 @@ return function(SharedConfig)
     -- Position de la camera dans le repere du personnage (mesuree a l'arret),
     -- et balancement lisse qui suit la vitesse.
     local camera_locale, stable, balance = nil, 0, Vector(0, 0, 0)
+    -- Petite inclinaison quand on leve ou baisse les yeux, bornee et lissee.
+    local tangage_avant, bascule = nil, 0
 
     local function retirer_vue_arme()
         if vue_arme and vue_arme:IsValid() then vue_arme:Destroy() end
         vue_arme, vue_id = nil, nil
         camera_locale, stable, balance = nil, 0, Vector(0, 0, 0)
+        tangage_avant, bascule = nil, 0
     end
 
     local function angle(a) return (a + 180) % 360 - 180 end
@@ -215,11 +218,23 @@ return function(SharedConfig)
                 local visee = Rotator(rot.Pitch, angle(rot.Yaw - prot.Yaw), 0)
                 local decalage = visee:RotateVector(Vector((vm.avant or 38) - recul, vm.droite or 16, -(vm.bas or 15)))
                 local r = vm.rotation or { p = 0, y = 180, r = 0 }
+                -- L'arme suit le regard ; en plus, quand le regard monte ou descend,
+                -- elle s'incline a peine (au plus `inclinaison_max` degres) puis
+                -- revient.
+                local vitesse_tangage = tangage_avant and angle(rot.Pitch - tangage_avant) / math.max(delta, 0.001) or 0
+                tangage_avant = rot.Pitch
+                local borne = vm.inclinaison_max or 3
+                local voulue = math.max(-borne, math.min(borne, -vitesse_tangage * (vm.inclinaison or 0.02)))
+                bascule = bascule + (voulue - bascule) * k
+                -- Le modele est exporte canon vers -X et retourne d'un demi-tour
+                -- (r.y = 180) : dans ce repere, le tangage s'applique a l'envers.
+                local tangage = visee.Pitch + bascule
+                if math.abs(angle(r.y)) > 90 then tangage = -tangage end
                 -- Le decalage relatif est dans le repere du personnage, donc a son echelle.
                 local s = perso:GetScale().X
                 if not s or s == 0 then s = 1 end
                 vue_arme:SetRelativeLocation((camera_locale + decalage + balance) * (1 / s))
-                vue_arme:SetRelativeRotation(Rotator(visee.Pitch + r.p, visee.Yaw + r.y, r.r))
+                vue_arme:SetRelativeRotation(Rotator(tangage + r.p, visee.Yaw + r.y, r.r))
             end
         end
 
