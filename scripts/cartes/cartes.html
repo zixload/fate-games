@@ -25,6 +25,7 @@ const W = 357, H = 537;
 const ENCRE = "#1c2123", PAPIER = "#efe6d2", LAITON = "#d9b56a", LAITON_FONCE = "#8a6d3b";
 const SAUGE = "#9fbcb4", SAUGE_FONCE = "#5d7d76";
 const ARDOISE = "#9db0c6", ARDOISE_FONCE = "#5b728c";
+const GRIS_LOUP = "#8e979b", GRIS_LOUP_FONCE = "#5a6468";
 
 // Trait d'encre en deux passages, comme les contours des HUD : le trait
 // plein, puis un second plus fin, decale, a moitie efface.
@@ -98,16 +99,91 @@ const SYMBOLES = {
   },
 };
 
+// ---------------------------------------------------------------- Loup-Garou
+// Roles de la spec (docs/superpowers/specs/2026-09-15-loup-garou-design.md) :
+// loups, villageois, voyante.
+Object.assign(SYMBOLES, {
+  // Tete de loup de profil, gris, oeil laiton.
+  loup: () => {
+    const t = "M236 142 L250 214 Q276 250 270 300 Q262 334 236 344 L214 332 L200 346 L184 330 L168 340 "
+      + "Q150 318 146 300 L100 290 Q84 286 86 272 L88 262 Q84 248 98 246 L150 234 Q164 214 180 202 "
+      + "L196 140 L214 188 Z";
+    return encre(t, { fill: GRIS_LOUP })
+      + hachures("M236 142 L250 214 Q276 250 270 300 Q262 334 236 344 L214 332 L214 188 Z", 214, 142, 276, 346)
+      + encre("M204 168 L212 196", { w: 4 })
+      + encre("M170 238 Q184 224 200 232 Q186 248 170 238 Z", { fill: LAITON, w: 4 })
+      + encre("M182 234m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0", { fill: ENCRE, w: 2 })
+      + encre("M86 262 Q80 252 92 250 L100 252 Q98 262 86 262 Z", { fill: ENCRE, w: 3 })
+      + encre("M100 280 Q124 286 148 282", { w: 4 })
+      + encre("M112 281 L116 290 L120 282 M130 283 L134 292 L138 283", { fill: PAPIER, w: 2.5 });
+  },
+  // Chaumiere : toit laiton, murs sauge, porte et fenetre.
+  villageois: () => {
+    const toit = "M78 256 L178 158 L278 256 Z";
+    const murs = "M100 250 L256 250 L256 342 L100 342 Z";
+    return encre("M226 190 L226 150 L248 150 L248 212", { fill: LAITON_FONCE, w: 5 })
+      + encre(murs, { fill: SAUGE })
+      + hachures("M178 250 L256 250 L256 342 L178 342 Z", 178, 250, 258, 342)
+      + encre(toit, { fill: LAITON })
+      + hachures("M178 158 L278 256 L178 256 Z", 178, 158, 280, 256)
+      + encre("M156 342 L156 290 Q170 276 184 290 L184 342", { fill: LAITON_FONCE, w: 5 })
+      + encre("M206 276 L238 276 L238 304 L206 304 Z", { fill: PAPIER, w: 4 })
+      + encre("M222 276 L222 304 M206 290 L238 290", { w: 3 })
+      + encre("M236 132 Q246 120 238 108 M246 128 Q258 114 250 100", { w: 3.5 });
+  },
+  // Boule de cristal sur son pied, un oeil dedans : la Voyante.
+  voyante: () => {
+    const boule = "M178 158m-80 0a80 80 0 1 0 160 0a80 80 0 1 0 -160 0";
+    return encre("M126 300 L230 300 L250 342 L106 342 Z", { fill: LAITON_FONCE })
+      + encre("M140 300 Q178 286 216 300", { w: 5 })
+      + `<g transform="translate(0 78)">`
+      + encre(boule, { fill: ARDOISE })
+      + hachures("M178 78 a80 80 0 0 1 0 160 Z", 178, 78, 260, 240)
+      + encre("M122 158 Q178 110 234 158 Q178 206 122 158 Z", { fill: PAPIER, w: 5 })
+      + encre("M178 158m-18 0a18 18 0 1 0 36 0a18 18 0 1 0 -36 0", { fill: SAUGE_FONCE, w: 4 })
+      + encre("M178 158m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0", { fill: ENCRE, w: 2 })
+      + encre("M126 116 Q138 98 158 90", { w: 4 })
+      + `</g>`;
+  },
+});
+
 const CARTES = {
   roi:   { lettre: "R", nom: "Roi",   symbole: SYMBOLES.roi,   graine: 5 },
   dame:  { lettre: "D", nom: "Dame",  symbole: SYMBOLES.dame,  graine: 9 },
   as:    { lettre: "A", nom: "As",    symbole: SYMBOLES.as,    graine: 13 },
   joker: { lettre: "J", nom: "Joker", symbole: SYMBOLES.joker, graine: 17 },
+  // Loup-Garou : Voyante et Villageois commencent par V, les coins portent
+  // une mini version du symbole.
+  loup:       { nom: "Loup-Garou", symbole: SYMBOLES.loup,       graine: 41, jeu: "loup" },
+  villageois: { nom: "Villageois", symbole: SYMBOLES.villageois, graine: 43, jeu: "loup" },
+  voyante:    { nom: "Voyante",    symbole: SYMBOLES.voyante,    graine: 47, jeu: "loup" },
 };
 
 // Le dos : encre pleine, cadre laiton trace a la main, un barillet de
 // revolver au centre (la table de Liar's Bar), symetrique pour se lire dans
 // les deux sens. Sombre, pour que les faces se detachent a cote.
+// Dos du Loup-Garou : encre, cadre laiton, croissant de lune et etoiles.
+function dosNuit() {
+  clipN = 0; clipPrefixe = "dosnuit";
+  const cadre = contourTrace(W - 44, H - 44, 22, 51, 1.3);
+  const cadre2 = contourTrace(W - 44, H - 44, 22, 56, 1.8);
+  const interieur = contourTrace(W - 84, H - 84, 16, 53, 1.1);
+  const cx = W / 2, cy = H / 2;
+  let etoiles = "";
+  const pos = [[92, 110], [262, 96], [300, 190], [70, 250], [110, 420], [280, 440], [236, 360], [150, 170], [300, 330], [64, 360]];
+  for (const [x, y] of pos) {
+    etoiles += `<path d="M${x} ${y - 9}L${x + 3} ${y - 3}L${x + 9} ${y}L${x + 3} ${y + 3}L${x} ${y + 9}L${x - 3} ${y + 3}L${x - 9} ${y}L${x - 3} ${y - 3}Z" fill="${LAITON}" opacity=".75"/>`;
+  }
+  return `<svg class="carte" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">`
+    + `<defs><mask id="croissant"><rect width="${W}" height="${H}" fill="white"/><circle cx="${cx + 38}" cy="${cy - 26}" r="80" fill="black"/></mask></defs>`
+    + `<rect width="${W}" height="${H}" fill="${ENCRE}"/>` + etoiles
+    + `<g transform="translate(22 22)"><path d="${cadre}" fill="none" stroke="${LAITON}" stroke-width="6" stroke-linejoin="round"/>`
+    + `<path d="${cadre2}" fill="none" stroke="${LAITON}" stroke-width="2" opacity=".4" transform="translate(2 1.5)"/></g>`
+    + `<g transform="translate(42 42)"><path d="${interieur}" fill="none" stroke="${LAITON}" stroke-width="2.5" opacity=".7"/></g>`
+    + `<circle cx="${cx}" cy="${cy}" r="96" fill="${LAITON}" stroke="${LAITON_FONCE}" stroke-width="6" mask="url(#croissant)"/>`
+    + `</svg>`;
+}
+
 function dos() {
   clipN = 0; clipPrefixe = "dos";
   const cadre = contourTrace(W - 44, H - 44, 22, 21, 1.3);
@@ -146,6 +222,12 @@ function coin(lettre, x, y, rot) {
     + `<text x="0" y="0" font-family="Lilita One" font-size="70" text-anchor="middle" fill="${ENCRE}">${lettre}</text></g>`;
 }
 
+// Coin a mini-symbole (cartes sans lettre).
+function coinSymbole(c, x, y, rot) {
+  const s = 0.2;
+  return `<g transform="translate(${x} ${y}) rotate(${rot}) translate(${-178 * s} ${-250 * s}) scale(${s})">${c.symbole()}</g>`;
+}
+
 function carte(nom) {
   const c = CARTES[nom];
   clipN = 0; clipPrefixe = nom;
@@ -156,21 +238,24 @@ function carte(nom) {
     + `<rect width="${W}" height="${H}" fill="${PAPIER}"/>`
     + `<g transform="translate(22 22)"><path d="${cadre}" fill="none" stroke="${ENCRE}" stroke-width="6" stroke-linejoin="round"/>`
     + `<path d="${cadre2}" fill="none" stroke="${ENCRE}" stroke-width="2" opacity=".35" transform="translate(2 1.5)"/></g>`
-    + coin(c.lettre, 66, 104, 0) + coin(c.lettre, W - 66, H - 104, 180)
+    + (c.lettre ? coin(c.lettre, 66, 104, 0) + coin(c.lettre, W - 66, H - 104, 180)
+                : coinSymbole(c, 74, 92, 0) + coinSymbole(c, W - 70, H - 64, 180))
     + `<g transform="translate(0 -6)">${c.symbole()}</g>`
-    + `<text x="${W / 2}" y="428" font-family="Lilita One" font-size="54" text-anchor="middle" fill="${ENCRE}">${c.nom}</text>`
+    + `<text x="${W / 2}" y="428" font-family="Lilita One" font-size="${c.nom.length > 7 ? 44 : 54}" text-anchor="middle" fill="${ENCRE}">${c.nom}</text>`
     + `<path d="M120 446 Q178 456 236 444" fill="none" stroke="${ENCRE}" stroke-width="4" stroke-linecap="round"/>`
     + `</svg>`;
 }
 
 document.fonts.load('70px "Lilita One"').then(() => {
   const q = new URLSearchParams(location.search).get("carte");
-  if (q && (CARTES[q] || q === "dos")) {
+  const jeu = new URLSearchParams(location.search).get("jeu");
+  if (q && (CARTES[q] || q === "dos" || q === "dos_nuit")) {
     document.body.className = "seule";
-    document.body.insertAdjacentHTML("beforeend", q === "dos" ? dos() : carte(q));
+    document.body.insertAdjacentHTML("beforeend", q === "dos" ? dos() : q === "dos_nuit" ? dosNuit() : carte(q));
   } else {
     document.body.className = "planche";
-    document.body.insertAdjacentHTML("beforeend", Object.keys(CARTES).map(carte).join("") + dos());
+    const noms = Object.keys(CARTES).filter((n) => (CARTES[n].jeu || "liars") === (jeu || "liars"));
+    document.body.insertAdjacentHTML("beforeend", noms.map(carte).join("") + (jeu === "loup" ? dosNuit() : dos()));
   }
 });
 </script>

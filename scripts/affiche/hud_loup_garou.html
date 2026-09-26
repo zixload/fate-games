@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>HUD Loup-Garou</title>
+<!--
+  Maquettes du HUD du Loup-Garou, pour valider le style avant de coder
+  (le moteur n'existe qu'en spec : docs/superpowers/specs/2026-09-15-loup-garou-design.md).
+  ?phase=salon | nuit | jour. Rendu 1920 x 1080 par Edge sans interface.
+-->
+<style>
+@font-face { font-family: "Lilita One"; src: url("../../Packages/fate-games/Client/vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --laiton: #d9b56a; --laiton-fonce: #8a6d3b; --ombre: #070a0b; --sauge: #9fbcb4; --rouge: #b8332d; }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #151a1c; font-family: "Lilita One", sans-serif; color: var(--encre); }
+.cache { display: none !important; }
+
+#fond { position: absolute; inset: -30px; background: url("../../art/affiche/fond.png") center / cover; filter: blur(5px) brightness(.9); }
+body.nuit #fond { filter: blur(5px) brightness(.45) saturate(.45); }
+body.nuit #teinte { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 40%, rgba(40, 60, 120, .28), rgba(8, 12, 34, .7)); }
+
+.sk { position: relative; isolation: isolate; }
+.sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+.sk-svg .ombre { fill: var(--ombre); opacity: .7; }
+.sk-svg .fond { fill: var(--papier); }
+.sk-svg .trait { fill: none; stroke: var(--bord, var(--encre)); stroke-width: 3.5px; stroke-linejoin: round; }
+.sk-svg .trait2 { fill: none; stroke: var(--bord, var(--encre)); stroke-width: 1.5px; opacity: .4; }
+
+.touche { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 7px; box-sizing: border-box;
+    border: 2.5px solid var(--encre); border-bottom-width: 5px; border-radius: 8px; background: #f6eedb; font-size: 17px; line-height: 1; color: var(--encre); }
+
+/* Bandeau de phase, en haut au centre, avec le minuteur. */
+#phase { position: absolute; top: 28px; left: 50%; transform: translateX(-50%) rotate(-1deg); display: flex; align-items: center; gap: 16px;
+    padding: 12px 18px 12px 22px; font-size: 32px; white-space: nowrap; }
+#phase .minuteur { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--encre); color: var(--papier);
+    font-size: 24px; box-shadow: inset 0 0 0 3px var(--laiton); }
+
+/* Rappel de mon role, en bas a gauche. */
+#role { position: absolute; left: 36px; bottom: 34px; display: flex; align-items: flex-end; gap: 14px; }
+#role img { width: 118px; transform: rotate(-7deg); filter: drop-shadow(5px 6px 0 rgba(7, 10, 11, .7)); }
+#role .sk { padding: 10px 16px; font-size: 26px; display: flex; flex-direction: column; gap: 4px; margin-bottom: 18px; }
+#role .sk small { font-size: 16px; color: var(--laiton-fonce); }
+
+/* Au-dessus des tetes. */
+.tete { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.invite { display: flex; align-items: center; gap: 8px; padding: 7px 14px 7px 10px; font-size: 22px; white-space: nowrap; }
+.invite svg:not(.sk-svg) { width: 34px; height: 30px; }
+.voix { display: flex; align-items: center; gap: 6px; padding: 5px 12px 5px 8px; font-size: 26px; }
+.voix svg:not(.sk-svg) { width: 26px; height: 26px; }
+.voix.tete-de-liste { --bord: var(--rouge); }
+.allie { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--encre); box-shadow: inset 0 0 0 3px var(--laiton), 0 3px 8px rgba(0,0,0,.6); }
+.allie img { width: 40px; }
+
+/* Message transitoire et consignes, en bas au centre : blanc avec ombre. */
+#message { position: absolute; left: 0; right: 0; bottom: 42px; text-align: center; font-size: 24px; color: #fff;
+    text-shadow: 2px 2px 0 #000, 0 0 10px rgba(0, 0, 0, .6); }
+#message .touche { text-shadow: none; margin: 0 3px; }
+
+/* Salon : meme panneau que Liar's Bar. */
+#salon { position: absolute; left: 40px; top: 50%; transform: translateY(-50%) rotate(-1deg); width: 330px; padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 12px; }
+#salon .ligne { display: flex; align-items: center; gap: 10px; font-size: 26px; }
+#salon .compo { display: flex; gap: 10px; font-size: 17px; color: var(--laiton-fonce); align-items: center; }
+#salon .compo img { width: 26px; }
+#salon .places { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.place { display: flex; align-items: center; gap: 6px; font-size: 16px; padding: 5px 8px; border-radius: 8px; background: rgba(28, 33, 35, .07); white-space: nowrap; }
+.place.pret { background: var(--laiton); }
+.place.moi { outline: 2px solid var(--encre); }
+.place.vide { opacity: .45; }
+#salon .aide { display: flex; flex-wrap: wrap; gap: 10px 14px; font-size: 15px; align-items: center; }
+#salon .aide span { display: inline-flex; gap: 6px; align-items: center; }
+#cloche { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); }
+</style>
+</head>
+<body>
+<div id="fond"></div>
+<div id="teinte"></div>
+
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <symbol id="lune" viewBox="0 0 40 40"><path d="M26 5a15 15 0 1 0 9 22A13 13 0 0 1 26 5z" fill="#d9b56a" stroke="#1c2123" stroke-width="2.6" stroke-linejoin="round"/></symbol>
+  <symbol id="soleil" viewBox="0 0 40 40"><circle cx="20" cy="20" r="8" fill="#d9b56a" stroke="#1c2123" stroke-width="2.6"/><path d="M20 3v6M20 31v6M3 20h6M31 20h6M8 8l4 4M28 28l4 4M32 8l-4 4M12 28l-4 4" stroke="#1c2123" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="griffes" viewBox="0 0 34 30"><path d="M6 26C10 16 14 9 20 3M14 28C18 18 22 11 28 5M22 28c3-6 6-10 10-14" fill="none" stroke="#b8332d" stroke-width="3.4" stroke-linecap="round"/></symbol>
+  <symbol id="main" viewBox="0 0 26 26"><path d="M8 24v-9L5 11c-1-2 1-4 3-2l2 3V4c0-2 3-2 3 0v6-8c0-2 3-2 3 0v8-6c0-2 3-2 3 0v11c0 5-2 9-6 9h-2c-2 0-3 0-3 0z" fill="#f6eedb" stroke="#1c2123" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="coche" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#1c2123" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="cloche" viewBox="0 0 40 40"><path d="M20 5c-7 0-11 6-11 13v7l-4 5h30l-4-5v-7c0-7-4-13-11-13z" fill="#d9b56a" stroke="#1c2123" stroke-width="2.6" stroke-linejoin="round"/><circle cx="20" cy="34" r="3.5" fill="#8a6d3b" stroke="#1c2123" stroke-width="2.4"/></symbol>
+</svg>
+
+<!-- Nuit -->
+<div data-phase="nuit">
+  <div id="phase" class="sk" data-graine="61" data-rayon="18"><svg width="40" height="40"><use href="#lune"/></svg>Nuit · Les loups choisissent<span class="minuteur">0:32</span></div>
+  <div class="tete" style="left: 975px; top: 222px;">
+    <div class="invite sk" data-graine="63" data-rayon="14"><svg><use href="#griffes"/></svg><span class="touche">E</span>Désigner</div>
+    <div class="voix sk" data-graine="65" data-rayon="999"><img src="../../art/cartes/lg_loup.png" style="width: 22px" alt="">1</div>
+  </div>
+  <div class="tete" style="left: 110px; top: 250px;"><div class="allie"><img src="../../art/cartes/lg_loup.png" alt=""></div></div>
+  <div id="role"><img src="../../art/cartes/lg_loup.png" alt=""><div class="sk" data-graine="67" data-rayon="14">Loup-Garou<small>avec Ana</small></div></div>
+  <div id="message">Regarde un joueur et appuie sur <span class="touche">E</span> pour le désigner</div>
+</div>
+
+<!-- Jour -->
+<div data-phase="jour">
+  <div id="phase" class="sk" data-graine="71" data-rayon="18"><svg width="40" height="40"><use href="#soleil"/></svg>Jour · Le village vote<span class="minuteur">0:41</span></div>
+  <div class="tete" style="left: 975px; top: 222px;">
+    <div class="invite sk" data-graine="73" data-rayon="14"><svg style="width: 26px"><use href="#main"/></svg><span class="touche">E</span>Voter</div>
+    <div class="voix sk tete-de-liste" data-graine="75" data-rayon="999"><svg><use href="#main"/></svg>2</div>
+  </div>
+  <div class="tete" style="left: 1770px; top: 250px;"><div class="voix sk" data-graine="77" data-rayon="999"><svg><use href="#main"/></svg>1</div></div>
+  <div class="tete" style="left: 130px; top: 250px;"><div class="voix sk" data-graine="79" data-rayon="999"><svg><use href="#main"/></svg>0</div></div>
+  <div id="role"><img src="../../art/cartes/lg_voyante.png" alt=""><div class="sk" data-graine="81" data-rayon="14">Voyante<small>Ben est Villageois</small></div></div>
+  <div id="message">Ana vote contre Zix</div>
+</div>
+
+<!-- Salon -->
+<div data-phase="salon">
+  <div id="salon" class="sk" data-graine="83" data-rayon="16">
+    <div class="ligne"><svg width="34" height="34"><use href="#lune"/></svg><span>Loup-Garou</span><span style="flex: 1"></span><span style="font-size: 18px; color: var(--laiton-fonce)">6/12</span></div>
+    <div class="compo"><img src="../../art/cartes/lg_loup.png" alt="">2 <img src="../../art/cartes/lg_voyante.png" alt="">1 <img src="../../art/cartes/lg_villageois.png" alt="">3</div>
+    <div class="places">
+      <div class="place pret"><svg width="14" height="14"><use href="#coche"/></svg>Zix</div>
+      <div class="place pret moi"><svg width="14" height="14"><use href="#coche"/></svg>Ana</div>
+      <div class="place">Ben</div>
+      <div class="place pret"><svg width="14" height="14"><use href="#coche"/></svg>Lou</div>
+      <div class="place">Max</div>
+      <div class="place pret"><svg width="14" height="14"><use href="#coche"/></svg>Inès</div>
+      <div class="place vide">…</div><div class="place vide">…</div>
+    </div>
+    <div class="aide">
+      <span><span class="touche">R</span><svg width="18" height="18"><use href="#coche"/></svg></span>
+      <span><span class="touche">←</span><span class="touche">→</span>durée du débat</span>
+      <span><span class="touche">Espace</span>quitter</span>
+    </div>
+  </div>
+  <div id="cloche" class="invite sk" data-graine="85" data-rayon="14" style="position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);"><svg width="30" height="30"><use href="#cloche"/></svg><span class="touche">E</span>Sonner la cloche</div>
+  <div id="message">4 joueurs minimum · tout le monde prêt, la cloche lance la partie</div>
+</div>
+
+<script src="../../Packages/fate-games/Client/ui/esquisse.js"></script>
+<script>
+const phase = new URLSearchParams(location.search).get("phase") || "nuit";
+document.body.classList.add(phase);
+document.querySelectorAll("[data-phase]").forEach((el) => el.classList.toggle("cache", el.dataset.phase !== phase));
+document.fonts.load('32px "Lilita One"').then(() => requestAnimationFrame(habiller));
+</script>
+</body>
+</html>
