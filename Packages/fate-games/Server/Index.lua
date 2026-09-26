@@ -48,6 +48,15 @@ local DuelJeu    = Package.Require("games/duel/adapter.lua")(
     Log, Characters, Boutique, Catalogue, DuelLogic, DuelConfig,
     Package.Require("games/duel/data/arenes.lua"))
 
+-- Loup-garou : moteur pur (games/werewolf/) et son adaptateur.
+local WwRoles   = Package.Require("games/werewolf/data/roles.lua")
+local WwPhases  = Package.Require("games/werewolf/data/phases.lua")
+local WwEffects = Package.Require("games/werewolf/effects.lua")()
+local WwMatch   = Package.Require("games/werewolf/match.lua")(WwRoles)
+local WwVoting  = Package.Require("games/werewolf/voting.lua")()
+local WwOutcome = Package.Require("games/werewolf/outcome.lua")(WwMatch, WwRoles)
+local WwEngine  = Package.Require("games/werewolf/engine.lua")(WwRoles, WwPhases, WwMatch, WwVoting, WwOutcome, WwEffects)
+
 local LiarsBar = Package.Require("games/liars_bar/adapter.lua")(
     Log, DB, Ids, Characters, Interactables, Intents,
     LiarsEngine, LiarsBots, Appearances, LiarsConfig, ServerConfig.spawn)
@@ -80,6 +89,9 @@ Scheduler.Start()
 
 LiarsBar.Init()
 DuelJeu.Init()
+local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, Characters, WwEngine, WwRoles, WwMatch,
+    { bots = ServerConfig.dev and ServerConfig.dev.liars_bots })
+LoupGarou.Init()
 Emotes.Init()
 
 -- Poser l'arene du duel sous ses pieds : "/arene [rayon]", en mode dev.
@@ -467,6 +479,8 @@ Player.Subscribe("Destroy", function(player)
         Log.Error("liars", "OnPlayerLeave a leve : " .. tostring(err))
     end
     pcall(Emotes.OnPlayerLeave, player)
+    local ok_lg, err_lg = pcall(LoupGarou.OnPlayerLeave, player)
+    if not ok_lg then Log.Error("werewolf", "OnPlayerLeave a leve : " .. tostring(err_lg)) end
     local ok_duel, err_duel = pcall(DuelJeu.OnPlayerLeave, player)
     if not ok_duel then
         Log.Error("duel", "OnPlayerLeave a leve : " .. tostring(err_duel))

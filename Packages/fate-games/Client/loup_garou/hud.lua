@@ -1,8 +1,8 @@
 -- HUD du Loup-Garou, cote client (maquettes : scripts/affiche/hud_loup_garou.html).
 --
--- Le moteur (docs/superpowers/specs/2026-09-15-loup-garou-design.md) n'est pas
--- encore ecrit : ce fichier fixe les evenements qu'il enverra, et /lg les joue
--- pour voir le HUD en jeu sans lui.
+-- Le moteur (Server/games/werewolf/) envoie les evenements ci-dessous ; /lg demo
+-- les joue sur place, sans partie, pour voir le HUD. Pour jouer : /lg entrer
+-- (et /lg bots N en dev), traites par le serveur.
 --
 --   ww:salon    (vue | nil)       panneau d'attente : joueurs, pret, reglages
 --                                 { joueurs = { { nom, pret, moi } }, max,
@@ -336,7 +336,7 @@ return function(config)
         end
     end)
 
-    ---------------------------------------------------------------- /lg : demonstration sans moteur
+    ---------------------------------------------------------------- /lg demo : le HUD sans partie
 
     local function voisins()
         local out = {}
@@ -413,13 +413,14 @@ return function(config)
     Chat.Subscribe("PlayerSubmit", function(message)
         local mots = {}
         for m in tostring(message):gmatch("%S+") do mots[#mots + 1] = m end
-        if mots[1] ~= "/lg" then return end
-        local f = DEMO[mots[2] or ""]
+        -- /lg entrer, /lg sortir, /lg bots : pour le serveur, on laisse passer.
+        if mots[1] ~= "/lg" or mots[2] ~= "demo" then return end
+        local f = DEMO[mots[3] or ""]
         if f then
-            f(mots[3])
+            f(mots[4])
         else
-            Chat.AddMessage("/lg salon | role [loup|loup_blanc|voyante|chasseur|gardien|cupidon|villageois]")
-            Chat.AddMessage("/lg nuit | gardien | cupidon | voyante | chasseur | amoureux | jour | stop")
+            Chat.AddMessage("/lg demo salon | role [loup|loup_blanc|voyante|chasseur|gardien|cupidon|villageois]")
+            Chat.AddMessage("/lg demo nuit | gardien | cupidon | voyante | chasseur | amoureux | jour | stop")
         end
         return false
     end)
