@@ -20,6 +20,7 @@ name = {"idle": "ANIM_WW_Sitting_Idle",
         "glance": "ANIM_WW_Sitting_Idle_Glance",
         "shift": "ANIM_WW_Sitting_Idle_Shift",
         "mayor": "ANIM_WW_Seated_Mayor_Cheer",
+        "point": "ANIM_WW_Seated_Vote_Point",
         "death": "ANIM_WW_Seated_Death",
         "dead": "ANIM_WW_Seated_Dead_Idle"}[short]
 label = os.environ.get("WW_LABEL", short)

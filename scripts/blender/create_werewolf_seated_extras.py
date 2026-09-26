@@ -1,10 +1,11 @@
 """Bake additional seated Creative animations for the Werewolf game.
 
-Uses the fitted idle and dazed clips in ignored art/werewolf/. Outputs stay in
-that directory. The death reaction ends at the first frame of Dead_Idle, whose
-pelvis moves 10 cm backwards in bone space while the actor root stays fixed.
+Uses the fitted idle and gesture clips in ignored art/werewolf/. Outputs stay
+there. The elimination reaction ends at the first frame of Dead_Idle, whose
+pelvis moves 8 cm backwards in bone space while the actor root stays fixed.
 """
 
+import os
 from math import pi, radians, sin
 from pathlib import Path
 
@@ -204,33 +205,49 @@ def make_death():
     scene, rig = open_clip("ANIM_WW_Sitting_Idle")
     scene.frame_set(1)
     idle = snapshot(rig)
-    with bpy.data.libraries.load(str(OUT / "ANIM_WW_Sitting_Dazed.blend"),
+    # Reuse the tested raised arm from Vote and the curled fingers from Mayor.
+    # This makes a short, readable downward fist gesture without a fall.
+    with bpy.data.libraries.load(str(OUT / "ANIM_WW_Seated_Vote.blend"),
                                  link=False) as (src, dst):
-        dst.actions = ["ANIM_WW_Sitting_Dazed"]
-    dazed_action = dst.actions[0]
-    if dazed_action is None:
-        raise RuntimeError("Fitted dazed action unavailable")
-    rig.animation_data.action = dazed_action
-    rig.animation_data.action_slot = dazed_action.slots[0]
-    scene.frame_set(1)
-    dazed = snapshot(rig)
+        dst.actions = ["ANIM_WW_Seated_Vote"]
+    vote_action = dst.actions[0]
+    with bpy.data.libraries.load(str(OUT / "ANIM_WW_Seated_Mayor_Cheer.blend"),
+                                 link=False) as (src, dst):
+        dst.actions = ["ANIM_WW_Seated_Mayor_Cheer"]
+    mayor_action = dst.actions[0]
+    if vote_action is None or mayor_action is None:
+        raise RuntimeError("Fitted vote or mayor action unavailable")
+    rig.animation_data.action = vote_action
+    rig.animation_data.action_slot = vote_action.slots[0]
+    scene.frame_set(23)
+    vote = snapshot(rig)
+    rig.animation_data.action = mayor_action
+    rig.animation_data.action_slot = mayor_action.slots[0]
+    scene.frame_set(21)
+    mayor = snapshot(rig)
 
-    # Shock: head and shoulders jerk back before the theatrical collapse.
     apply_snapshot(rig, idle)
-    turn(rig, "Spine1", "X", -16)
-    turn(rig, "Neck", "X", -12)
-    turn(rig, "Head", "X", -22)
-    turn(rig, "RightArm", "Y", -19)
-    turn(rig, "LeftArm", "Y", 16)
-    shock = snapshot(rig)
+    for name in ("RightArm", "RightForeArm", "RightHand"):
+        rig.pose.bones[name].location = vote[name][0].copy()
+        rig.pose.bones[name].rotation_quaternion = vote[name][1].copy()
+    for name in idle:
+        if name.startswith("RightHand") and name != "RightHand":
+            rig.pose.bones[name].rotation_quaternion = mayor[name][1].copy()
+    turn(rig, "Spine1", "X", 5)
+    turn(rig, "Head", "X", 5)
+    raised = snapshot(rig)
 
-    # Hold the collapse for a beat, then slip back on the cushion.
-    apply_snapshot(rig, dazed)
-    turn(rig, "Neck", "X", 13)
-    turn(rig, "Head", "X", 14)
-    slump = snapshot(rig)
-    apply_snapshot(rig, dazed)
-    move_hips_back(rig, .10)
+    apply_snapshot(rig, idle)
+    for name in idle:
+        if name.startswith("RightHand") and name != "RightHand":
+            rig.pose.bones[name].rotation_quaternion = mayor[name][1].copy()
+    turn(rig, "Spine1", "X", 9)
+    turn(rig, "Neck", "X", 5)
+    turn(rig, "Head", "X", 8)
+    strike = snapshot(rig)
+
+    apply_snapshot(rig, idle)
+    move_hips_back(rig, .08)
     retreat = snapshot(rig)
 
     # Copy the idle action to retain the exact Creative action slot and bones.
@@ -245,10 +262,10 @@ def make_death():
             curve.keyframe_points.remove(curve.keyframe_points[index])
         curve.update()
 
-    controls = ((1, idle), (7, idle), (16, shock), (31, slump),
-                (42, slump), (70, retreat), (82, retreat))
-    scene.frame_start, scene.frame_end = 1, 82
-    for frame in range(1, 83):
+    controls = ((1, idle), (6, idle), (14, raised), (17, raised),
+                (24, strike), (32, idle), (55, retreat), (61, retreat))
+    scene.frame_start, scene.frame_end = 1, 61
+    for frame in range(1, 62):
         scene.frame_set(frame)
         for i in range(len(controls) - 1):
             left, a = controls[i]
@@ -261,22 +278,22 @@ def make_death():
             bone.keyframe_insert("location", frame=frame)
             bone.keyframe_insert("rotation_quaternion", frame=frame)
             bone.keyframe_insert("scale", frame=frame)
-    scene.frame_set(82)
+    scene.frame_set(61)
     final = {n: point(rig, n).copy() for n in
              ("Hips", "LeftFoot", "RightFoot", "Head")}
     print("WW_DEATH_FINAL", {n: tuple(round(v, 4) for v in p)
                              for n, p in final.items()})
     export(scene, rig, "ANIM_WW_Seated_Death")
 
-    # The dead stay slightly withdrawn; reuse the dazed breathing/weight loop.
-    scene, rig = open_clip("ANIM_WW_Sitting_Dazed")
+    # After the reaction, sit normally a little further from the circle.
+    scene, rig = open_clip("ANIM_WW_Sitting_Idle")
     action = rig.animation_data.action.copy()
     action.name = "ANIM_WW_Seated_Dead_Idle"
     rig.animation_data.action = action
     rig.animation_data.action_slot = action.slots[0]
     for frame in range(scene.frame_start, scene.frame_end + 1):
         scene.frame_set(frame)
-        move_hips_back(rig, .10, frame)
+        move_hips_back(rig, .08, frame)
     scene.frame_set(1)
     start = {n: point(rig, n).copy() for n in final}
     match = max((start[n] - final[n]).length for n in final) * 100
@@ -290,13 +307,16 @@ def make_death():
     export(scene, rig, "ANIM_WW_Seated_Dead_Idle")
 
 
-loop_variant("ANIM_WW_Sitting_Idle", "ANIM_WW_Sitting_Idle_Glance",
-             lambda p: (("Spine1", "Z", 1.7 * sin(p)),
-                        ("Neck", "Z", 3.0 * sin(p)),
-                        ("Head", "Z", 6.0 * sin(p))))
-loop_variant("ANIM_WW_Sitting_Idle_Lazy", "ANIM_WW_Sitting_Idle_Shift",
-             lambda p: (("Spine1", "Y", 2.3 * sin(p)),
-                        ("Neck", "Y", -1.5 * sin(p)),
-                        ("Head", "Z", 4.0 * sin(p + pi) + 0.0)))
-make_mayor()
-make_death()
+if os.environ.get("WW_EXTRA_ONLY") == "death":
+    make_death()
+else:
+    loop_variant("ANIM_WW_Sitting_Idle", "ANIM_WW_Sitting_Idle_Glance",
+                 lambda p: (("Spine1", "Z", 1.7 * sin(p)),
+                            ("Neck", "Z", 3.0 * sin(p)),
+                            ("Head", "Z", 6.0 * sin(p))))
+    loop_variant("ANIM_WW_Sitting_Idle_Lazy", "ANIM_WW_Sitting_Idle_Shift",
+                 lambda p: (("Spine1", "Y", 2.3 * sin(p)),
+                            ("Neck", "Y", -1.5 * sin(p)),
+                            ("Head", "Z", 4.0 * sin(p + pi) + 0.0)))
+    make_mayor()
+    make_death()

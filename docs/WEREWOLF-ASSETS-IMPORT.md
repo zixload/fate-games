@@ -71,6 +71,7 @@ Deux animations supplémentaires sont générées depuis la pose assise ajustée
 | Asset | Usage prévu | Durée | Boucle | Z du pivot personnage |
 | --- | --- | ---: | --- | ---: |
 | `my-asset-pack::ANIM_WW_Seated_Vote` | Main droite levée puis reposée lors d'un vote | 1,767 s | Non | 11,0 cm |
+| `my-asset-pack::ANIM_WW_Seated_Vote_Point` | Index tendu vers l'avant pour montrer le choix final | 2,200 s | Non | 11,0 cm |
 | `my-asset-pack::ANIM_WW_Seated_Sleep` | Tête inclinée, respiration discrète durant la nuit | 10,867 s | Oui | 11,0 cm |
 
 Le vote part de la pose assise normale et y revient : le jouer une fois dans `DefaultSlot`, puis relancer l'idle. La pose de nuit utilise le même contact avec le zabuton que l'idle ; la jouer en boucle dans `DefaultSlot`, puis revenir à l'idle au lever du jour. Aucun déplacement du personnage ou root motion n'est inclus. Les captures Blender sur tapis et coussin sont `art/werewolf/fit_{vote,sleep}_{front,profile}.png`. Les personnages du jeu peuvent porter des vêtements qui nécessitent une vérification visuelle après import.
@@ -99,8 +100,8 @@ Le script `scripts/blender/create_werewolf_seated_extras.py` crée cinq clips su
 | `my-asset-pack::ANIM_WW_Sitting_Idle_Glance` | Idle normal, petit regard circulaire | 10,867 s | Oui | 11,0 cm |
 | `my-asset-pack::ANIM_WW_Sitting_Idle_Shift` | Idle avachi, léger changement d'appui | 10,267 s | Oui | 12,8 cm |
 | `my-asset-pack::ANIM_WW_Seated_Mayor_Cheer` | Poing droit levé pour fêter l'élection | 2,467 s | Non | 11,0 cm |
-| `my-asset-pack::ANIM_WW_Seated_Death` | Sursaut, chute théâtrale, retrait de 10 cm | 2,700 s | Non | 11,6 cm |
-| `my-asset-pack::ANIM_WW_Seated_Dead_Idle` | Pose morte, reculée, jusqu'à la fin de la partie | 8,333 s | Oui | 11,6 cm |
+| `my-asset-pack::ANIM_WW_Seated_Death` | Poing levé puis geste agacé vers le bas, retrait de 8 cm | 2,000 s | Non | 11,0 cm |
+| `my-asset-pack::ANIM_WW_Seated_Dead_Idle` | Assise normale, légèrement reculée, jusqu'à la fin de la partie | 10,867 s | Oui | 11,0 cm |
 
 Pour régénérer les FBX :
 
@@ -111,7 +112,28 @@ $blenderExe = 'C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe
 
 Le choix actuel de l'idle dans `Server/games/werewolf/adapter.lua` alterne selon le numéro du coussin. Pour obtenir l'aléatoire demandé, tirer une animation parmi les deux clips à **11,0 cm** (`Sitting_Idle`, `Sitting_Idle_Glance`) ou parmi les deux à **12,8 cm** (`Sitting_Idle_Lazy`, `Sitting_Idle_Shift`). Choisir une fois par prise de place, puis conserver ce choix jusqu'au changement de phase ; éviter de relancer le clip à chaque tick. Les deux nouveaux idles partagent exactement la pose d'assise et les contacts de leur source.
 
-À la mort, jouer `Seated_Death` une seule fois dans `DefaultSlot`, puis `Seated_Dead_Idle` en boucle. La dernière image du premier clip correspond à la première du second (écart de position mesuré inférieur à 0,001 cm). Le déplacement de 10 cm vers l'arrière est animé dans le bassin : la racine du personnage ne bouge pas et le joueur reste associé au même coussin. À l'élection du maire, jouer `Seated_Mayor_Cheer` une fois puis reprendre l'idle choisi. Les clips de vote et de maire partent de l'idle normal : si le joueur est dans l'idle avachi, le repasser temporairement à 11,0 cm pour ces gestes. Les captures Blender sont `fit_mayor_{front,profile}.png`, `fit_death_{shock,slump}_{front,profile}.png` et `fit_dead_{front,profile}.png`.
+À l'élimination, jouer `Seated_Death` une seule fois dans `DefaultSlot`, puis `Seated_Dead_Idle` en boucle. Il n'y a plus de chute ni de pose de cadavre : le joueur baisse le poing d'un geste agacé, puis se retire légèrement du cercle. La dernière image du premier clip correspond à la première du second (écart mesuré inférieur à 0,001 cm). Le bassin recule de 8 cm ; la racine et la place du personnage ne bougent pas. À l'élection du maire, jouer `Seated_Mayor_Cheer` une fois puis reprendre l'idle choisi. Les clips de vote et de maire partent de l'idle normal : si le joueur est dans l'idle avachi, le repasser temporairement à 11,0 cm pour ces gestes.
+
+Le nouveau `Seated_Vote_Point` sert **à la fin du minuteur de vote**, après la main levée de `Seated_Vote`. Il pointe dans l'axe avant du personnage. Le code de jeu doit conserver la cible choisie et orienter le haut du corps vers elle avant de jouer le clip, afin que l'index désigne réellement ce joueur ; le FBX seul ne connaît pas la cible. Ne pas le déclencher lors de chaque événement `ww:pointe` émis au changement de choix. Cette intégration Lua reste à faire séparément.
+
+Les captures Blender sont `fit_mayor_{front,profile}.png`, `fit_death_raised_{front,profile}.png`, `fit_death_strike_{front,profile}.png` et `fit_point_{front,profile}.png`. Les sources `.blend` et `.fbx` restent dans `art/werewolf/`, hors Git.
+
+Pour régénérer uniquement les deux clips d'élimination, puis le pointage :
+
+```powershell
+$env:WW_EXTRA_ONLY = 'death'
+& 'C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe' -b -t 4 --python scripts/blender/create_werewolf_seated_extras.py
+Remove-Item Env:WW_EXTRA_ONLY
+& 'C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe' -b -t 4 --python scripts/blender/create_werewolf_point_vote.py
+```
+
+Dans la console Python de l'éditeur ADK déjà ouvert, importer **seulement ces trois clips**, puis enregistrer et cuire `my-asset-pack` :
+
+```python
+exec(open(r"C:\Users\ingam\OneDrive\Documents\fate-games\scripts\unreal\import_werewolf_vote_point_and_death.py", encoding="utf-8").read())
+```
+
+Attendre `WW_DEATH_AND_POINT_IMPORT_COMPLETE 3`. Le script ne relance aucun autre import et ne change pas le code Lua du Loup-Garou.
 
 ## Licences et crédits
 
