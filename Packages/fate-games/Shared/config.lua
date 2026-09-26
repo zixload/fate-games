@@ -119,12 +119,27 @@ return {
             fenetre_donne = 1.5,
         },
 
+        -- Centre de chaque carte par rapport a son pivot, en unites du FBX (le
+        -- pivot est reste celui du fichier de 52 cartes : loin de la carte, et
+        -- un y different pour chacune, l'empilement du paquet d'origine).
+        -- Mesure dans l'ADK par scripts/unreal/export_cartes.py le 26/09.
+        -- Compense dans l'eventail et les vols, sinon chaque carte tourne
+        -- autour d'un point a 32 cm d'elle.
+        pivot_defaut = { x = -926.85, y = -50, z = 405.6 },
+        pivots = {
+            ["Ace_of_Spades1"]   = { x = -926.85, y = -39.06, z = 405.6 },
+            ["King_of_Hearts1"]  = { x = -926.85, y = -64.31, z = 405.6 },
+            ["Queen_of_Clubs1"]  = { x = -926.85, y = -72.36, z = 405.6 },
+            ["Ace_of_Diamonds1"] = { x = -926.85, y = -36.34, z = 405.6 },
+            ["Jack_of_Spades1"]  = { x = -926.85, y = -60.22, z = 405.6 },
+        },
+
         fan = {
             -- Reglees en jeu le 26/09 sur les quatre chaises (/fan demo).
             pos        = { x = -37, y = 1, z = -12 },   -- carte du milieu, depuis l'os de la main
             rot        = { p = -10, y = 140, r = 26 },
             carte      = { p = 0, y = 0, r = 0 },   -- carte, dans sa fente
-            axe        = "z",   -- axe qui traverse la face (voir cartes.lua) : /fan axe
+            axe        = "y",   -- la face est traversee par Y (epaisseur 0,6 sur 142 x 254)
             ecart      = 12,    -- degres entre deux cartes, dans leur plan
             rayon      = 4.5,   -- du pivot (bas commun) au centre d'une carte :
                                 -- la moitie de sa hauteur, les bases se touchent

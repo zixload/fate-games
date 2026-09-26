@@ -52,6 +52,14 @@ return function(H, Stubs)
             H.assert_true(proche(f.yaw, 0), "droite")
         end)
 
+        H.it("connait le pivot de chaque carte, avec un repli", function()
+            local k = Cartes.Centre("my-asset-pack::King_of_Hearts1")
+            local t = cfg.fan.taille
+            H.assert_true(proche(k.y, -64.31 * t), "y propre au Roi de coeur")
+            local inconnu = Cartes.Centre("my-asset-pack::Carte_Inconnue")
+            H.assert_true(proche(inconnu.x, cfg.pivot_defaut.x * t), "repli")
+        end)
+
         H.it("chaque axe ouvre l'eventail dans le plan de la carte", function()
             for _, axe in ipairs(Cartes.Axes()) do
                 local fan = { axe = axe, ecart = 20, rayon = 4.5, profondeur = 0.2 }
@@ -64,8 +72,11 @@ return function(H, Stubs)
         end)
 
         H.it("ouvre l'eventail symetriquement", function()
-            local g = Cartes.Fente(5, 1, cfg.fan, 0)
-            local d = Cartes.Fente(5, 5, cfg.fan, 0)
+            -- Geometrie decrite pour l'axe z ; les autres axes n'en sont que des
+            -- permutations (test precedent).
+            local fan = setmetatable({ axe = "z" }, { __index = cfg.fan })
+            local g = Cartes.Fente(5, 1, fan, 0)
+            local d = Cartes.Fente(5, 5, fan, 0)
             H.assert_true(proche(g.y, -d.y), "de part et d'autre de l'axe")
             H.assert_true(proche(g.x, d.x), "a la meme distance du pivot")
             H.assert_true(proche(g.yaw, -d.yaw), "angles opposes")
@@ -73,8 +84,9 @@ return function(H, Stubs)
         end)
 
         H.it("souleve une carte le long de son axe", function()
-            local bas  = Cartes.Fente(3, 2, cfg.fan, 0)
-            local haut = Cartes.Fente(3, 2, cfg.fan, 5)
+            local fan = setmetatable({ axe = "z" }, { __index = cfg.fan })
+            local bas  = Cartes.Fente(3, 2, fan, 0)
+            local haut = Cartes.Fente(3, 2, fan, 5)
             H.assert_true(proche(haut.x - bas.x, 5), "levee, loin du pivot")
         end)
 

@@ -86,6 +86,15 @@ return function(config)
         return { x = x, y = y, z = z, p = p, yaw = ya, r = ro }
     end
 
+    -- Du pivot au centre de la carte, a l'echelle du jeu (cm, repere de la
+    -- carte). Le nom du modele sans le pack : "my-asset-pack::King_of_Hearts1".
+    function Cartes.Centre(modele)
+        local nom = tostring(modele):match("::(.+)$") or tostring(modele)
+        local o = (config.pivots and config.pivots[nom]) or config.pivot_defaut or { x = 0, y = 0, z = 0 }
+        local t = config.fan and config.fan.taille or 1
+        return { x = o.x * t, y = o.y * t, z = o.z * t }
+    end
+
     function Cartes.Axes()
         return { "z", "zy", "y", "x" }
     end

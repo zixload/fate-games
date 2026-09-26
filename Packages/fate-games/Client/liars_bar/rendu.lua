@@ -48,13 +48,23 @@ return function(config, Cartes, journal, disposition)
         return s
     end
 
+    -- Du pivot du modele au centre visible de la carte, tourne par r.
+    local function vers_centre(modele, r)
+        local o = Cartes.Centre(modele)
+        return r:RotateVector(Vector(o.x, o.y, o.z))
+    end
+
     local function carte_accrochee(modele, parent)
         local c = StaticMesh(Vector(), Rotator(), modele, CollisionType.NoCollision)
         sans_collision(c)
         c:AttachTo(parent, AttachmentRule.SnapToTarget, "", 0)
-        c:SetRelativeRotation(rot(config.fan.carte))
+        local r = rot(config.fan.carte)
+        c:SetRelativeRotation(r)
         local t = config.fan.taille
         c:SetScale(Vector(t, t, t))
+        -- Le pivot du modele est loin de la carte : on la recule d'autant,
+        -- pour que ce soit son centre qui soit sur la fente.
+        c:SetRelativeLocation(vers_centre(modele, r) * -1)
         return c
     end
 
@@ -144,11 +154,15 @@ return function(config, Cartes, journal, disposition)
     local function angle(a) return (a + 180) % 360 - 180 end
     local function lisse(t) return t * t * (3 - 2 * t) end
 
+    -- de et vers sont des lieux de pivot (ce que rendent GetLocation et le
+    -- tas) ; le vol deplace le centre visible, sinon la carte tournerait
+    -- autour d'un point a 32 cm d'elle.
     local function voler(modele, de, de_rot, vers, vers_rot, retard, a_l_arrivee)
         local ok, c = pcall(carte_libre, modele, de, de_rot)
         if not ok then return end
         vols[#vols + 1] = {
-            c = c, de = de, vers = vers, de_rot = de_rot, vers_rot = vers_rot,
+            c = c, modele = modele, de_rot = de_rot, vers_rot = vers_rot,
+            de = de + vers_centre(modele, de_rot), vers = vers + vers_centre(modele, vers_rot),
             t = -(retard or 0), duree = anim.duree or 0.45, arc = anim.arc or 18,
             fin = a_l_arrivee,
         }
@@ -165,14 +179,16 @@ return function(config, Cartes, journal, disposition)
             elseif v.t > 0 then
                 local k = lisse(v.t / v.duree)
                 local haut = math.sin(math.pi * k) * v.arc
-                v.c:SetLocation(Vector(
-                    v.de.X + (v.vers.X - v.de.X) * k,
-                    v.de.Y + (v.vers.Y - v.de.Y) * k,
-                    v.de.Z + (v.vers.Z - v.de.Z) * k + haut))
-                v.c:SetRotation(Rotator(
+                local r = Rotator(
                     v.de_rot.Pitch + angle(v.vers_rot.Pitch - v.de_rot.Pitch) * k,
                     v.de_rot.Yaw + angle(v.vers_rot.Yaw - v.de_rot.Yaw) * k,
-                    v.de_rot.Roll + angle(v.vers_rot.Roll - v.de_rot.Roll) * k))
+                    v.de_rot.Roll + angle(v.vers_rot.Roll - v.de_rot.Roll) * k)
+                local centre = Vector(
+                    v.de.X + (v.vers.X - v.de.X) * k,
+                    v.de.Y + (v.vers.Y - v.de.Y) * k,
+                    v.de.Z + (v.vers.Z - v.de.Z) * k + haut)
+                v.c:SetRotation(r)
+                v.c:SetLocation(centre - vers_centre(v.modele, r))
             end
         end
     end)
