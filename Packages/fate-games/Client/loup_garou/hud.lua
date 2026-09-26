@@ -100,6 +100,7 @@ return function(config, Interaction)
     local etat = neuf()
     local chat_ouvert = false
     local Pseudo = Package.Require("ui/pseudo.lua")
+    local Ecran = Package.Require("loup_garou/ecran.lua")
 
     local page = WebUI("loup-garou", "file://loup_garou/hud.html",
         WidgetVisibility.VisibleNotHitTestable, true, true)
@@ -142,6 +143,7 @@ return function(config, Interaction)
         if ph and ph.icone == "lune" then
             voile = etat.mort and NUIT.mort or (peut_designer() and NUIT.agit or NUIT.dort)
         end
+        Ecran.noir = voile >= 1
         if voile == etat.voile then return end
         local depuis = etat.voile or 0
         etat.voile = voile
@@ -206,6 +208,7 @@ return function(config, Interaction)
     function H.votes(compte) etat.votes = compte or {} end
 
     function H.chrono(reste)
+        if Ecran.noir then return end
         appeler("lg:chrono", reste)
         appeler("lg:message", ("Tout le monde a voté : %d secondes pour changer d'avis."):format(reste), 4)
     end
@@ -305,6 +308,7 @@ return function(config, Interaction)
 
     local function dessiner(c, largeur, hauteur)
         etat.vise = nil
+        if Ecran.noir then return end
         if not etat.phase and not next(etat.allies) and not etat.amoureux and not etat.maire then return end
         local player = Client.GetLocalPlayer()
         if not player then return end
@@ -323,7 +327,10 @@ return function(config, Interaction)
         local poses = {}
         for _, class in ipairs({ CharacterSimple, Character }) do
             for _, ch in pairs(class.GetAll()) do
-                if ch:IsValid() and ch:GetID() ~= mon_id then
+                -- Seuls les joueurs de la partie comptent (ww_joueur, pose par le
+                -- serveur) ; les morts ne sont plus visables.
+                if ch:IsValid() and ch:GetID() ~= mon_id and ch:GetValue("ww_joueur", false) then
+                    local mort = ch:GetValue("ww_mort", false) == true
                     local t = tete(ch)
                     local dx, dy, dz = t.X - camera.X, t.Y - camera.Y, t.Z - camera.Z
                     local d = math.sqrt(dx * dx + dy * dy + dz * dz)
@@ -331,8 +338,8 @@ return function(config, Interaction)
                     if d < PORTEE and cosinus > 0 then
                         local p = Viewport.ProjectWorldToScreen(Vector(t.X, t.Y, t.Z + 58))
                         if p and type(p.X) == "number" and p.X > 0 and p.X < largeur and p.Y > 0 and p.Y < hauteur then
-                            poses[#poses + 1] = { ch = ch, x = p.X, y = p.Y, s = math.max(0.75, math.min(1, 700 / d)) }
-                            if designer and cosinus > meilleur_cos then meilleur, meilleur_cos = ch, cosinus end
+                            poses[#poses + 1] = { ch = ch, x = p.X, y = p.Y, s = math.max(0.75, math.min(1, 700 / d)), mort = mort }
+                            if designer and not mort and cosinus > meilleur_cos then meilleur, meilleur_cos = ch, cosinus end
                         end
                     end
                 end
@@ -343,6 +350,11 @@ return function(config, Interaction)
 
         for _, e in ipairs(poses) do
             local id, y = e.ch:GetID(), e.y
+            if e.mort then
+                -- Un mort : une tete de mort, rien d'autre.
+                sprite(c, "lg_crane", e.x, y - 24 * e.s, 56, 56, e.s)
+                goto suivant
+            end
             local n = etat.votes[id]
             if n and n > 0 then
                 sprite(c, ("voix_%d%s"):format(math.min(12, n), n == max and "_tete" or ""), e.x, y - 14 * e.s, 96, 56, e.s)
@@ -374,6 +386,7 @@ return function(config, Interaction)
             if id == vise_id and invite then
                 sprite(c, invite, e.x, y - 22 * e.s, LARGEUR_INVITE[invite] or 190, 62, e.s)
             end
+            ::suivant::
         end
 
         -- Mes voix : mon compteur est au-dessus de ma tete, hors de ma vue. On

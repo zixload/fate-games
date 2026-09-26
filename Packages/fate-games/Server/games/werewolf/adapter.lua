@@ -326,6 +326,14 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         end
         Log.Info("werewolf", ("partie lancee a %d joueurs"):format(#ids))
         diffuser("ww:salon", nil)
+        -- Le client ne vise que les joueurs de la partie encore vivants.
+        for _, id in ipairs(ids) do
+            local c = personnage(id)
+            if c and c:IsValid() then
+                c:SetValue("ww_joueur", true, true)
+                c:SetValue("ww_mort", false, true)
+            end
+        end
         -- Une carte face cachee devant chaque joueur.
         cartes = {}
         for _, id in ipairs(ids) do
@@ -574,7 +582,9 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         if s.match then retourner_carte(e.player, Match.role(s.match, e.player)) end
     end
     TRADUIRE.voice_channel = function(e) regler_voix(e.player, e.channel) end
-    TRADUIRE.chrono = function(e) diffuser("ww:chrono", e.reste) end
+    TRADUIRE.chrono = function(e)
+        for _, id in ipairs(destinataires(e.audience)) do envoyer(id, "ww:chrono", e.reste) end
+    end
     TRADUIRE.mayor = function(e) diffuser("ww:maire", id_personnage(e.player), nom(e.player)) end
     TRADUIRE.victim = function(e) envoyer(e.player, "ww:victime", id_personnage(e.target), nom(e.target)) end
     TRADUIRE.potions = function(e) envoyer(e.player, "ww:potions", e.vie, e.mort) end
@@ -634,7 +644,10 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             voix_actuelle = {}
             for _, id in ipairs(salon.ordre) do
                 local c = personnage(id)
-                if c and c:IsValid() then c:SetValue("ww_mort", false, true) end
+                if c and c:IsValid() then
+                    c:SetValue("ww_mort", false, true)
+                    c:SetValue("ww_joueur", false, true)
+                end
             end
             s = Engine.nouveau({ debat = salon.debat })
             salon.pret = {}

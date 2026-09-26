@@ -70,7 +70,7 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         local c = Phases.confirmation or 10
         if s.reste > c then
             s.reste = c
-            fx[#fx + 1] = Effects.chrono(c)
+            fx[#fx + 1] = Effects.chrono(c, s.phase == "night_wolves" and "wolves" or "all")
         end
     end
 

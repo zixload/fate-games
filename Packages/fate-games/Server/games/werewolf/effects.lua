@@ -26,8 +26,9 @@ return function()
 
     function E.phase(id, duree) return effet("phase", { id = id, duree = duree }, "all") end
 
-    -- Le minuteur de la phase en cours change (tout le monde a vote).
-    function E.chrono(reste) return effet("chrono", { reste = reste }, "all") end
+    -- Le minuteur de la phase en cours change (tout le monde a vote) : aux
+    -- seuls votants, sinon la nuit dirait aux dormeurs que les loups ont fini.
+    function E.chrono(reste, audience) return effet("chrono", { reste = reste }, audience or "all") end
 
     -- Le decompte d'un vote : public le jour, aux loups la nuit.
     function E.votes(compte, audience) return effet("votes", { compte = compte }, audience) end

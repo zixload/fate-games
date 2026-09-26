@@ -44,6 +44,7 @@ rendre lg_maire 56 60 "s=lg_maire"
 rendre lg_sauver 170 62 "s=lg_sauver"
 rendre lg_empoisonner 226 62 "s=lg_empoisonner"
 rendre lg_victime 56 52 "s=lg_victime"
+rendre lg_crane 56 56 "s=lg_crane"
 for n in $(seq 0 12); do
     rendre "voix_$n" 96 56 "s=lg_voix&n=$n"
     rendre "voix_${n}_tete" 96 56 "s=lg_voix&n=$n&tete=1"

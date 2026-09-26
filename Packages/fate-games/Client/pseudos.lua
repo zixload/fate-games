@@ -63,7 +63,11 @@ return function(journal, config)
         return v.visible
     end
 
+    local Ecran = Package.Require("loup_garou/ecran.lua")
+
     local function dessiner(c, largeur, hauteur)
+        -- La nuit du loup-garou rend l'ecran noir : pas de pseudos par-dessus.
+        if Ecran.noir then return end
         local player = Client.GetLocalPlayer()
         if not player then return end
         local moi = player:GetControlledCharacter()
