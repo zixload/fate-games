@@ -570,6 +570,14 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         end
         for _, id in ipairs(destinataires(e.audience)) do envoyer(id, "ww:votes", compte) end
     end
+    -- Qui vote qui : le jour a tous, la nuit aux loups (meme public que les voix).
+    TRADUIRE.point_at = function(e)
+        local cible = e.target and id_personnage(e.target) or nil
+        local nom_cible = e.target and nom(e.target) or nil
+        for _, id in ipairs(destinataires(e.audience)) do
+            envoyer(id, "ww:pointe", id_personnage(e.player), cible, nom_cible)
+        end
+    end
     TRADUIRE.reveal = function(e) envoyer(e.viewer, "ww:vision", nom(e.target), e.role) end
     TRADUIRE.lovers = function(e) envoyer(e.player, "ww:amoureux", id_personnage(e.partner), nom(e.partner)) end
     TRADUIRE.kill = function(e)

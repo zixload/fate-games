@@ -93,7 +93,7 @@ return function(config, Interaction)
     local pret_page = false
     local file = {}
     local function neuf()
-        return { role = nil, allies = {}, phase = nil, votes = {}, mort = false, salon = nil,
+        return { role = nil, allies = {}, phase = nil, votes = {}, choix = {}, mort = false, salon = nil,
             vise = nil, amoureux = nil, maire = nil, etait_maire = false, victime = nil,
             potions = { vie = true, mort = true }, ligne = 1, demo = false, voile = 0 }
     end
@@ -135,8 +135,10 @@ return function(config, Interaction)
     -- un voile leger pour les morts qui suivent la partie. Le jour, rien.
     -- StartCameraFade (doc Player), Sky.SetFog, PostProcess ; le HUD reste
     -- au-dessus.
-    local NUIT = config.nuit or { dort = 0.45, agit = 0.72, mort = 0.35, fondu = 1.5,
-        brume = 35, brume_jour = 0, vignette = 1.0, grain = 0.3, couleur = 0.35 }
+    -- Pas de voile ni de brume par defaut : la nuit, qui dort baisse la tete,
+    -- c'est tout (/lg nuit pour essayer autre chose).
+    local NUIT = config.nuit or { dort = 0, agit = 0, mort = 0, fondu = 1.5,
+        brume = 0, brume_jour = 0, vignette = 0.6, grain = 0, couleur = 1 }
     local COULEUR_NUIT = Color(0.02, 0.03, 0.07)
     local endormi = false
     local essai = false      -- /lg nuit essai : sommeil force, pour regler hors partie
@@ -256,7 +258,7 @@ return function(config, Interaction)
 
     function H.phase(id, duree)
         -- Le vote du village court du debat a la fin du vote : on garde ses voix.
-        if not (id == "day_vote" and etat.phase == "day_debate") then etat.votes = {} end
+        if not (id == "day_vote" and etat.phase == "day_debate") then etat.votes, etat.choix = {}, {} end
         etat.phase = id
         if id ~= "night_witch" then etat.victime = nil end
         local ph = PHASES[id]
@@ -266,6 +268,12 @@ return function(config, Interaction)
     end
 
     function H.votes(compte) etat.votes = compte or {} end
+
+    -- Qui vote qui : "> cible" sous l'etiquette du votant (cible nil : retire).
+    function H.pointe(votant, cible, nom)
+        if not votant then return end
+        etat.choix[votant] = cible and { id = cible, nom = tostring(nom or "?") } or nil
+    end
 
     function H.chrono(reste)
         if Ecran.noir then return end
@@ -433,6 +441,11 @@ return function(config, Interaction)
                     sprite(c, mq[1], x0 + (k - 1) * pas, y - 26 * e.s, mq[2], mq[3], e.s)
                 end
                 y = y - 54 * e.s
+            end
+            local choix = etat.choix[id]
+            if choix then
+                local h = Pseudo.Dessiner(c, "> " .. choix.nom, e.x, y - 4 * e.s, 0.8 * e.s)
+                y = y - h - 10 * e.s
             end
             local invite = ph and ph.invite
             if invite == "sorciere" then

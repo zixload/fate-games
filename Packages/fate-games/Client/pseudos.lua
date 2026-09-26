@@ -67,6 +67,8 @@ return function(journal, config)
     end
 
     local Ecran = Package.Require("loup_garou/ecran.lua")
+    -- Les morts du loup-garou : pseudo grise, en italique.
+    local MORT = { couleur = Color(0.62, 0.62, 0.62, 0.85), penche = 10 }
 
     local function dessiner(c, largeur, hauteur)
         -- La nuit du loup-garou rend l'ecran noir : pas de pseudos par-dessus.
@@ -94,7 +96,9 @@ return function(journal, config)
                             local e = Viewport.ProjectWorldToScreen(point)
                             if e and type(e.X) == "number" and e.X > 0 and e.X < largeur
                                 and e.Y > 0 and e.Y < hauteur then
-                                Pseudo.Dessiner(c, nom, e.X, e.Y, math.max(0.7, math.min(1, 700 / d)))
+                                local mort = character:GetValue("ww_mort", false) == true
+                                Pseudo.Dessiner(c, nom, e.X, e.Y, math.max(0.7, math.min(1, 700 / d)),
+                                    mort and MORT or nil)
                             end
                         end
                     end

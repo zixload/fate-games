@@ -28,8 +28,10 @@ end
 local Pseudo = {}
 
 -- Un pseudo centre sur x, pose sur la ligne y (son bas), a l'echelle s.
--- Rend sa hauteur a l'ecran.
-function Pseudo.Dessiner(c, texte, x, y, s)
+-- style (facultatif) : { couleur = Color, penche = degres } ; la planche est
+-- une image, l'italique se fait en penchant chaque lettre. Rend sa hauteur a
+-- l'ecran.
+function Pseudo.Dessiner(c, texte, x, y, s, style)
     local gs = glyphes(tostring(texte or ""))
     if #gs == 0 then return 0 end
     local k = TAILLE * (s or 1)
@@ -38,12 +40,14 @@ function Pseudo.Dessiner(c, texte, x, y, s)
     local cx = x - largeur / 2
     local haut = y - (Police.base + 10) * k
     local ul, uh = Police.case_l / Police.largeur, Police.case_h / Police.hauteur
+    local couleur = style and style.couleur or Color.WHITE
+    local penche = style and style.penche or 0
     for _, g in ipairs(gs) do
         local col, lig = g.i % Police.colonnes, math.floor(g.i / Police.colonnes)
         c:DrawTexture(PLANCHE, Vector2D(cx - Police.marge * k, haut),
             Vector2D(Police.case_l * k, Police.case_h * k),
             Vector2D(col * ul, lig * uh), Vector2D(ul, uh),
-            Color.WHITE, BlendMode.AlphaBlend, 0, Vector2D(0.5, 0.5))
+            couleur, BlendMode.AlphaBlend, penche, Vector2D(0.5, 0.5))
         cx = cx + (g.a + ESPACE) * k
     end
     return (Police.base + 10) * k
