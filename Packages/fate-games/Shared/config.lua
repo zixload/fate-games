@@ -163,6 +163,10 @@ return {
             duree = 0.45, arc = 18,
             ecart_donne = 0.09, ecart_pose = 0.07, ecart_revelation = 0.12,
             fenetre_donne = 1.5,
+            -- Pose : les cartes suivent la main dans ANIM_Seated_Card_Play (30
+            -- images a 30 i/s, main sur la table des images 15 a 18), puis la
+            -- quittent a `lacher` secondes et tombent sur le tas.
+            lacher = 0.5, duree_lacher = 0.22, arc_lacher = 3, ecart_lacher = 0.04,
         },
 
         -- Centre de chaque carte par rapport a son pivot, en unites du FBX (le

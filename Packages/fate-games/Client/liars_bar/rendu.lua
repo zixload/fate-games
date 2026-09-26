@@ -168,15 +168,16 @@ return function(config, Cartes, journal, disposition)
 
     -- de et vers sont des centres visibles : le vol deplace le centre de la
     -- carte, sinon elle tournerait autour d'un point a 32 cm d'elle.
-    -- e_de, e_vers : echelle au depart et a l'arrivee (main ou table).
-    local function voler(modele, de, de_rot, vers, vers_rot, retard, a_l_arrivee, e_de, e_vers)
+    -- e_de, e_vers : echelle au depart et a l'arrivee (main ou table) ;
+    -- duree, arc : ceux du vol, sinon ceux de config.anim.
+    local function voler(modele, de, de_rot, vers, vers_rot, retard, a_l_arrivee, e_de, e_vers, duree, arc)
         e_de, e_vers = e_de or 1, e_vers or 1
         local ok, c = pcall(carte_libre, modele, de - vers_centre(modele, de_rot, e_de), de_rot, e_de)
         if not ok then return end
         vols[#vols + 1] = {
             c = c, modele = modele, de_rot = de_rot, vers_rot = vers_rot,
             de = de, vers = vers, e_de = e_de, e_vers = e_vers,
-            t = -(retard or 0), duree = anim.duree or 0.45, arc = anim.arc or 18,
+            t = -(retard or 0), duree = duree or anim.duree or 0.45, arc = arc or anim.arc or 18,
             fin = a_l_arrivee,
         }
     end
@@ -388,10 +389,26 @@ return function(config, Cartes, journal, disposition)
 
     ---------------------------------------------------------------- mouvements du jeu
 
-    -- Quelqu'un pose : ses cartes quittent sa main et volent au tas, face
-    -- cachee. Chez moi ce sont celles que j'avais levees ; chez les autres, des
-    -- dos pris au bout de leur eventail. Appele avant que la main soit
-    -- redessinee sans elles.
+    -- Une copie de la carte c, a sa place exacte, accrochee a l'os de la main
+    -- qui tient l'eventail : elle suit le geste de pose (ANIM_Seated_Card_Play,
+    -- joue par le serveur au meme moment) meme quand l'eventail est redessine
+    -- sans elle.
+    local function carte_tenue(c, modele, perso)
+        if not (perso and perso:IsValid()) then return nil end
+        local tenue = StaticMesh(c:GetLocation(), c:GetRotation(), modele, CollisionType.NoCollision)
+        sans_collision(tenue)
+        local t = config.fan.taille
+        tenue:SetScale(Vector(t, t, t))
+        tenue:AttachTo(perso, AttachmentRule.KeepWorld, os_de(perso), 0)
+        return tenue
+    end
+
+    -- Quelqu'un pose : comme dans l'animation, ses cartes restent dans sa main
+    -- pendant qu'elle avance vers le centre, puis, quand elle touche la table
+    -- (anim.lacher secondes), elles la quittent et tombent a plat sur le tas,
+    -- face cachee. Chez moi ce sont celles que j'avais levees ; chez les
+    -- autres, des dos pris au bout de leur eventail. Appele avant que la main
+    -- soit redessinee sans elles.
     local function poser(chaise, nombre)
         if config.en_main == false or not nombre or nombre <= 0 then return end
         local depart = {}
@@ -423,25 +440,38 @@ return function(config, Cartes, journal, disposition)
         local centre = centre_table()
         local tbl = config.table
         local perso = personnage_de_chaise(chaise)
+            or (chaise == journal.my_chair and mon_personnage() or nil)
+        local lacher = math.floor((anim.lacher or 0.5) * 1000)
         for n = 1, nombre do
             local p = Cartes.Tas(premiere + n - 1, tbl)
             local vers, vers_rot = lieu_table(p, tbl.dos, p.yaw, centre)
             local src = depart[n]
-            local de, de_rot, modele
+            local modele = src and src.modele or config.back_mesh
+            local tenue = nil
             if src and src.c and src.c:IsValid() then
-                modele = src.modele
-                de, de_rot = visuel(src.c, modele)
+                local ok, t = pcall(carte_tenue, src.c, modele, perso)
+                tenue = ok and t or nil
                 src.c:SetVisibility(false)
-            elseif perso then
-                de, de_rot, modele = perso:GetLocation() + Vector(0, 0, 40), perso:GetRotation(), config.back_mesh
             end
-            if de then
-                vers_le_tas = vers_le_tas + 1
-                voler(modele, de, de_rot, vers, vers_rot, (n - 1) * (anim.ecart_pose or 0.07), function()
-                    vers_le_tas = math.max(0, vers_le_tas - 1)
-                    Rendu.Refresh()
-                end, 1, echelle_table())
+            vers_le_tas = vers_le_tas + 1
+            local function arrivee()
+                vers_le_tas = math.max(0, vers_le_tas - 1)
+                Rendu.Refresh()
             end
+            -- Lacher : de la ou la main a porte la carte jusqu'au tas, court et
+            -- presque sans arc, comme une carte qu'on laisse tomber.
+            Timer.SetTimeout(function()
+                local de, de_rot
+                if tenue and tenue:IsValid() then
+                    de, de_rot = visuel(tenue, modele)
+                    tenue:Destroy()
+                elseif perso and perso:IsValid() then
+                    de, de_rot = perso:GetLocation() + Vector(0, 0, 40), perso:GetRotation()
+                end
+                if not de then return arrivee() end
+                voler(modele, de, de_rot, vers, vers_rot, (n - 1) * (anim.ecart_lacher or 0.04), arrivee,
+                    1, echelle_table(), anim.duree_lacher or 0.22, anim.arc_lacher or 3)
+            end, lacher)
         end
     end
 
