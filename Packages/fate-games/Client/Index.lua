@@ -39,6 +39,12 @@ Package.Require("course.lua")
 -- Espace pour quitter sa chaise hors partie.
 Package.Require("se_lever.lua")
 
+-- Roue d'emotes : T, puis 1, 2 ou 3.
+local ok_emotes, err_emotes = pcall(function()
+    Package.Require("emotes.lua")(SharedConfig.emotes)
+end)
+if not ok_emotes then Console.Error("[emotes] chargement impossible : " .. tostring(err_emotes)) end
+
 -- Vestiaire d'arrivee : cartes des personnages et des armes, boutique.
 local ok_vestiaire, err_vestiaire = pcall(function()
     Package.Require("vestiaire/vestiaire.lua")(SharedConfig)

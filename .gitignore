@@ -24,6 +24,9 @@ Config.toml
 *.db-journal
 *.db-wal
 
+# Apercus des emotes, rendus depuis des animations hors depot
+Packages/fate-games/Client/emotes/img/
+
 # --- Divers ---
 .idea/
 *.tmp

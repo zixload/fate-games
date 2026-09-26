@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Emotes</title>
+<style>
+@font-face { font-family: "Lilita One"; src: url("../vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --laiton: #d9b56a; --laiton-fonce: #8a6d3b; --ombre: #070a0b; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent;
+    font-family: "Lilita One", sans-serif; color: var(--encre); user-select: none; pointer-events: none; }
+body.apercu-navigateur { background: radial-gradient(circle at 50% 40%, #6d8aa6, #2a3a48); }
+
+.sk { position: relative; isolation: isolate; }
+.sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+.sk-svg .ombre { fill: var(--ombre); }
+.sk-svg .fond { fill: var(--papier); }
+.sk-svg .trait { fill: none; stroke: var(--bord, var(--encre)); stroke-width: 3.5px; stroke-linejoin: round; }
+.sk-svg .trait2 { fill: none; stroke: var(--bord, var(--encre)); stroke-width: 1.5px; opacity: .4; }
+
+.touche { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; box-sizing: border-box;
+    border: 2.5px solid var(--encre); border-bottom-width: 5px; border-radius: 8px; background: #f6eedb; font-size: 17px; line-height: 1; }
+
+/* Trois cartes en arc, en bas au centre : l'apercu a l'encre, le titre, la touche. */
+#roue { position: absolute; left: 50%; bottom: 13%; display: flex; gap: 22px; align-items: flex-end;
+    transform: translateX(-50%) translateY(16px); opacity: 0; transition: opacity .14s ease, transform .14s ease; }
+#roue.ouverte { opacity: 1; transform: translateX(-50%) translateY(0); }
+.emote { width: 150px; padding: 12px 12px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.emote:nth-child(1) { transform: rotate(-5deg) translateY(10px); }
+.emote:nth-child(3) { transform: rotate(5deg) translateY(10px); }
+.emote.choisie { --bord: var(--laiton-fonce); }
+.emote.choisie .cadre { background: var(--laiton); }
+.cadre { width: 126px; height: 126px; border-radius: 10px; background: #f6eedb; display: grid; place-items: center; overflow: hidden; }
+.cadre img { width: 100%; height: 100%; object-fit: contain; }
+.cadre svg { width: 70px; height: 90px; opacity: .35; }
+.titre { font-size: 21px; line-height: 1; text-align: center; }
+.emote.vide { opacity: .55; }
+.emote.vide .titre::after { content: " · bientôt"; font-size: 13px; color: var(--laiton-fonce); }
+</style>
+</head>
+<body>
+<div id="roue"></div>
+<script src="../ui/esquisse.js"></script>
+<script>
+const roue = document.getElementById("roue");
+// Silhouette a l'encre tant que l'apercu Blender n'est pas rendu.
+const SILHOUETTE = '<svg viewBox="0 0 70 90" aria-hidden="true"><circle cx="35" cy="14" r="10" fill="none" stroke="#1c2123" stroke-width="4"/>'
+  + '<path d="M35 26v30M35 34l-18 -10M35 34l20 8M35 56l-14 28M35 56l16 26" fill="none" stroke="#1c2123" stroke-width="4" stroke-linecap="round"/></svg>';
+const TOUCHES = ["1", "2", "3"];
+const nettoyer = (s) => String(s).replace(/[<>&"]/g, "");
+
+function montrer(oui, liste) {
+  if (oui && liste) {
+    roue.innerHTML = liste.map((e, i) => {
+      const img = e.apercu ? `<img src="img/${nettoyer(e.apercu)}.png" alt="" onerror="this.replaceWith(document.createRange().createContextualFragment(SILHOUETTE))">` : SILHOUETTE;
+      return `<div class="emote sk${e.pret ? "" : " vide"}" data-graine="${71 + i}" data-rayon="16">`
+        + `<div class="cadre">${img}</div><div class="titre">${nettoyer(e.titre)}</div><span class="touche">${TOUCHES[i]}</span></div>`;
+    }).join("");
+    requestAnimationFrame(habiller);
+  }
+  roue.classList.toggle("ouverte", !!oui);
+}
+
+function choix(i) {
+  const el = roue.children[i - 1];
+  if (el) el.classList.add("choisie");
+}
+
+if (typeof Events !== "undefined") {
+  Events.Subscribe("emotes:montrer", montrer);
+  Events.Subscribe("emotes:choix", choix);
+  Events.Call("pret");
+} else {
+  document.body.classList.add("apercu-navigateur");
+  montrer(true, [{ titre: "Salsa", apercu: "salsa", pret: true }, { titre: "Danse 2", apercu: "", pret: false }, { titre: "Danse 3", apercu: "", pret: false }]);
+}
+</script>
+</body>
+</html>

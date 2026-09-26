@@ -95,6 +95,26 @@ return {
     -- tant que le fichier n'est pas la (un mp3 se convertit en ogg).
     liars_sons = { menteur = "", volume_menteur = 0.9 },
 
+    -- Roue d'emotes (Client/emotes.lua, Server/domain/emotes.lua). touche ouvre
+    -- la roue, puis 1, 2 ou 3 : noms de la doc Input en QWERTY, en AZERTY (le
+    -- caractere tape) et au pave numerique. anim vide : l'emplacement attend
+    -- son animation (importee par ChatGPT/Codex). apercu : Client/emotes/img/<nom>.png,
+    -- rendu a l'encre dans Blender (hors depot).
+    emotes = {
+        touche = "T",
+        chiffres = {
+            { "One", "Ampersand", "NumPadOne" },
+            { "Two", "E_AccentAigu", "NumPadTwo" },
+            { "Three", "Quote", "NumPadThree" },
+        },
+        fenetre = 4,   -- secondes avant que la roue se referme seule
+        liste = {
+            { titre = "Salsa",   anim = "", apercu = "salsa",   boucle = true },
+            { titre = "Danse 2", anim = "", apercu = "danse_2", boucle = true },
+            { titre = "Danse 3", anim = "", apercu = "danse_3", boucle = true },
+        },
+    },
+
     -- Mouvement de la tete des joueurs assis (Client/vue_assise.lua,
     -- Client/regard_assis.lua, borne aussi par le serveur) : bornes en degres,
     -- gain (la tete tourne un peu plus que la camera, pour se lire de loin)

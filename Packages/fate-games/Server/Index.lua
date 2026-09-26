@@ -23,6 +23,7 @@ local Accounts      = Package.Require("domain/accounts.lua")(Log, DB, Ids, Serve
 local Characters    = Package.Require("domain/characters.lua")(Log, DB, Ids, Scheduler, Accounts, ServerConfig, Appearances)
 local Interactables = Package.Require("domain/interactables.lua")(Log, Intents, Characters, ServerConfig)
 local Boutique      = Package.Require("domain/boutique.lua")(Log, DB, Ids, Catalogue, ServerConfig)
+local Emotes        = Package.Require("domain/emotes.lua")(Log, Characters, SharedConfig.emotes)
 
 -- Liar's Bar. Le cablage est explicite et a plat : chaque module recoit ses
 -- dependances, aucune globale ne circule entre eux (R5).
@@ -79,6 +80,7 @@ Scheduler.Start()
 
 LiarsBar.Init()
 DuelJeu.Init()
+Emotes.Init()
 
 -- Poser l'arene du duel sous ses pieds : "/arene [rayon]", en mode dev.
 if ServerConfig.dev and ServerConfig.dev.liars_bots then
@@ -445,6 +447,7 @@ Player.Subscribe("Destroy", function(player)
     if not ok then
         Log.Error("liars", "OnPlayerLeave a leve : " .. tostring(err))
     end
+    pcall(Emotes.OnPlayerLeave, player)
     local ok_duel, err_duel = pcall(DuelJeu.OnPlayerLeave, player)
     if not ok_duel then
         Log.Error("duel", "OnPlayerLeave a leve : " .. tostring(err_duel))
