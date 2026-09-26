@@ -16,10 +16,13 @@ return function(config)
     local tictac_prevu = nil
     local etat = { phase = nil, role = nil, votes_sur_moi = 0, total_votes = 0, revelees = 0 }
 
+    -- Chaque son joue ou refuse laisse une ligne dans la console du client :
+    -- un echec ne doit plus etre muet.
     local function jouer(nom, volume)
-        pcall(function()
+        local ok, err = pcall(function()
             Sound(Vector(), DOSSIER .. nom .. ".ogg", true, true, SoundType.SFX, volume or VOLUMES.sons, 1)
         end)
+        if ok then Console.Log("[loup-garou sons] " .. nom) else Console.Error("[loup-garou sons] " .. nom .. " : " .. tostring(err)) end
     end
 
     local function boucle(nom, volume, fondu)
@@ -29,6 +32,7 @@ return function(config)
             s:FadeIn(fondu or 2, 1)
             return s
         end)
+        if ok then Console.Log("[loup-garou sons] boucle " .. nom) else Console.Error("[loup-garou sons] boucle " .. nom .. " : " .. tostring(son)) end
         return ok and son or nil
     end
 
@@ -145,6 +149,14 @@ return function(config)
         battre(false)
         etat.phase = nil   -- les cartes qui se retournent a la fin ne sont pas des morts
         if gagnant == "wolves" or gagnant == "white_wolf" then jouer("lg_hurlement") else jouer("lg_victoire") end
+    end)
+
+    -- /lg son <nom> : jouer un son a la main, pour verifier (ex. /lg son lg_cloche).
+    Chat.Subscribe("PlayerSubmit", function(message)
+        local nom = tostring(message):match("^/lg son%s+(%S+)")
+        if not nom then return end
+        jouer(nom)
+        return false
     end)
 
     Events.SubscribeRemote("ww:fin", function()

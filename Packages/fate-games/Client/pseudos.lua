@@ -36,8 +36,11 @@ return function(journal, config)
     -- Deja pose par nametags.lua (assis a la table, partie en cours, vivant).
     local function a_la_table(character)
         local chaise = character:GetValue("liars_chair", 0)
+        -- GetValue(cle, nil) ne rend rien quand la valeur manque : type() sans
+        -- argument levait a chaque image et plus aucun pseudo ne s'affichait.
+        local tirs = character:GetValue("liars_fired", false)
         return type(chaise) == "number" and chaise > 0
-            and type(character:GetValue("liars_fired", nil)) == "number"
+            and type(tirs) == "number"
             and character:GetValue("liars_alive", false) == true
     end
 
