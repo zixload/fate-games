@@ -44,8 +44,9 @@ def at(name, tail=False):
 wrist = at("LeftHand")
 shoulder = at("LeftArm")
 # A restrained reach: roughly 22 cm forward and 6 cm inward, without
-# dragging the whole body into the table. Z stays just above the tabletop.
-table = wrist + Vector((-0.13, -0.38, 0.025))
+# dragging the whole body into the table. Keep a generous clearance for the
+# fingers and attached cards, which extend below the wrist in game.
+table = wrist + Vector((-0.13, -0.38, 0.20))
 reach = wrist.lerp(table, 0.58) + Vector((0, 0, 0.055))
 pole_location = shoulder + Vector((0.30, 0.07, -0.18))
 
