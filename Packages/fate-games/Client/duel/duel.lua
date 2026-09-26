@@ -295,8 +295,10 @@ return function(SharedConfig)
 
     ------------------------------------------------------------ evenements
 
+    -- Un etat vide : on s'est eloigne de l'arene, le HUD se ferme.
     Events.SubscribeRemote("duel:etat", function(e)
         etat = e
+        if not e and regarde then regarde = false; appeler("regarde", false) end
         appeler("etat", e, moi())
     end)
     Events.SubscribeRemote("duel:mes_armes", function(liste, choisie)

@@ -25,8 +25,12 @@ return {
     -- scripts/unreal/export_arenes.py (data/arenes.lua). /arene (dev) en ajoute
     -- une de test sous ses pieds, avec ce rayon par defaut.
     rayon_test = 900,
-    -- Rayon autour de l'arene ou l'on peut regarder le duel.
-    rayon_spectateurs = 2500,
+    -- Distance au bord de l'arene (cm) sous laquelle on recoit son etat et
+    -- on peut regarder le duel (F / G).
+    rayon_spectateurs = 700,
+    -- Camera accrochee a un combattant (spectateur, ou mort qui regarde son
+    -- coequipier) : decalage depuis son centre, a hauteur des yeux.
+    camera_suivie = { x = 12, y = 0, z = 62 },
 
     -- Murs invisibles poses sur le bord de l'arene pendant un duel : on bute
     -- dessus au lieu d'etre teleporte. Hauteur et epaisseur en cm.

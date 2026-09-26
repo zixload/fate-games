@@ -223,15 +223,34 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     end
 
     -- L'etat d'une arene part a ses joueurs et a ceux qui regardent de pres.
+    -- A.informes : qui l'a recu ; celui qui s'eloigne recoit un etat vide et
+    -- son HUD se ferme (sinon il restait affiche).
+    local function concerne(A, id)
+        if arene_de[id] == A then return true end
+        local c = personnage(id)
+        return not arene_de[id] and c ~= nil and distance_bord(A, c:GetLocation()) <= config.rayon_spectateurs
+    end
+
     local function diffuser(A)
         local v = vue(A)
+        A.informes = A.informes or {}
         for _, p in pairs(Player.GetPairs()) do
             local id = p:GetID()
-            local c = personnage(id)
-            local concerne = arene_de[id] == A
-                or (not arene_de[id] and c and distance_bord(A, c:GetLocation()) <= config.rayon_spectateurs)
-            if concerne then Events.CallRemote("duel:etat", p, Reliability.Reliable, v) end
+            if concerne(A, id) then
+                Events.CallRemote("duel:etat", p, Reliability.Reliable, v)
+                A.informes[id] = true
+            elseif A.informes[id] then
+                A.informes[id] = nil
+                Events.CallRemote("duel:etat", p, Reliability.Reliable, nil)
+            end
         end
+    end
+
+    -- Accroche la camera de p a un personnage (vue a hauteur de ses yeux).
+    -- Marche pour les bots, qui n'ont pas de joueur a "Spectate".
+    local function suivre(p, corps)
+        local o = config.camera_suivie
+        pcall(function() p:AttachCameraTo(corps, Vector(o.x, o.y, o.z), 0.3) end)
     end
 
     local function annoncer(A, evenement, ...)
@@ -355,6 +374,8 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     local function debut_manche(A)
         Duel.DebutManche(A.d)
         for id, j in pairs(A.d.joueurs) do
+            local pj = joueur(id)
+            if pj then pcall(function() pj:ResetCamera() end) end
             if not j.parti then
                 local c = personnage(id)
                 local pos, rot = depart_de(A, id)
@@ -461,6 +482,20 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     -- Quatre fois par seconde : qui entre, qui sort, qui force la porte.
     local function surveiller()
         local changees = {}
+        -- Qui s'eloigne d'une arene perd son HUD et, s'il regardait, sa vue.
+        for _, A in ipairs(arenes) do
+            for id in pairs(A.informes or {}) do
+                if not concerne(A, id) then
+                    A.informes[id] = nil
+                    local p = joueur(id)
+                    if p then Events.CallRemote("duel:etat", p, Reliability.Reliable, nil) end
+                    if spectateurs[id] and spectateurs[id].arene == A then
+                        if p then pcall(function() p:ResetCamera() end) end
+                        spectateurs[id] = nil
+                    end
+                end
+            end
+        end
         for _, p in pairs(Player.GetPairs()) do
             local id = p:GetID()
             local s = Characters.SessionByPlayer(id)
@@ -571,7 +606,22 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         if p then Events.CallRemote("duel:touche", p, Reliability.Reliable, tete) end
         if cc:GetHealth() <= 0 then
             retirer_arme(cible)
-            suite(A, Duel.Mort(d, cible))
+            local r = Duel.Mort(d, cible)
+            if not r then vue_du_mate(A, cible) end
+            suite(A, r)
+        end
+    end
+
+    -- Un mort regarde un coequipier encore debout, jusqu'a la manche suivante.
+    local function vue_du_mate(A, id)
+        local p = joueur(id)
+        local j = A.d.joueurs[id]
+        if not (p and j) then return end
+        for autre, ja in pairs(A.d.joueurs) do
+            if autre ~= id and ja.camp == j.camp and ja.vivant then
+                local corps = personnage(autre)
+                if corps then return suivre(p, corps) end
+            end
         end
     end
 
@@ -643,7 +693,9 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             pcall(function() cc:ApplyDamage(config.degats, "", DamageType.Shot, v - a, nil) end)
             if cc:GetHealth() <= 0 then
                 retirer_arme(cible)
-                suite(A, Duel.Mort(d, cible))
+                local rr = Duel.Mort(d, cible)
+                if not rr then vue_du_mate(A, cible) end
+                suite(A, rr)
             end
         end
     end
@@ -742,10 +794,10 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         for k, autre in ipairs(vivants) do
             if autre == actuel then i = k % #vivants + 1 end
         end
-        local cible = joueur(vivants[i])
-        if cible then
+        local corps = personnage(vivants[i])
+        if corps then
             spectateurs[id] = { arene = A, cible = vivants[i] }
-            pcall(function() p:Spectate(cible) end)
+            suivre(p, corps)
         end
     end
 
@@ -771,7 +823,14 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
 
         Events.SubscribeRemote("duel:mise", function(player, mise)
             local A = arene_de[player:GetID()]
-            if A and Duel.ChoisirMise(A.d, player:GetID(), tonumber(mise)) then diffuser(A) end
+            if A and Duel.ChoisirMise(A.d, player:GetID(), tonumber(mise)) then
+                -- Changer la mise remet tout le monde en "pas pret", sauf les bots
+                -- de test, qui acceptent toujours.
+                for id in pairs(A.d.joueurs) do
+                    if bots[id] then Duel.Pret(A.d, id, true) end
+                end
+                diffuser(A)
+            end
         end)
         -- Choix de l'arme : dans l'arene, hors combat. Prise a la manche suivante.
         Events.SubscribeRemote("duel:arme", function(player, arme)
