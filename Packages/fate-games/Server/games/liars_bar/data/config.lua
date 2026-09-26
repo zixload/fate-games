@@ -17,6 +17,10 @@ return {
     -- l'honneur ; bonus verse par la banque a chaque joueur en fin de partie.
     -- Une table avec un bot ne rapporte rien (docs/DUEL-ET-ARGENT.md).
     paliers = { 0, 50, 100, 250 },
+
+    -- Secondes entre la revelation des cartes d'un accuse et la designation
+    -- du tireur : le temps de lire ce qu'il avait pose.
+    pause_revelation = 4.0,
     bonus_participation = 10,
 
     -- chambres du barillet ; une seule balle, position tiree au hasard

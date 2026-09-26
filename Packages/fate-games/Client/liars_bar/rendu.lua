@@ -22,10 +22,18 @@ return function(config, Cartes, journal, disposition)
     local function vec(t) return Vector(t.x, t.y, t.z) end
     local function rot(t) return Rotator(t.p, t.y, t.r) end
 
-    -- Du pivot du modele au centre visible de la carte, tourne par r.
-    local function vers_centre(modele, r)
+    -- Du pivot du modele au centre visible de la carte, tourne par r ; e :
+    -- echelle de la carte (1 en main, table.echelle sur la table).
+    local function vers_centre(modele, r, e)
         local o = Cartes.Centre(modele)
-        return r:RotateVector(Vector(o.x, o.y, o.z))
+        e = e or 1
+        return r:RotateVector(Vector(o.x * e, o.y * e, o.z * e))
+    end
+
+    -- Les cartes posees sur la table sont plus grandes qu'en main : lisibles
+    -- de l'autre bout de la table.
+    local function echelle_table()
+        return config.table.echelle or 1
     end
 
     local function detruire(objets)
@@ -110,10 +118,10 @@ return function(config, Cartes, journal, disposition)
             Rotator(orientation.p, orientation.y + (lacet or 0), orientation.r)
     end
 
-    local function carte_libre(modele, position, rotation)
+    local function carte_libre(modele, position, rotation, e)
         local c = StaticMesh(position, rotation, modele, CollisionType.NoCollision)
         sans_collision(c)
-        local t = config.fan.taille
+        local t = config.fan.taille * (e or 1)
         c:SetScale(Vector(t, t, t))
         return c
     end
@@ -122,7 +130,8 @@ return function(config, Cartes, journal, disposition)
     -- sorte que ce soit son centre visible qui soit au lieu voulu.
     local function carte_posee(modele, lieu, orientation, lacet, centre)
         local p, r = lieu_table(lieu, orientation, lacet, centre)
-        return carte_libre(modele, p - vers_centre(modele, r), r)
+        local e = echelle_table()
+        return carte_libre(modele, p - vers_centre(modele, r, e), r, e)
     end
 
     local function os_de(personnage)
@@ -159,12 +168,14 @@ return function(config, Cartes, journal, disposition)
 
     -- de et vers sont des centres visibles : le vol deplace le centre de la
     -- carte, sinon elle tournerait autour d'un point a 32 cm d'elle.
-    local function voler(modele, de, de_rot, vers, vers_rot, retard, a_l_arrivee)
-        local ok, c = pcall(carte_libre, modele, de - vers_centre(modele, de_rot), de_rot)
+    -- e_de, e_vers : echelle au depart et a l'arrivee (main ou table).
+    local function voler(modele, de, de_rot, vers, vers_rot, retard, a_l_arrivee, e_de, e_vers)
+        e_de, e_vers = e_de or 1, e_vers or 1
+        local ok, c = pcall(carte_libre, modele, de - vers_centre(modele, de_rot, e_de), de_rot, e_de)
         if not ok then return end
         vols[#vols + 1] = {
             c = c, modele = modele, de_rot = de_rot, vers_rot = vers_rot,
-            de = de, vers = vers,
+            de = de, vers = vers, e_de = e_de, e_vers = e_vers,
             t = -(retard or 0), duree = anim.duree or 0.45, arc = anim.arc or 18,
             fin = a_l_arrivee,
         }
@@ -189,8 +200,11 @@ return function(config, Cartes, journal, disposition)
                     v.de.X + (v.vers.X - v.de.X) * k,
                     v.de.Y + (v.vers.Y - v.de.Y) * k,
                     v.de.Z + (v.vers.Z - v.de.Z) * k + haut)
+                local e = v.e_de + (v.e_vers - v.e_de) * k
+                local t = config.fan.taille * e
+                v.c:SetScale(Vector(t, t, t))
                 v.c:SetRotation(r)
-                v.c:SetLocation(centre - vers_centre(v.modele, r))
+                v.c:SetLocation(centre - vers_centre(v.modele, r, e))
             end
         end
     end)
@@ -252,7 +266,7 @@ return function(config, Cartes, journal, disposition)
                 c:SetVisibility(false)
                 voler(config.back_mesh, de, de_rot, vers, vers_rot, (i - 1) * (anim.ecart_donne or 0.09), function()
                     if c:IsValid() then c:SetVisibility(true) end
-                end)
+                end, echelle_table(), 1)
             end
         end
     end
@@ -426,7 +440,7 @@ return function(config, Cartes, journal, disposition)
                 voler(modele, de, de_rot, vers, vers_rot, (n - 1) * (anim.ecart_pose or 0.07), function()
                     vers_le_tas = math.max(0, vers_le_tas - 1)
                     Rendu.Refresh()
-                end)
+                end, 1, echelle_table())
             end
         end
     end
@@ -453,7 +467,7 @@ return function(config, Cartes, journal, disposition)
                         revelation_en_vol = false
                         Rendu.Refresh()
                     end
-                end)
+                end, echelle_table(), echelle_table())
         end
         Rendu.Refresh()
     end

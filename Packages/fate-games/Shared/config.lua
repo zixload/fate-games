@@ -213,9 +213,10 @@ return {
             -- /fan face 0 0 -90.
             dos        = { p = 0, y = 0, r = -90 },   -- carte face cachee
             face       = { p = 0, y = 0, r = 90 },    -- carte revelee
+            echelle    = 1.8,   -- taille des cartes posees, par rapport a la main
             epaisseur  = 0.3,   -- entre deux cartes du tas
-            dispersion = 4,     -- desordre autour du tas
-            ecart_revelation = 7,  -- entre deux cartes revelees
+            dispersion = 6,     -- desordre autour du tas
+            ecart_revelation = 11, -- entre deux cartes revelees (une carte fait 5 cm x echelle)
         },
     },
 

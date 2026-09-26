@@ -27,6 +27,7 @@ return function(config)
         demarrage_impossible = "la partie n'a pas pu démarrer",
         solde_insuffisant    = "pas assez d'argent pour la mise",
         mise_impossible      = "la mise n'a pas pu être prélevée",
+        revelation_en_cours  = "attends la fin de la révélation",
     }
 
     function Journal.RankName(r)

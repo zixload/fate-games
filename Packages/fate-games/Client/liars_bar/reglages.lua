@@ -38,11 +38,12 @@ return function(config, Rendu)
         ecart = config.fan, rayon = config.fan, taille = config.fan,
         levee = config.fan, curseur = config.fan, profondeur = config.fan,
         epaisseur = config.table, dispersion = config.table,
+        echelle = config.table, ecart_revelation = config.table,
         coin = config.fan,
     }
     local ORDRE_V = { "pos", "rot", "carte", "table", "dos", "face" }
     local ORDRE_N = { "ecart", "rayon", "coin", "taille", "levee", "curseur", "profondeur",
-        "epaisseur", "dispersion" }
+        "epaisseur", "dispersion", "echelle", "ecart_revelation" }
 
     local function afficher()
         for _, cle in ipairs(ORDRE_V) do

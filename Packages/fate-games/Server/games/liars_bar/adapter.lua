@@ -72,6 +72,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     local Boutique       = nil
     local mise_en_cours  = nil   -- { partie, mise, comptes = chaise -> compte, avec_bots }
     local numero_partie  = 0
+    -- Pause de lecture apres une revelation : jeton de la pause en cours et
+    -- departs survenus pendant (rejoues apres, comme pendant un tir).
+    local pause_lecture  = nil
     local player_by_seat = {}
     local seat_by_player = {}
     local chair_of       = {}    -- place moteur -> chaise, le temps d'une partie
@@ -485,6 +488,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         state, started_at = nil, nil
         player_by_seat, seat_by_player, chair_of, seated = {}, {}, {}, {}
         salon = Salon.New()
+        pause_lecture = nil
     end
 
     ---------------------------------------------------------------- traducteurs
@@ -853,6 +857,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         if shot_sequence then
             return false, "tir_en_cours"
         end
+        if pause_lecture then
+            return false, "revelation_en_cours"
+        end
 
         if act.kind == "shoot" then
             if not (state.pending and state.pending.seat == act.seat) then
@@ -950,9 +957,38 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
                 end
             end, 850)
         else
-            dispatch(effects, cid)
-            Adapter.ArmShootTimeout()
-            Adapter.ScheduleBots()
+            -- Une revelation : ses cartes restent sous les yeux de tous
+            -- config.pause_revelation secondes avant que la suite (le tireur
+            -- designe) parte. Rien ne se joue pendant la pause.
+            local avant, apres = {}, {}
+            for _, effect in ipairs(effects) do
+                if #apres == 0 and (avant[#avant] == nil or avant[#avant].kind ~= "reveal") then
+                    avant[#avant + 1] = effect
+                else
+                    apres[#apres + 1] = effect
+                end
+            end
+            local pause = config.pause_revelation or 0
+            if pause <= 0 or #apres == 0 or avant[#avant].kind ~= "reveal" then
+                dispatch(effects, cid)
+                Adapter.ArmShootTimeout()
+                Adapter.ScheduleBots()
+                return true
+            end
+            dispatch(avant, cid)
+            local jeton = { departures = {} }
+            pause_lecture = jeton
+            Timer.SetTimeout(function()
+                if pause_lecture ~= jeton then return end
+                pause_lecture = nil
+                dispatch(apres, cid)
+                Adapter.ArmShootTimeout()
+                Adapter.ScheduleBots()
+                for _, player_id in ipairs(jeton.departures) do
+                    local seat = seat_by_player[player_id]
+                    if state and seat then Adapter.Act({ kind = "leave", seat = seat }) end
+                end
+            end, math.floor(pause * 1000))
         end
         return true
     end
@@ -1646,6 +1682,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         if state then
             if shot_sequence then
                 shot_sequence.departures[#shot_sequence.departures + 1] = player_id
+                return
+            end
+            if pause_lecture then
+                pause_lecture.departures[#pause_lecture.departures + 1] = player_id
                 return
             end
             Adapter.Act({ kind = "leave", seat = seat })
