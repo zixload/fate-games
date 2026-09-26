@@ -124,6 +124,7 @@ return {
             pos        = { x = -37, y = 1, z = -12 },   -- carte du milieu, depuis l'os de la main
             rot        = { p = -10, y = 140, r = 26 },
             carte      = { p = 0, y = 0, r = 0 },   -- carte, dans sa fente
+            axe        = "z",   -- axe qui traverse la face (voir cartes.lua) : /fan axe
             ecart      = 12,    -- degres entre deux cartes, dans leur plan
             rayon      = 4.5,   -- du pivot (bas commun) au centre d'une carte :
                                 -- la moitie de sa hauteur, les bases se touchent

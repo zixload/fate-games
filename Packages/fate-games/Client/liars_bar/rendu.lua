@@ -73,7 +73,7 @@ return function(config, Cartes, journal, disposition)
             local f = Cartes.Fente(n, i, config.fan, levees[i] or 0)
             local fente = support(pivot)
             fente:SetRelativeLocation(Vector(f.x, f.y, f.z))
-            fente:SetRelativeRotation(Rotator(0, f.yaw, 0))
+            fente:SetRelativeRotation(Rotator(f.p, f.yaw, f.r))
             objets[#objets + 1] = fente
             local c = carte_accrochee(modele, fente)
             objets[#objets + 1] = c

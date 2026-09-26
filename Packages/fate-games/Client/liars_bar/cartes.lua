@@ -53,25 +53,41 @@ return function(config)
         return out
     end
 
-    -- Fente i sur n de l'eventail, dans le repere du pivot. Une carte du FBX
-    -- est a plat dans son plan XY, face vers +Z (posee sans rotation sur la
-    -- table, elle montre sa face), sa hauteur le long de X. Comme dans une
-    -- vraie main, les cartes tournent donc dans leur plan (lacet, autour de
-    -- Z) autour d'un point commun, le pivot, et s'empilent le long de Z sans
-    -- se traverser. rayon : du pivot au centre de la carte ; a la moitie de
-    -- sa hauteur, les bases se rejoignent. La levee eloigne la carte du pivot.
-    -- La carte du milieu reste a l'origine du support : le reglage de
-    -- position (/fan pos) la place, l'eventail s'ouvre autour d'elle.
+    -- Comme dans une vraie main, les cartes tournent dans leur propre plan
+    -- autour d'un point commun en bas, et s'empilent le long de leur face
+    -- sans se traverser. L'axe qui traverse la face depend de l'orientation
+    -- du FBX, inconnue : fan.axe le choisit, reglable en jeu (/fan axe).
+    --   axe  pivote autour de   hauteur de la carte le long de
+    --   z    Z (lacet)          X
+    --   zy   Z (lacet)          Y
+    --   y    Y (tangage)        Z
+    --   x    X (roulis)         Z
+    -- Mauvais axe : les cartes glissent en ligne au lieu de s'ouvrir.
+    -- rayon : du bas commun au centre d'une carte ; a la moitie de sa
+    -- hauteur, les bases se rejoignent. La levee eloigne la carte du bas.
+    -- La carte du milieu reste a l'origine du support : /fan pos la place.
+    local AXES = {
+        -- a partir de (s, c, r, d) : sinus, cosinus - 1 fois le rayon, rayon,
+        -- profondeur -> x, y, z et la rotation { p, y, r }
+        z  = function(s, c, d, a) return c, s, d, 0, a, 0 end,
+        zy = function(s, c, d, a) return -s, c, d, 0, a, 0 end,
+        y  = function(s, c, d, a) return -s, d, c, a, 0, 0 end,
+        x  = function(s, c, d, a) return d, -s, c, 0, 0, a end,
+    }
+
     function Cartes.Fente(n, i, fan, levee)
         local angle = (i - (n + 1) / 2) * fan.ecart
         local rad   = math.rad(angle)
         local r     = fan.rayon + (levee or 0)
-        return {
-            x   = math.cos(rad) * r - fan.rayon,
-            y   = math.sin(rad) * r,
-            z   = (i - 1) * fan.profondeur,
-            yaw = angle,
-        }
+        local s     = math.sin(rad) * r
+        local c     = math.cos(rad) * r - fan.rayon
+        local d     = (i - (n + 1) / 2) * fan.profondeur
+        local x, y, z, p, ya, ro = (AXES[fan.axe or "z"] or AXES.z)(s, c, d, angle)
+        return { x = x, y = y, z = z, p = p, yaw = ya, r = ro }
+    end
+
+    function Cartes.Axes()
+        return { "z", "zy", "y", "x" }
     end
 
     -- Carte k du tas du centre, relative au centre du plateau. Le desordre

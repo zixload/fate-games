@@ -16,6 +16,7 @@
 --   /fan dos p y r           plateau), dos (carte face cachee sur la table),
 --   /fan face p y r          face (carte revelee sur la table)
 --   /fan os <nom>          os qui tient l'eventail (LeftHand, RightHand...)
+--   /fan axe z|zy|y|x      axe autour duquel les cartes s'ouvrent
 --   /fan ecart -1          ajuste un nombre (avec signe), ou /fan ecart 3 le
 --                          remplace, ou /fan ecart l'affiche :
 --   /fan <nombre> n        ecart, rayon, taille, levee, curseur, profondeur,
@@ -49,6 +50,7 @@ return function(config, Rendu)
         for _, cle in ipairs(ORDRE_N) do
             Chat.AddMessage(("/fan %s %s"):format(cle, tostring(NOMBRES[cle][cle])))
         end
+        Chat.AddMessage("/fan axe " .. tostring(config.fan.axe))
     end
 
     Chat.Subscribe("PlayerSubmit", function(message)
@@ -65,6 +67,11 @@ return function(config, Rendu)
             Rendu.Demo(not Rendu.IsDemo())
             Events.CallRemote("liars:fan_demo", Reliability.Reliable, Rendu.IsDemo())
             Chat.AddMessage("demo : " .. (Rendu.IsDemo() and "active" or "coupee"))
+        elseif cle == "axe" then
+            -- L'axe autour duquel les cartes pivotent (Client/liars_bar/cartes.lua).
+            -- Le bon : les cartes s'ouvrent en eventail au lieu de glisser en ligne.
+            if mots[3] then config.fan.axe = mots[3]; Rendu.Reconstruire() end
+            Chat.AddMessage("/fan axe " .. tostring(config.fan.axe) .. "   (essayer z, zy, y, x)")
         elseif cle == "os" then
             if mots[3] then
                 config.bone_simple = mots[3]

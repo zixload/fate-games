@@ -52,6 +52,17 @@ return function(H, Stubs)
             H.assert_true(proche(f.yaw, 0), "droite")
         end)
 
+        H.it("chaque axe ouvre l'eventail dans le plan de la carte", function()
+            for _, axe in ipairs(Cartes.Axes()) do
+                local fan = { axe = axe, ecart = 20, rayon = 4.5, profondeur = 0.2 }
+                local m = Cartes.Fente(5, 3, fan, 0)
+                H.assert_true(proche(m.x, 0) and proche(m.y, 0) and proche(m.z, 0), axe .. " : milieu a l'origine")
+                local g = Cartes.Fente(5, 1, fan, 0)
+                local tourne = math.abs(g.p) + math.abs(g.yaw) + math.abs(g.r)
+                H.assert_true(proche(tourne, 40), axe .. " : une seule rotation, de l'ecart")
+            end
+        end)
+
         H.it("ouvre l'eventail symetriquement", function()
             local g = Cartes.Fente(5, 1, cfg.fan, 0)
             local d = Cartes.Fente(5, 5, cfg.fan, 0)
