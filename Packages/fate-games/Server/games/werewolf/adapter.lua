@@ -181,7 +181,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     -- abandonnee le 26/09, le Blueprint cuit ne rend rien en jeu. Coupee par
     -- defaut ; /lg brume (dev) la pose quand meme pour de futurs essais.
     local BRUME_NUIT = D.brume_nuit == true
-    local BRUME = D.brume or "my-asset-pack::BP_FogArea
+    local BRUME = D.brume or "my-asset-pack::BP_FogArea"
     -- Le Blueprint est une boite sur le cube de 1 m du moteur : a l'echelle
     -- du cercle (14 x 14 m, 3 m de haut), le centre a mi-hauteur.
     local ECHELLE_BRUME = D.echelle_brume or { xy = 14, z = 3 }
