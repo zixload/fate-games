@@ -27,6 +27,9 @@ return {
         -- Inclinaison quand le regard monte ou descend : degres par degre/s,
         -- bornee a inclinaison_max.
         inclinaison = 0.02, inclinaison_max = 3,
+        -- Distance a plat (cm) au-dela de laquelle une mesure de la camera n'est
+        -- pas celle de la premiere personne et n'ancre pas l'arme.
+        ancrage_max = 60,
     },
 
     -- Trainee d'un tir de duel : longueur du trait (cm), ecart depuis le canon,

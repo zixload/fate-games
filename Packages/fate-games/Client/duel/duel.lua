@@ -204,12 +204,19 @@ return function(SharedConfig)
                 local loc, rot = p:GetCameraLocation(), p:GetCameraRotation()
                 local prot = perso:GetRotation()
                 local vitesse = prot:UnrotateVector(perso:GetVelocity())
-                -- La camera ne bouge pas par rapport au personnage (bras nul) :
-                -- on la mesure une fois a l'arret, ou la mesure est exacte.
+                -- Un seul ancrage : les yeux. En premiere personne la camera ne bouge
+                -- pas par rapport au personnage (bras nul) ; on la mesure dans son
+                -- repere, mais seulement si elle est bien au-dessus de lui. Au debut
+                -- d'une manche elle peut encore etre derriere (troisieme personne) :
+                -- une telle mesure ancrait l'arme a 2,50 m, qui tournait alors
+                -- autour du joueur quand il se retournait.
+                local mesure = prot:UnrotateVector(loc - perso:GetLocation())
+                local a_plat = math.sqrt(mesure.X * mesure.X + mesure.Y * mesure.Y)
+                local valide = a_plat < (vm.ancrage_max or 60) and mesure.Z > 0
                 local vx, vy = vitesse.X, vitesse.Y
                 if vx * vx + vy * vy < 25 then stable = stable + 1 else stable = 0 end
-                if not camera_locale or stable == 8 then
-                    camera_locale = prot:UnrotateVector(loc - perso:GetLocation())
+                if valide and (not camera_locale or stable >= 4) then
+                    camera_locale = camera_locale and (camera_locale + (mesure - camera_locale) * 0.3) or mesure
                 end
                 recul = math.max(0, recul - delta * 1000 / (vm.retour_ms or 90) * (vm.recul or 6))
                 local k = math.min(1, delta * (vm.lissage or 8))
@@ -233,7 +240,13 @@ return function(SharedConfig)
                 -- Le decalage relatif est dans le repere du personnage, donc a son echelle.
                 local s = perso:GetScale().X
                 if not s or s == 0 then s = 1 end
-                vue_arme:SetRelativeLocation((camera_locale + decalage + balance) * (1 / s))
+                -- Pas encore d'ancrage valable : l'arme reste hors de vue plutot que
+                -- n'importe ou.
+                if not camera_locale then
+                    vue_arme:SetRelativeLocation(Vector(0, 0, -5000))
+                else
+                    vue_arme:SetRelativeLocation((camera_locale + decalage + balance) * (1 / s))
+                end
                 vue_arme:SetRelativeRotation(Rotator(tangage + r.p, visee.Yaw + r.y, r.r))
             end
         end
