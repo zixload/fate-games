@@ -28,6 +28,10 @@ return {
     -- Rayon autour de l'arene ou l'on peut regarder le duel.
     rayon_spectateurs = 2500,
 
+    -- Murs invisibles poses sur le bord de l'arene pendant un duel : on bute
+    -- dessus au lieu d'etre teleporte. Hauteur et epaisseur en cm.
+    murs = { hauteur = 700, epaisseur = 40 },
+
     -- Eclairage de l'arene : lumieres ponctuelles en grille au-dessus du sol,
     -- chaudes, sans ombre (legeres). La doc ne donne pas l'unite d'intensite :
     -- a regler en jeu. enabled = false si la map eclaire deja l'arene.

@@ -19,6 +19,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     local spectateurs = {}       -- player_id -> { arene, cible }
     local dehors = {}            -- player_id -> derniere position hors de toute arene
     local choix_arme = {}        -- player_id -> arme choisie pour le duel
+    local dernier_dedans = {}    -- player_id -> derniere position dans son arene
     -- Bots de test (/botduel) : identifiants negatifs, jamais ceux d'un joueur.
     local bots = {}              -- id -> { corps, arene, tir, pas }
     local prochain_bot = -1000
@@ -103,6 +104,38 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             Events.CallRemote("duel:arenes", player, Reliability.Reliable, definitions())
         else
             Events.BroadcastRemote("duel:arenes", Reliability.Reliable, definitions())
+        end
+    end
+
+    -- Murs invisibles et solides sur le bord de l'arene, le temps d'un duel :
+    -- ni les combattants ne sortent, ni les autres n'entrent.
+    local function murer(A, oui)
+        for _, m in ipairs(A.murs or {}) do if m:IsValid() then m:Destroy() end end
+        A.murs = {}
+        if not oui then return end
+        local M = config.murs
+        local points = {}
+        if A.forme == "cercle" then
+            local n = math.max(16, math.floor(2 * math.pi * A.demi_x / 250))
+            for k = 0, n do
+                local ang = k / n * 2 * math.pi
+                points[#points + 1] = { math.cos(ang) * A.demi_x, math.sin(ang) * A.demi_x }
+            end
+        else
+            points = { { A.demi_x, A.demi_y }, { -A.demi_x, A.demi_y }, { -A.demi_x, -A.demi_y },
+                { A.demi_x, -A.demi_y }, { A.demi_x, A.demi_y } }
+        end
+        for k = 1, #points - 1 do
+            local a, b = points[k], points[k + 1]
+            local longueur = math.sqrt((b[1] - a[1]) ^ 2 + (b[2] - a[2]) ^ 2) + M.epaisseur
+            local cap = A.yaw + math.deg(math.atan(b[2] - a[2], b[1] - a[1]))
+            local milieu = monde(A, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, A.z + M.hauteur / 2)
+            local ok, mur = pcall(StaticMesh, milieu, Rotator(0, cap, 0), "nanos-world::SM_Cube", CollisionType.Normal)
+            if ok and mur then
+                mur:SetScale(Vector(longueur / 100, M.epaisseur / 100, M.hauteur / 100))
+                mur:SetVisibility(false)
+                A.murs[#A.murs + 1] = mur
+            end
         end
     end
 
@@ -305,9 +338,10 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         for id in pairs(A.d.joueurs) do
             retirer_arme(id)
             remettre_en_etat(id)
-            arene_de[id], tir[id], comptes[id], choix_arme[id] = nil, nil, nil, nil
+            arene_de[id], tir[id], comptes[id], choix_arme[id], dernier_dedans[id] = nil, nil, nil, nil, nil
         end
         arreter_spectateurs(A)
+        murer(A, false)
         for id, b in pairs(bots) do
             if b.arene == A then
                 if b.corps and b.corps:IsValid() then b.corps:Destroy() end
@@ -409,6 +443,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
                 return diffuser(A)
             end
             Duel.Lancer(A.d)
+            murer(A, true)
             annoncer(A, "duel:decompte", config.decompte_ms)
             diffuser(A)
             plus_tard(A, config.decompte_ms, function()
@@ -440,8 +475,13 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
                 local mienne = arene_de[id]
 
                 if mienne and actif(mienne) and not mienne.d.joueurs[id].parti then
-                    -- Un combattant qui sort est ramene a son depart.
-                    if ici ~= mienne then c:SetLocation((depart_de(mienne, id))) end
+                    -- Les murs le retiennent ; s'il passe quand meme, il revient a
+                    -- sa derniere position dans l'arene, pas au depart.
+                    if ici == mienne then
+                        dernier_dedans[id] = loc
+                    else
+                        c:SetLocation(dernier_dedans[id] or (depart_de(mienne, id)))
+                    end
                 elseif ici and actif(ici) then
                     -- Arene fermee : retour la ou l'on etait avant d'entrer.
                     local retour = dehors[id]
