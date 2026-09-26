@@ -49,8 +49,10 @@ body.apercu-navigateur { background: radial-gradient(circle at 50% 30%, #6d8aa6,
 #score .petit { font-size: 22px; color: var(--laiton); -webkit-text-stroke: 2px var(--encre); }
 #vie { position: absolute; left: 40px; bottom: 36px; width: 260px; height: 26px; padding: 6px; }
 #vie .barre { height: 100%; border-radius: 6px; background: var(--laiton); transition: width .15s ease; }
-#balles { position: absolute; right: 40px; bottom: 36px; display: flex; gap: 6px; padding: 10px 14px; align-items: center; }
-#balles i { width: 10px; height: 26px; border-radius: 5px 5px 2px 2px; background: var(--laiton); border: 2px solid var(--encre); }
+/* Balles sans fond : une ombre pleine sous chacune suffit a les detacher. */
+#balles { position: absolute; right: 40px; bottom: 36px; display: flex; gap: 6px; align-items: center; }
+#balles i { width: 10px; height: 26px; border-radius: 5px 5px 2px 2px; background: var(--laiton); border: 2px solid var(--encre);
+    box-shadow: 3px 4px 0 var(--ombre); }
 #balles i.vide { background: transparent; opacity: .35; }
 #balles .touche { margin-left: 8px; }
 
@@ -107,7 +109,7 @@ body.apercu-navigateur { background: radial-gradient(circle at 50% 30%, #6d8aa6,
 
 <div id="score" class="cache"><span id="s1">0</span><span class="petit" id="manche"></span><span id="s2">0</span></div>
 <div id="vie" class="sk cache" data-graine="19" data-rayon="12"><div class="barre" id="barre" style="width: 100%"></div></div>
-<div id="balles" class="sk cache" data-graine="29" data-rayon="14"></div>
+<div id="balles" class="cache"></div>
 
 <div id="armes" class="sk cache" data-graine="53" data-rayon="16"></div>
 <div id="recharge" class="cache"><i id="recharge-barre"></i></div>
