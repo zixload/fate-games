@@ -13,6 +13,17 @@ return {
         arme = { distance = 150, hauteur = 30, echelle = 1.05, vitesse = 35, inclinaison = -8 },
     },
 
+    -- Contour au sol des arenes de duel (Client/duel/contour.lua) : des
+    -- decalques projetes vers le bas depuis `hauteur` cm au-dessus du sol de
+    -- l'arene, sur `profondeur` cm, pour epouser les dunes. La doc Decal ne
+    -- dit pas si la taille est une demi-taille : a regler en jeu.
+    duel_contour = {
+        largeur = 14, hauteur = 250, profondeur = 600, pas = 180,
+        couleur = { r = 0.72, g = 0.52, b = 0.16 },
+        materiau = "nanos-world::M_Default_Translucent_Lit_Decal",
+        duree = 86400,
+    },
+
     interaction = {
         -- Portee de la visee, en centimetres. Plus longue que la portee serveur :
         -- on peut lire l'invite d'un peu plus loin qu'on ne peut agir.

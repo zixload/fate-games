@@ -1,7 +1,9 @@
 -- Duel cote client : le HUD, les touches, le tir. Presentation seule (R1) :
 -- le client dit ce qu'il vise, le serveur tranche (games/duel/adapter.lua).
 
-return function()
+return function(SharedConfig)
+    Package.Require("duel/contour.lua")((SharedConfig or {}).duel_contour)
+
     local page = WebUI("duel", "file://duel/hud.html", WidgetVisibility.VisibleNotHitTestable, true, true)
     local pret_page = false
     local attente = {}

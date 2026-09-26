@@ -46,7 +46,7 @@ if not ok_vestiaire then Console.Error("[vestiaire] chargement impossible : " ..
 
 -- Duel : HUD, touches et tir dans l'arene.
 local ok_duel, err_duel = pcall(function()
-    Package.Require("duel/duel.lua")()
+    Package.Require("duel/duel.lua")(SharedConfig)
 end)
 if not ok_duel then Console.Error("[duel] chargement impossible : " .. tostring(err_duel)) end
 

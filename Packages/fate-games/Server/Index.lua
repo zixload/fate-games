@@ -401,6 +401,8 @@ end)
 
 Player.Subscribe("Ready", function(player)
     Characters.OnPlayerReady(player)
+    local ok_duel, err_duel = pcall(DuelJeu.OnPlayerReady, player)
+    if not ok_duel then Log.Warn("duel", "arenes non envoyees : " .. tostring(err_duel)) end
     -- Voix de proximite native : le son suit le personnage en 3D, donc sa
     -- direction se percoit en stereo autour de la table. Pas de canal global
     -- en parallele, qui ferait entendre deux fois la meme personne.

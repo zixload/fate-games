@@ -52,6 +52,14 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         return dx * math.cos(a) + dy * math.sin(a), -dx * math.sin(a) + dy * math.cos(a)
     end
 
+    -- Distance au bord de l'arene (0 dedans).
+    local function distance_bord(A, loc)
+        if A.forme == "cercle" then return math.max(0, distance_2d(A, loc) - A.demi_x) end
+        local lx, ly = repere(A, loc)
+        local ex, ey = math.max(0, math.abs(lx) - A.demi_x), math.max(0, math.abs(ly) - A.demi_y)
+        return math.sqrt(ex * ex + ey * ey)
+    end
+
     local function dedans(A, loc)
         if math.abs(loc.Z - Z_PIEDS - A.z) >= 400 then return false end
         if A.forme == "cercle" then return distance_2d(A, loc) <= A.demi_x end
@@ -65,41 +73,23 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         return Vector(A.x + lx * math.cos(a) - ly * math.sin(a), A.y + lx * math.sin(a) + ly * math.cos(a), z)
     end
 
-    -- Le bord de l'arene en segments plats couleur laiton, poses au sol.
-    local function dessiner_anneau(A)
-        for _, s in ipairs(A.anneau or {}) do if s:IsValid() then s:Destroy() end end
-        A.anneau = {}
-        local points = {}
-        if A.forme == "cercle" then
-            local n = math.max(16, math.floor(2 * math.pi * A.demi_x / 160))
-            for k = 0, n do
-                local ang = k / n * 2 * math.pi
-                points[#points + 1] = { math.cos(ang) * A.demi_x, math.sin(ang) * A.demi_x }
-            end
-        else
-            local coins = { { A.demi_x, A.demi_y }, { -A.demi_x, A.demi_y }, { -A.demi_x, -A.demi_y },
-                { A.demi_x, -A.demi_y }, { A.demi_x, A.demi_y } }
-            for k = 1, 4 do
-                local a, b = coins[k], coins[k + 1]
-                local n = math.max(1, math.floor(math.sqrt((b[1] - a[1]) ^ 2 + (b[2] - a[2]) ^ 2) / 160))
-                for m = 0, n - 1 do
-                    points[#points + 1] = { a[1] + (b[1] - a[1]) * m / n, a[2] + (b[2] - a[2]) * m / n }
-                end
-            end
-            points[#points + 1] = coins[1]
+    -- Le contour au sol est dessine par chaque client en decalques projetes
+    -- sur le terrain (Client/duel/contour.lua) : Decal n'existe que chez lui,
+    -- et un trait pose a plat flottait au-dessus des dunes.
+    local function definitions()
+        local liste = {}
+        for _, A in ipairs(arenes) do
+            liste[#liste + 1] = { nom = A.nom, forme = A.forme, x = A.x, y = A.y, z = A.z,
+                demi_x = A.demi_x, demi_y = A.demi_y, yaw = A.yaw }
         end
-        for k = 1, #points - 1 do
-            local a, b = points[k], points[k + 1]
-            local milieu = monde(A, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, A.z + 2)
-            local longueur = math.sqrt((b[1] - a[1]) ^ 2 + (b[2] - a[2]) ^ 2)
-            local cap = A.yaw + math.deg(math.atan(b[2] - a[2], b[1] - a[1]))
-            local s = StaticMesh(milieu, Rotator(0, cap, 0), "nanos-world::SM_Cube", CollisionType.NoCollision)
-            s:SetScale(Vector(longueur / 100 * 0.7, 0.14, 0.03))
-            pcall(function()
-                s:SetMaterial("nanos-world::M_Default_Masked_Unlit")
-                s:SetMaterialColorParameter("Tint", Color(0.72, 0.52, 0.16))
-            end)
-            A.anneau[#A.anneau + 1] = s
+        return liste
+    end
+
+    local function publier_arenes(player)
+        if player then
+            Events.CallRemote("duel:arenes", player, Reliability.Reliable, definitions())
+        else
+            Events.BroadcastRemote("duel:arenes", Reliability.Reliable, definitions())
         end
     end
 
@@ -112,7 +102,6 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         -- les points d'apparition, poses sur le sol, donnent la vraie hauteur.
         if A.departs then A.z = math.min(A.departs[1].z, A.departs[2].z) end
         arenes[#arenes + 1] = A
-        dessiner_anneau(A)
         return A
     end
 
@@ -167,7 +156,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             local id = p:GetID()
             local c = personnage(id)
             local concerne = arene_de[id] == A
-                or (not arene_de[id] and c and distance_2d(A, c:GetLocation()) <= config.rayon_spectateurs)
+                or (not arene_de[id] and c and distance_bord(A, c:GetLocation()) <= config.rayon_spectateurs)
             if concerne then Events.CallRemote("duel:etat", p, Reliability.Reliable, v) end
         end
     end
@@ -380,6 +369,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
                         Duel.Quitter(mienne.d, id)
                         arene_de[id] = nil
                         changees[mienne] = true
+                        Events.CallRemote("duel:etat", p, Reliability.Reliable, vue(mienne))
                     end
                     if ici and not arene_de[id] then
                         if Duel.Entrer(ici.d, id) then
@@ -476,7 +466,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         if not A then
             local mieux = nil
             for _, B in ipairs(arenes) do
-                local dist = distance_2d(B, c:GetLocation())
+                local dist = distance_bord(B, c:GetLocation())
                 if actif(B) and dist <= config.rayon_spectateurs and (not mieux or dist < mieux) then
                     A, mieux = B, dist
                 end
@@ -544,7 +534,6 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             if A.nom == "TEST" then
                 if actif(A) then return nil, "duel en cours" end
                 nettoyer(A)
-                for _, s in ipairs(A.anneau or {}) do if s:IsValid() then s:Destroy() end end
                 table.remove(arenes, i)
                 break
             end
@@ -553,7 +542,13 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         local r = rayon or config.rayon_test
         local A = nouvelle_arene({ nom = "TEST", forme = "cercle", x = math.floor(loc.X), y = math.floor(loc.Y),
             z = math.floor(loc.Z - Z_PIEDS), demi_x = r, demi_y = r, yaw = math.floor(rot.Yaw) })
+        publier_arenes()
         return ("arene TEST : x = %d, y = %d, z = %d, rayon = %d, yaw = %d"):format(A.x, A.y, A.z, r, A.yaw)
+    end
+
+    -- A l'arrivee d'un joueur : la forme des arenes, pour son contour au sol.
+    function Adapter.OnPlayerReady(player)
+        publier_arenes(player)
     end
 
     function Adapter.OnPlayerLeave(player)
