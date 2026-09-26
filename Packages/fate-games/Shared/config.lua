@@ -142,8 +142,8 @@ return {
             rot        = { p = -10, y = 140, r = 26 },
             carte      = { p = 0, y = 0, r = 0 },   -- carte, dans sa fente
             axe        = "y",   -- la face est traversee par Y (epaisseur 0,6 sur 142 x 254)
-            ecart      = 12,    -- degres entre deux cartes, dans leur plan
-            rayon      = 4.5,   -- du pivot (bas commun) au centre d'une carte :
+            ecart      = 20,    -- degres entre deux cartes, dans leur plan (12 : trop serre)
+            rayon      = 5,     -- du pivot (bas commun) au centre d'une carte :
                                 -- la moitie de sa hauteur, les bases se touchent
             taille     = 0.035, -- le FBX est en pouces : 254 cm de haut, ramene a ~9 cm
             levee      = 3,     -- carte choisie
