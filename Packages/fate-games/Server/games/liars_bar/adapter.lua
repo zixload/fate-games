@@ -75,6 +75,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     local salon          = Salon.New()
     local Boutique       = nil
     local mise_en_cours  = nil   -- { partie, mise, comptes = chaise -> compte, avec_bots }
+    -- Declaree ici, definie avec le salon : la fin de partie (plus haut dans
+    -- le fichier) l'appelle. Locale definie plus bas, elle valait nil a cet
+    -- endroit et mise_en_cours restait pose : plus personne ne pouvait se
+    -- dire pret apres la premiere partie (26/09).
+    local solder_partie
     local numero_partie  = 0
     -- Pause de lecture apres une revelation : jeton de la pause en cours et
     -- departs survenus pendant (rejoues apres, comme pendant un tir).
@@ -493,6 +498,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         player_by_seat, seat_by_player, chair_of, seated = {}, {}, {}, {}
         salon = Salon.New()
         pause_lecture = nil
+        -- Filet : la mise d'une partie finie ne doit jamais bloquer le salon.
+        mise_en_cours = nil
     end
 
     ---------------------------------------------------------------- traducteurs
@@ -1098,7 +1105,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     end
 
     -- Fin de partie : la cagnotte au vainqueur, le bonus a chacun.
-    local function solder_partie(chaise_gagnante)
+    solder_partie = function(chaise_gagnante)
         local m = mise_en_cours
         mise_en_cours = nil
         if not (m and Boutique) then return end
