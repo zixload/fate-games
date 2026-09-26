@@ -14,7 +14,9 @@ OUT = ROOT / "art/werewolf"
 short = os.environ.get("WW_CLIP", "idle")
 name = {"idle": "ANIM_WW_Sitting_Idle",
         "lazy": "ANIM_WW_Sitting_Idle_Lazy",
-        "dazed": "ANIM_WW_Sitting_Dazed"}[short]
+        "dazed": "ANIM_WW_Sitting_Dazed",
+        "vote": "ANIM_WW_Seated_Vote",
+        "sleep": "ANIM_WW_Seated_Sleep"}[short]
 offset = float(os.environ.get("WW_Z_OFFSET", "0.11"))
 bpy.ops.wm.open_mainfile(filepath=str(OUT / (name + ".blend")))
 scene = bpy.context.scene
@@ -110,7 +112,8 @@ scene.view_settings.view_transform = "AgX"
 
 armature = bpy.data.objects["Root"]
 first, last = scene.frame_start, scene.frame_end
-scene.frame_set(first + (last-first)//2)
+frame = int(os.environ.get("WW_FRAME", str(first + (last-first)//2)))
+scene.frame_set(frame)
 for view, loc in (("front", (0,-2.8,1.12)),
                   ("profile", (2.8,0,1.12))):
     camera.location = loc

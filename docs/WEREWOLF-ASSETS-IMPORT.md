@@ -64,6 +64,32 @@ character:PlayAnimation("my-asset-pack::ANIM_WW_Sitting_Idle", "DefaultSlot", tr
 
 Remplacer le nom pour les deux variantes. Le troisième argument active la boucle ; les deux temps de fondu sont en secondes, puis vient la vitesse de lecture. Garder la position du personnage fixe pendant la lecture. L'intégration Lua reste à faire dans le travail du mode Loup-Garou.
 
+## Gestes de vote et de nuit
+
+Deux animations supplémentaires sont générées depuis la pose assise ajustée, sur le même squelette Creative :
+
+| Asset | Usage prévu | Durée | Boucle | Z du pivot personnage |
+| --- | --- | ---: | --- | ---: |
+| `my-asset-pack::ANIM_WW_Seated_Vote` | Main droite levée puis reposée lors d'un vote | 1,767 s | Non | 11,0 cm |
+| `my-asset-pack::ANIM_WW_Seated_Sleep` | Tête inclinée, respiration discrète durant la nuit | 10,867 s | Oui | 11,0 cm |
+
+Le vote part de la pose assise normale et y revient : le jouer une fois dans `DefaultSlot`, puis relancer l'idle. La pose de nuit utilise le même contact avec le zabuton que l'idle ; la jouer en boucle dans `DefaultSlot`, puis revenir à l'idle au lever du jour. Aucun déplacement du personnage ou root motion n'est inclus. Les captures Blender sur tapis et coussin sont `art/werewolf/fit_{vote,sleep}_{front,profile}.png`. Les personnages du jeu peuvent porter des vêtements qui nécessitent une vérification visuelle après import.
+
+Reproduire les FBX si nécessaire :
+
+```powershell
+$blenderExe = 'C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe'
+& $blenderExe -b -t 4 --python scripts/blender/create_werewolf_gestures.py
+```
+
+Dans la console Python de **l'éditeur ADK déjà ouvert**, importer uniquement ces animations :
+
+```python
+exec(open(r"C:\Users\ingam\OneDrive\Documents\fate-games\scripts\unreal\import_werewolf_gestures.py", encoding="utf-8").read())
+```
+
+Attendre `WW_GESTURES_IMPORT_COMPLETE 2`, enregistrer, puis cuire `my-asset-pack`. Ce script ne relance pas l'import des textures ou des meshes. Le branchement aux événements de vote et de nuit est à faire dans le code du mode Loup-Garou.
+
 ## Licences et crédits
 
 - **Zabuton** : Hato Wahara, [fiche Fab](https://www.fab.com/listings/c1fb1c0f-20de-4766-b267-2a959765be64). Le README inclus autorise l'usage commercial, la modification et l'usage en jeu, et interdit la redistribution des fichiers originaux ou modifiés et la revendication de propriété. Les sources restent hors du dépôt public. Vérifier les conditions de distribution du pack cuit avant toute publication aux joueurs.
