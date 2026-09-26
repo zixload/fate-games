@@ -121,7 +121,7 @@ return {
         -- a passer a true une fois importee et cuite ; sinon une carte plate.
         cartes = { largeur = 32, hauteur = 48, tourner = 0, modele3d = false },   -- 60 x 90 : trop grandes
         -- Sons (Client/loup_garou/sons.lua, fichiers dans Client/Sounds/loup_garou/).
-        sons = { volumes = { ambiance = 0.18, sons = 0.6, coeur = 0.35 } },
+        sons = { volumes = { ambiance = 0.18, lg_jour = 0.04, sons = 0.6, coeur = 0.35 } },
     },
 
     -- Pseudos au-dessus des personnages (Client/pseudos.lua) : portee (cm),

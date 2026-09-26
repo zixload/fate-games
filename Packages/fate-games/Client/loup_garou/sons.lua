@@ -8,7 +8,7 @@
 
 return function(config)
     config = config or {}
-    local VOLUMES = config.volumes or { ambiance = 0.18, sons = 0.6, coeur = 0.35 }
+    local VOLUMES = config.volumes or { ambiance = 0.18, lg_jour = 0.04, sons = 0.6, coeur = 0.35 }
     local chemin = Package.Require("son.lua")
 
     local ambiance, ambiance_nom = nil, nil
@@ -45,7 +45,8 @@ return function(config)
         if ambiance_nom == nom then return end
         arreter(ambiance, 3)
         ambiance, ambiance_nom = nil, nom
-        if nom then ambiance = boucle(nom, VOLUMES.ambiance, 3) end
+        -- Une ambiance peut avoir son propre volume (VOLUMES.lg_jour...).
+        if nom then ambiance = boucle(nom, VOLUMES[nom] or VOLUMES.ambiance, 3) end
     end
 
     local function battre(oui)
