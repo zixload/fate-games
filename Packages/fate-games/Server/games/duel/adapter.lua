@@ -531,11 +531,14 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         local j = d.joueurs[id]
         local corps = personnage(id)
         if d.phase ~= "combat" or not (j and j.vivant and corps) then return end
-        local cible, cc = nil, nil
+        -- Un adversaire vivant, de preference un qui le voit (ligne de vue
+        -- rapportee par son client, "duel:vue") : on ne tire que sur ceux-la.
+        local cible, cc, vu = nil, nil, false
         for autre, ja in pairs(d.joueurs) do
             if ja.camp ~= j.camp and ja.vivant then
                 local c2 = personnage(autre)
-                if c2 then cible, cc = autre, c2 break end
+                local v = b.vu_par[autre] == true
+                if c2 and (not cible or (v and not vu)) then cible, cc, vu = autre, c2, v end
             end
         end
         if not cible then return end
@@ -554,7 +557,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
                 corps:MoveTo(Vector(depart.X + math.cos(ang) * cote, depart.Y + math.sin(ang) * cote, depart.Z), 30)
             end)
         end
-        if t < b.tir then return end
+        if t < b.tir or not vu then return end
         b.tir = t + math.random(r.tir_min_ms, r.tir_max_ms)
 
         local touche = math.random() < r.precision
@@ -588,7 +591,8 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             Duel.Quitter(A.d, id)
             return nil, "pas de corps Creative (dev.creative_character desactive)"
         end
-        bots[id] = { corps = corps, arene = A, tir = 0, pas = 0 }
+        bots[id] = { corps = corps, arene = A, tir = 0, pas = 0, vu_par = {} }
+        corps:SetValue("duel_bot", id, true)
         noms[id] = "Bot " .. tostring(-id - 999)
         arene_de[id] = A
         Duel.Pret(A.d, id, true)
@@ -680,6 +684,10 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         Events.SubscribeRemote("duel:tir", function(player, cible, os_touche, point)
             local ok, err = pcall(tirer, player:GetID(), cible, os_touche, point)
             if not ok then Log.Warn("duel", "tir : " .. tostring(err)) end
+        end)
+        Events.SubscribeRemote("duel:vue", function(player, bot, visible)
+            local b = type(bot) == "number" and bots[bot]
+            if b then b.vu_par[player:GetID()] = visible == true end
         end)
         Events.SubscribeRemote("duel:recharger", function(player)
             recharger(player:GetID())

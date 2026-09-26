@@ -23,6 +23,10 @@ return {
         recul_camera = 1.4,           -- degres de tangage par tir
     },
 
+    -- Trainee d'un tir de duel : longueur du trait (cm), ecart depuis le canon,
+    -- epaisseur (echelle du cube de 100 cm), opacite, duree.
+    duel_trainee = { longueur = 140, ecart = 60, epaisseur = 0.006, opacite = 0.45, duree_ms = 45 },
+
     -- Contour au sol des arenes de duel (Client/duel/contour.lua) : des
     -- decalques projetes vers le bas depuis `hauteur` cm au-dessus du sol de
     -- l'arene, sur `profondeur` cm, pour epouser les dunes. La doc Decal ne

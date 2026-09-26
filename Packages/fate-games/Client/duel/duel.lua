@@ -71,26 +71,33 @@ return function(SharedConfig)
 
     ------------------------------------------------------------ effets du tir
 
-    -- Trainee de balle : un trait fin laiton, du canon au point touche, qui
-    -- s'efface aussitot. Un petit eclat marque l'impact.
+    -- Trainee de balle : un court trait fin et translucide, pres du canon, qui
+    -- s'efface aussitot ; un petit eclat a l'impact. Sans ombre (SetCastShadow).
+    local tr = SharedConfig.duel_trainee or {}
+    local function morceau(position, rot, echelle, opacite, duree)
+        local m = StaticMesh(position, rot, "nanos-world::SM_Cube", CollisionType.NoCollision)
+        m:SetScale(echelle)
+        m:SetCastShadow(false)
+        m:SetMaterial("nanos-world::M_Default_Translucent_Unlit")
+        m:SetMaterialColorParameter("Tint", Color(1.0, 0.88, 0.55))
+        m:SetMaterialScalarParameter("Opacity", opacite)
+        Timer.SetTimeout(function() if m:IsValid() then m:Destroy() end end, duree)
+    end
+
     local function trainee(depart, fin)
         if not (depart and fin) then return end
         pcall(function()
             local dx, dy, dz = fin.X - depart.X, fin.Y - depart.Y, fin.Z - depart.Z
             local n = math.sqrt(dx * dx + dy * dy + dz * dz)
             if n < 1 then return end
-            local milieu = Vector(depart.X + dx / 2, depart.Y + dy / 2, depart.Z + dz / 2)
+            local ux, uy, uz = dx / n, dy / n, dz / n
             local rot = Vector(dx, dy, dz):ToOrientationRotator()
-            local trait = StaticMesh(milieu, rot, "nanos-world::SM_Cube", CollisionType.NoCollision)
-            trait:SetScale(Vector(n / 100, 0.015, 0.015))
-            trait:SetMaterial("nanos-world::M_Default_Masked_Unlit")
-            trait:SetMaterialColorParameter("Tint", Color(1.0, 0.85, 0.45))
-            local eclat = StaticMesh(fin, rot, "nanos-world::SM_Cube", CollisionType.NoCollision)
-            eclat:SetScale(Vector(0.08, 0.08, 0.08))
-            eclat:SetMaterial("nanos-world::M_Default_Masked_Unlit")
-            eclat:SetMaterialColorParameter("Tint", Color(0.95, 0.9, 0.75))
-            Timer.SetTimeout(function() if trait:IsValid() then trait:Destroy() end end, 60)
-            Timer.SetTimeout(function() if eclat:IsValid() then eclat:Destroy() end end, 140)
+            local longueur = math.min(n, tr.longueur or 140)
+            local ecart = math.min(tr.ecart or 60, math.max(0, n - longueur))
+            local c = ecart + longueur / 2
+            morceau(Vector(depart.X + ux * c, depart.Y + uy * c, depart.Z + uz * c), rot,
+                Vector(longueur / 100, tr.epaisseur or 0.006, tr.epaisseur or 0.006), tr.opacite or 0.45, tr.duree_ms or 45)
+            morceau(fin, rot, Vector(0.04, 0.04, 0.04), 0.7, 90)
         end)
     end
 
@@ -172,6 +179,35 @@ return function(SharedConfig)
             end
         end
     end)
+
+    ------------------------------------------------------------ ligne de vue des bots
+
+    -- Le serveur ne sait pas tracer de rayon : c'est le client du joueur vise
+    -- qui dit s'il voit le bot (et donc si le bot le voit). Sans cela, un bot
+    -- tirait a travers les murs. Envoye seulement quand ca change.
+    local vus = {}
+    Timer.SetInterval(function()
+        if not en_combat() then vus = {} return end
+        local player, perso = Client.GetLocalPlayer(), mon_perso()
+        local ok, err = pcall(function()
+            local origine = player:GetCameraLocation()
+            for _, c in pairs(CharacterSimple.GetPairs()) do
+                local bot = c:IsValid() and c:GetValue("duel_bot", nil)
+                if bot then
+                    local cible = c:GetLocation() + Vector(0, 0, 50)
+                    local hit = Trace.LineSingle(origine, cible,
+                        CollisionChannel.WorldStatic | CollisionChannel.WorldDynamic | CollisionChannel.Pawn,
+                        TraceMode.ReturnEntity | TraceMode.TraceComplex, { perso })
+                    local visible = not (hit and hit.Success) or (hit.Entity ~= nil and hit.Entity:GetID() == c:GetID())
+                    if vus[bot] ~= visible then
+                        vus[bot] = visible
+                        Events.CallRemote("duel:vue", Reliability.Reliable, bot, visible)
+                    end
+                end
+            end
+        end)
+        if not ok then Console.Error("[duel] ligne de vue : " .. tostring(err)) end
+    end, 200)
 
     ------------------------------------------------------------ evenements
 
@@ -268,7 +304,8 @@ return function(SharedConfig)
                 | CollisionChannel.PhysicsBody | CollisionChannel.Pawn
             local ignores = { perso }
             if vue_arme and vue_arme:IsValid() then ignores[#ignores + 1] = vue_arme end
-            local hit = Trace.LineSingle(origine, fin, canaux, TraceMode.ReturnEntity | TraceMode.ReturnNames, ignores)
+            local hit = Trace.LineSingle(origine, fin, canaux,
+                TraceMode.ReturnEntity | TraceMode.ReturnNames | TraceMode.TraceComplex, ignores)
             local cible, os_touche, point = nil, nil, fin
             if hit and hit.Success then
                 point = hit.Location
