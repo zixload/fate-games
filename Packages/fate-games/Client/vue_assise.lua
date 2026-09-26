@@ -19,6 +19,37 @@ Events.Subscribe("atelier:vue", function(mode)
     vue = (mode == "epaule" or mode == "premiere") and mode or "jeu"
 end)
 
+-- Butee du bas : corriger la camera apres coup la laissait depasser puis
+-- revenir (saccade). A la butee, le mouvement de souris vers le bas est
+-- bloque avant d'arriver a la camera. Le sens qui baisse la vue est appris
+-- (souris inversee ou non) ; par defaut, descendre la souris baisse la vue.
+local sens_bas = 1
+local cumul_y = 0
+local pitch_precedent = nil
+
+local function assis_en_vue_jeu()
+    if vue ~= "jeu" then return nil end
+    local player = Client.GetLocalPlayer()
+    local perso = player and player:GetControlledCharacter()
+    if perso and perso:IsValid() and perso:IsA(CharacterSimple) and perso:GetValue("assis", false) then
+        return player
+    end
+end
+
+Input.Subscribe("MouseMove", function(dx, dy)
+    if not dy or dy == 0 then return end
+    local player = assis_en_vue_jeu()
+    if not player then return end
+    local rotation = player:GetCameraRotation()
+    if not rotation then return end
+    local descend = dy * sens_bas > 0
+    -- Un geste surtout horizontal passe : on peut tourner la tete en fixant le sol.
+    if descend and angle(rotation.Pitch) <= PITCH_MIN + 1 and math.abs(dy) >= math.abs(dx or 0) then
+        return false
+    end
+    cumul_y = cumul_y + dy
+end)
+
 Timer.SetInterval(function()
     if vue ~= "jeu" then
         place_initialisee = nil
@@ -49,6 +80,10 @@ Timer.SetInterval(function()
             return
         end
         local pitch = angle(rotation.Pitch)
+        if pitch_precedent and cumul_y ~= 0 and math.abs(pitch - pitch_precedent) > 0.5 then
+            sens_bas = ((pitch < pitch_precedent) == (cumul_y > 0)) and 1 or -1
+        end
+        pitch_precedent, cumul_y = pitch, 0
         if pitch < PITCH_MIN then
             rotation = Rotator(PITCH_MIN, rotation.Yaw, rotation.Roll)
             perso:SetControlRotation(rotation)
