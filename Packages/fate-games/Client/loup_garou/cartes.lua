@@ -15,7 +15,7 @@ return function(config)
     -- importee par scripts/unreal/import_decor_loup_garou.py), une fois cuite.
     -- Elle mesure 10 x 15 cm, le dessin court le long de X : quart de tour.
     local MODELE = config.modele3d and "my-asset-pack::SM_WW_RoleCard" or nil
-    local LONGUEUR = config.longueur_modele or 45    -- cm, grand cote du modele cuit a l'echelle 1
+    local LONGUEUR = config.longueur_modele or 37.5  -- cm, grand cote du modele cuit (Build Scale 250)
     local IMG = "package://fate-games/Client/loup_garou/img/"
     local IMAGES = { wolf = "loup", white_wolf = "loup_blanc", villager = "villageois", seer = "voyante",
         hunter = "chasseur", guard = "gardien", cupid = "cupidon", witch = "sorciere" }
@@ -43,7 +43,7 @@ return function(config)
         local ok, objet = pcall(function()
             if MODELE then
                 -- L'import avait lu les metres du FBX comme des centimetres ;
-                -- remis a l'echelle 300 dans l'ADK, le modele fait LONGUEUR cm.
+                -- remis a l'echelle 250 dans l'ADK (Build Scale), le modele fait LONGUEUR cm.
                 -- On le mesure quand meme un instant apres la pose (juste
                 -- apres, ses bornes peuvent etre encore nulles) pour ajuster.
                 local o = StaticMesh(Vector(c.x, c.y, c.z - 0.3), Rotator(0, (c.yaw or 0) + TOURNER + 90, 0),
