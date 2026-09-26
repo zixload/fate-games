@@ -43,8 +43,8 @@ def at(name, tail=False):
 
 wrist = at("LeftHand")
 shoulder = at("LeftArm")
-# A restrained reach: roughly 22 cm forward and 6 cm inward, without
-# dragging the whole body into the table. Keep a generous clearance for the
+# A restrained reach toward the table, without dragging the whole body into
+# it. Keep a generous clearance for the
 # fingers and attached cards, which extend below the wrist in game.
 table = wrist + Vector((-0.13, -0.38, 0.20))
 reach = wrist.lerp(table, 0.58) + Vector((0, 0, 0.055))
@@ -61,6 +61,12 @@ for frame, point in ((1, wrist), (5, wrist), (10, reach), (15, table),
 for frame in (1, 30):
     pole.location = pole_location
     pole.keyframe_insert("location", frame=frame)
+
+
+def ease(start, end, frame):
+    t = max(0.0, min(1.0, (frame - start) / (end - start)))
+    return t * t * (3 - 2 * t)
+
 
 ik = bones["LeftForeArm"].constraints.new("IK")
 ik.target, ik.pole_target = target, pole
@@ -87,19 +93,50 @@ for obj in (target, pole):
     bpy.data.objects.remove(obj, do_unlink=True)
 
 body.animation_data.action.name = "ANIM_Seated_Card_Play"
-# Small forward dip at release: it makes the hand actually reach over the
-# table edge without moving the pelvis or the planted legs.
-for frame, lean in ((1, 0), (7, 0), (15, 8), (18, 8), (24, 3), (30, 0)):
+
+# Near full extension, the IK elbow can turn abruptly even with a smooth
+# wrist target. Blend neighboring baked rotations to keep the elbow moving.
+for name in ("LeftArm", "LeftForeArm"):
+    rotations = []
+    for frame in range(1, 31):
+        scene.frame_set(frame)
+        rotations.append(bones[name].rotation_quaternion.copy())
+    for _ in range(2):
+        softened = []
+        for index, center in enumerate(rotations):
+            if index < 5 or index >= 29:
+                softened.append(center.copy())
+                continue
+            neighbors = ((max(0, index - 2), 1), (index - 1, 4),
+                         (index, 6), (min(29, index + 1), 4),
+                         (min(29, index + 2), 1))
+            components = [0.0] * 4
+            for other, weight in neighbors:
+                q = rotations[other]
+                sign = 1 if center.dot(q) >= 0 else -1
+                for axis in range(4):
+                    components[axis] += q[axis] * weight * sign
+            softened.append(type(center)(components).normalized())
+        rotations = softened
+    for frame, rotation in enumerate(rotations, start=1):
+        scene.frame_set(frame)
+        bones[name].rotation_quaternion = rotation
+        bones[name].keyframe_insert("rotation_quaternion", frame=frame)
+
+# The bake keys every frame, so the small forward dip must also be keyed on
+# every frame. Sparse keys left neutral frames in between and made the hand
+# jump down and back up at release. Pelvis and legs stay planted.
+for frame in range(1, 31):
+    lean = 8 * ease(7, 15, frame) * (1 - ease(18, 30, frame))
     scene.frame_set(frame)
-    if lean:
-        bone = bones["Spine1"]
-        original = bone.matrix.copy()
-        tilt = Matrix.Rotation(radians(lean), 3, "X")
-        rotated = (world.to_3x3().inverted() @ tilt @ world.to_3x3()
-                   @ original.to_3x3()).normalized()
-        bone.matrix = Matrix.Translation(original.translation) @ rotated.to_4x4()
-        bpy.context.view_layer.update()
-    bones["Spine1"].keyframe_insert("rotation_quaternion", frame=frame)
+    bone = bones["Spine1"]
+    original = bone.matrix.copy()
+    tilt = Matrix.Rotation(radians(lean), 3, "X")
+    rotated = (world.to_3x3().inverted() @ tilt @ world.to_3x3()
+               @ original.to_3x3()).normalized()
+    bone.matrix = Matrix.Translation(original.translation) @ rotated.to_4x4()
+    bpy.context.view_layer.update()
+    bone.keyframe_insert("rotation_quaternion", frame=frame)
 
 scene.frame_start, scene.frame_end = 1, 30
 scene.frame_set(15)
