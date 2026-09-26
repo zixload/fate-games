@@ -2,6 +2,7 @@
 -- lateralement et vers le haut ; le bas du champ montre le buste et les jambes
 -- sans pouvoir rentrer dans le costume ou regarder a travers la chaise.
 
+local R = Package.Require("Shared/config.lua").regard_assis
 local vue = "jeu"
 local PITCH_MIN = -55 -- assez bas pour voir les jambes, sans basculer sous le corps
 local erreur_signalee = false
@@ -56,13 +57,16 @@ Timer.SetInterval(function()
         end
 
         local orientation_chaise = perso:GetValue("seat_yaw", rotation.Yaw)
-        local yaw = math.max(-30, math.min(30, angle(rotation.Yaw - orientation_chaise)))
-        local regard_pitch = math.max(-15, math.min(15, pitch))
+        -- Le gain fait tourner la tete un peu plus que la camera : les autres
+        -- lisent le regard de loin. Bornes et gain : Shared/config.lua.
+        local yaw = math.max(-R.lacet_max, math.min(R.lacet_max,
+            angle(rotation.Yaw - orientation_chaise) * R.gain))
+        local regard_pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch * R.gain))
         -- La rotation du regard est repartie entre cou et tete dans le rig.
         perso:SetAnimationBlueprintPropertyValue("LookNeck",
-            Rotator(yaw * 0.35, 0, regard_pitch * 0.35))
+            Rotator(yaw * R.cou, 0, regard_pitch * R.cou))
         perso:SetAnimationBlueprintPropertyValue("LookHead",
-            Rotator(yaw * 0.65, 0, regard_pitch * 0.65))
+            Rotator(yaw * R.tete, 0, regard_pitch * R.tete))
 
         local maintenant = Client.GetTime()
         if maintenant - dernier_envoi >= 100 and (dernier_yaw == nil

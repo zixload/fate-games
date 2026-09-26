@@ -273,9 +273,10 @@ if essai and essai.enabled then
         local id = player:GetID()
         if maintenant - (dernier_regard[id] or 0) < 80 then return end
         dernier_regard[id] = maintenant
+        local R = SharedConfig.regard_assis
         character:SetValue("liars_look", {
-            yaw = math.max(-30, math.min(30, yaw)),
-            pitch = math.max(-15, math.min(15, pitch)),
+            yaw = math.max(-R.lacet_max, math.min(R.lacet_max, yaw)),
+            pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch)),
         }, true)
     end)
 end

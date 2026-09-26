@@ -54,14 +54,14 @@ if not ok_duel then Console.Error("[duel] chargement impossible : " .. tostring(
 -- HUD provisoire de Liar's Bar : le journal et la main, au clavier.
 local LiarsJournal = Package.Require("liars_bar/journal.lua")(SharedConfig.liars_hud)
 local liars_journal = Package.Require("liars_bar/hud.lua")(
-    SharedConfig.liars_hud, LiarsJournal, send_intent, SharedConfig.liars_cards)
+    SharedConfig.liars_hud, LiarsJournal, send_intent)
 local ok_tags, err_tags = pcall(function()
-    Package.Require("liars_bar/nametags.lua")(liars_journal)
+    Package.Require("liars_bar/nametags.lua")(liars_journal, SharedConfig.liars_hud)
 end)
 if not ok_tags then Console.Error("[etiquettes] chargement impossible : " .. tostring(err_tags)) end
 
 local ok_sons, err_sons = pcall(function()
-    Package.Require("liars_bar/sons.lua")(Package.Require("Shared/liars_table.lua"))
+    Package.Require("liars_bar/sons.lua")(Package.Require("Shared/liars_table.lua"), SharedConfig.liars_sons)
 end)
 if not ok_sons then Console.Error("[sons] chargement impossible : " .. tostring(err_sons)) end
 

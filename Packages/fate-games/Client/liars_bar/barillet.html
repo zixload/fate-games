@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+        @font-face { font-family: "Lilita One"; src: url("../vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+        :root { --encre: #1c2123; --papier: #efe6d2; --laiton: #d9b56a; --ombre: #070a0b; }
         html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
         body.preview { background: radial-gradient(circle at center, #34352f, #111619); }
         .preview-note { position: fixed; top: 24px; left: 0; right: 0; text-align: center;
@@ -37,11 +39,54 @@
             border-left: 9px solid transparent; border-right: 9px solid transparent;
             border-top: 13px solid #f03b35; filter: drop-shadow(0 1px 4px rgba(240, 59, 53, .75)); }
         .marker.active .arrow { display: block; }
+
+        /* Contours a main levee (Client/ui/esquisse.js). */
+        .sk { position: relative; isolation: isolate; }
+        .sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+        .sk-svg .ombre { fill: var(--ombre); opacity: .55; }
+        .sk-svg .fond { fill: var(--papier); }
+        .sk-svg .trait { fill: none; stroke: var(--encre); stroke-width: 3px; stroke-linejoin: round; }
+        .sk-svg .trait2 { fill: none; stroke: var(--encre); stroke-width: 1.4px; opacity: .4; }
+
+        /* Menteur : au-dessus du barillet du joueur precedent, quand on le regarde. */
+        .liar { display: none; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; margin-bottom: 6px;
+            font: 18px "Lilita One", sans-serif; color: var(--encre); white-space: nowrap; }
+        .marker.menteur .liar { display: flex; }
+        .liar svg { width: 38px; height: 30px; overflow: visible; }
+        .liar svg path { fill: none; stroke: var(--encre); stroke-width: 2.4px; stroke-linecap: round; stroke-linejoin: round; }
+        .touche { display: inline-block; min-width: 20px; padding: 2px 5px; text-align: center; box-sizing: border-box;
+            border: 2px solid var(--encre); border-bottom-width: 4px; border-radius: 6px; background: #f6eedb;
+            font-size: 15px; line-height: 1; }
+
+        /* Tas : ce qui vient d'etre pose, la carte de table, le total. */
+        .tas { display: flex; flex-direction: column; align-items: center; padding: 6px 14px 7px;
+            font-family: "Lilita One", sans-serif; color: var(--encre); line-height: 1; white-space: nowrap; }
+        .tas .plus { font-size: 30px; }
+        .tas .plus:empty { display: none; }
+        .tas .rang { font-size: 17px; margin-top: 3px; }
+        .tas .total { font-size: 13px; margin-top: 3px; opacity: .7; }
+        .tas .total:empty { display: none; }
+        .marker.nouveau .tas { animation: pop .35s ease-out; }
+        @keyframes pop { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+        /* Consignes a mon tour, en bas au centre : blanc avec ombre. */
+        #aide { position: fixed; left: 0; right: 0; bottom: 36px; text-align: center;
+            font: 19px "Lilita One", sans-serif; color: #fff; text-shadow: 2px 2px 0 #000, 0 0 8px rgba(0,0,0,.6); }
+        #aide .touche { color: var(--encre); text-shadow: none; margin: 0 2px; }
     </style>
 </head>
 <body>
     <div id="layer" aria-hidden="true"></div>
+    <div id="aide" aria-hidden="true"></div>
+    <script src="../ui/esquisse.js"></script>
     <script>
+        const RANGS = { king: "Roi", queen: "Dame", ace: "As", joker: "Joker" };
+        // Un nez qui s'allonge : Pinocchio, a l'encre.
+        const NEZ = '<svg viewBox="0 0 38 30" aria-hidden="true">'
+            + '<path d="M13 3c-6 1-10 6-10 12s4 11 10 12c2 0 3-1 4-2"/>'
+            + '<path d="M13 11c1 0 2 1 2 2"/>'
+            + '<path d="M16 16c6-1 13-2 20-2"/><path d="M16 19c6 0 12-1 19-3"/>'
+            + '<path d="M9 22c2 1 4 1 6 0"/></svg>';
         const layer = document.getElementById("layer");
         const markers = new Map();
 
@@ -60,16 +105,66 @@
             }
             const arrow = document.createElement("div");
             arrow.className = "arrow";
-            badge.append(barrel, arrow);
+            const liar = document.createElement("div");
+            liar.className = "liar sk";
+            liar.dataset.graine = String(7 + Number(id) % 9);
+            liar.dataset.rayon = "14";
+            liar.innerHTML = NEZ + '<span class="touche">E</span><span>Menteur !</span>';
+            badge.append(liar, barrel, arrow);
             marker.appendChild(badge);
             layer.appendChild(marker);
             return marker;
+        }
+
+        // Le tas : un carton au-dessus des cartes posees.
+        let tas = null, tasCle = "";
+        function majTas(item, factorX, factorY) {
+            if (!item) {
+                if (tas) { tas.remove(); tas = null; tasCle = ""; }
+                return;
+            }
+            if (!tas) {
+                tas = document.createElement("div");
+                tas.className = "marker";
+                tas.innerHTML = '<div class="badge"><div class="tas sk" data-graine="23" data-rayon="12">'
+                    + '<span class="plus"></span><span class="rang"></span><span class="total"></span></div></div>';
+                layer.appendChild(tas);
+            }
+            tas.style.transform = `translate3d(${item.x * factorX}px, ${item.y * factorY}px, 0) translate(-50%, -100%)`;
+            tas.style.setProperty("--scale", String(item.scale || 1));
+            const cle = `${item.plus}|${item.rang}|${item.total}|${item.poses}`;
+            if (cle === tasCle) return;
+            const nouveau = tasCle !== "" && item.poses > 0 && !tasCle.endsWith(`|${item.poses}`);
+            tasCle = cle;
+            tas.querySelector(".plus").textContent = item.plus ? `+${item.plus}` : "";
+            tas.querySelector(".rang").textContent = item.rang ? `Table : ${RANGS[item.rang] || item.rang}` : "";
+            tas.querySelector(".total").textContent = item.total ? `${item.total} au tas` : "";
+            if (nouveau) {
+                tas.classList.remove("nouveau");
+                void tas.offsetWidth;
+                tas.classList.add("nouveau");
+            }
+            requestAnimationFrame(habiller);
+        }
+
+        let aideTexte = null;
+        function majAide(aide) {
+            const t = aide || "";
+            if (t === aideTexte) return;
+            aideTexte = t;
+            // Les touches entre crochets deviennent des touches dessinees.
+            document.getElementById("aide").innerHTML = t
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                .replace(/\[([^\]]+)\]/g, '<span class="touche">$1</span>');
         }
 
         function update(state) {
             const seen = new Set();
             const factorX = state.width > 0 ? window.innerWidth / state.width : 1;
             const factorY = state.height > 0 ? window.innerHeight / state.height : 1;
+            majTas(state.tas, factorX, factorY);
+            majAide(state.aide);
+            let retracer = false;
             for (const item of state.markers || []) {
                 const id = String(item.id);
                 seen.add(id);
@@ -81,6 +176,10 @@
                 marker.style.transform = `translate3d(${item.x * factorX}px, ${item.y * factorY}px, 0) translate(-50%, -100%)`;
                 marker.style.setProperty("--scale", String(item.scale || 1));
                 marker.classList.toggle("active", !!item.active);
+                if (marker.classList.contains("menteur") !== !!item.menteur) {
+                    marker.classList.toggle("menteur", !!item.menteur);
+                    retracer = true;
+                }
                 marker.querySelectorAll(".chamber").forEach((dot, i) => {
                     dot.classList.toggle("spent", i < (item.fired || 0));
                 });
@@ -91,6 +190,7 @@
                     markers.delete(id);
                 }
             }
+            if (retracer) requestAnimationFrame(habiller);
         }
 
         if (typeof Events !== "undefined") {
@@ -107,9 +207,12 @@
                 width: window.innerWidth,
                 height: window.innerHeight,
                 markers: [
-                    { id: 1, x: window.innerWidth * .35, y: window.innerHeight * .54, fired: 2, active: true },
-                    { id: 2, x: window.innerWidth * .65, y: window.innerHeight * .54, fired: 4, active: false }
-                ]
+                    { id: 1, x: window.innerWidth * .35, y: window.innerHeight * .54, fired: 2, active: true, menteur: true },
+                    { id: 2, x: window.innerWidth * .65, y: window.innerHeight * .54, fired: 4, active: false },
+                    { id: "moi", x: window.innerWidth * .5, y: window.innerHeight * .2, fired: 1, active: false, scale: 1.15 }
+                ],
+                tas: { x: window.innerWidth * .5, y: window.innerHeight * .7, plus: 2, rang: "king", total: 5, poses: 3 },
+                aide: "molette : parcourir · clic : choisir · [E] poser"
             });
             preview();
             window.addEventListener("resize", preview);

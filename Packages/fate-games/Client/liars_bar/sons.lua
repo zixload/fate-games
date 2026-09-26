@@ -1,8 +1,9 @@
 -- Sons courts 3D, joues localement chez chaque spectateur du tir.
 -- Les OGG vivent dans le package : aucun recook d'asset pack n'est requis.
 
-return function(disposition)
+return function(disposition, reglage)
     local erreur_signalee = false
+    reglage = reglage or {}
 
     local function position_revolver(chaise)
         for _, prop in pairs(Prop.GetPairs()) do
@@ -13,6 +14,18 @@ return function(disposition)
         local centre = disposition.revolver_home
         return Vector(centre.x, centre.y, centre.z)
     end
+
+    -- "Menteur !" crie depuis la chaise qui accuse, si le fichier est la.
+    Events.SubscribeRemote("liars:accuse", function(accusateur)
+        if (reglage.menteur or "") == "" then return end
+        pcall(function()
+            local lieu = disposition.chairs and disposition.chairs[accusateur]
+            local l = lieu and lieu.location or disposition.revolver_home
+            Sound(Vector(l.x, l.y, l.z + 120),
+                "package://fate-games/Client/Sounds/" .. reglage.menteur,
+                false, true, SoundType.SFX, reglage.volume_menteur or 0.9, 1.0, 250, 2500)
+        end)
+    end)
 
     Events.SubscribeRemote("liars:shoot", function(chaise, _, fatal)
         local ok, err = pcall(function()

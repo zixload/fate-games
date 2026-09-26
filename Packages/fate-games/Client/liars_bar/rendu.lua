@@ -348,6 +348,9 @@ return function(config, Cartes, journal, disposition)
         end
 
         local centre = centre_table()
+        -- La superposition (nametags.lua) pose son carton au-dessus du tas.
+        local dec = config.table.decalage
+        journal.lieu_tas = Vector(centre.x + dec.x, centre.y + dec.y, centre.z + dec.z)
         local cle = ("%d|%s|%s|%.1f,%.1f,%.1f"):format(total, table.concat(revelees, ","),
             tostring(Rendu.reglage), centre.x, centre.y, centre.z)
         if cle == tas.cle then return end

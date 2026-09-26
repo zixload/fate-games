@@ -2,6 +2,7 @@
 -- dix fois par seconde ; chaque client interpole localement pour eviter les
 -- saccades. Le joueur local suit directement sa camera dans vue_assise.lua.
 
+local R = Package.Require("Shared/config.lua").regard_assis
 local cibles = setmetatable({}, { __mode = "k" })
 local courants = setmetatable({}, { __mode = "k" })
 local erreur_signalee = false
@@ -18,8 +19,8 @@ local function cible(character, regard)
     local yaw, pitch = tonumber(regard.yaw), tonumber(regard.pitch)
     if not (yaw and pitch) then return end
     cibles[character] = {
-        yaw = math.max(-30, math.min(30, yaw)),
-        pitch = math.max(-15, math.min(15, pitch)),
+        yaw = math.max(-R.lacet_max, math.min(R.lacet_max, yaw)),
+        pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch)),
     }
 end
 
@@ -27,9 +28,9 @@ local function appliquer(character, yaw, pitch)
     -- Neck/Head ont leur axe vertical local sur Y. Envoyer le regard lateral
     -- dans Yaw (axe Z) tordait la tete sur le cote au lieu de la tourner.
     character:SetAnimationBlueprintPropertyValue("LookNeck",
-        Rotator(yaw * 0.35, 0, pitch * 0.35))
+        Rotator(yaw * R.cou, 0, pitch * R.cou))
     character:SetAnimationBlueprintPropertyValue("LookHead",
-        Rotator(yaw * 0.65, 0, pitch * 0.65))
+        Rotator(yaw * R.tete, 0, pitch * R.tete))
 end
 
 CharacterSimple.Subscribe("ValueChange", function(self, key, value)

@@ -79,10 +79,27 @@ return {
             -- d'apres le caractere qu'elle tape, et en AZERTY la touche 1 tape
             -- "&". Une lettre porte le meme nom sur tous les claviers.
             select = { { "W" }, { "X" }, { "C" }, { "V" }, { "B" } },
-            play   = "P",
-            accuse = "M",
+            -- E pose ; en regardant le joueur precedent, E l'accuse.
+            play   = "E",
+            accuse = "M",   -- accuser sans viser, en secours
         },
+        -- Demi-angle (degres) autour de la tete du joueur precedent ou l'invite
+        -- "Menteur !" apparait, et tangage de la camera au-dela duquel son
+        -- propre barillet s'affiche en haut de l'ecran.
+        cone_menteur = 12,
+        tangage_barillet = 14,
     },
+
+    -- Sons de Liar's Bar (Client/liars_bar/sons.lua), fichiers de
+    -- Client/Sounds/ (hors depot). menteur : crie a chaque accusation ; vide
+    -- tant que le fichier n'est pas la (un mp3 se convertit en ogg).
+    liars_sons = { menteur = "", volume_menteur = 0.9 },
+
+    -- Mouvement de la tete des joueurs assis (Client/vue_assise.lua,
+    -- Client/regard_assis.lua, borne aussi par le serveur) : bornes en degres,
+    -- gain (la tete tourne un peu plus que la camera, pour se lire de loin)
+    -- et part du cou et de la tete.
+    regard_assis = { lacet_max = 70, tangage_max = 35, gain = 1.3, cou = 0.4, tete = 0.6 },
 
     -- Cartes 3D de Liar's Bar (Client/liars_bar/rendu.lua). L'echelle et les
     -- axes du FBX des cartes sont inconnus : tout se regle en jeu avec /fan,

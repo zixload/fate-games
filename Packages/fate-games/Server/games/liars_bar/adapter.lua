@@ -397,8 +397,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     -- Les bots tournent la tete vers la chaise qui compte : celle dont c'est
     -- le tour, celle designee pour tirer, celle qu'on accuse. La valeur
     -- "liars_look" est celle des joueurs assis ; chaque client l'interpole
-    -- (Client/regard_assis.lua), bornee a 50 degres de cote et 25 en hauteur.
+    -- (Client/regard_assis.lua), bornee comme celle des joueurs
+    -- (Shared/config.lua, regard_assis).
     local chaise_regardee = nil
+    local REGARD = Package.Require("Shared/config.lua").regard_assis
 
     local function angle(degres)
         return (degres + 180) % 360 - 180
@@ -407,8 +409,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     local function regarder(entry, yaw, pitch)
         if not (entry.body and entry.body:IsValid()) then return end
         entry.body:SetValue("liars_look", {
-            yaw = math.max(-30, math.min(30, yaw)),
-            pitch = math.max(-15, math.min(15, pitch)),
+            yaw = math.max(-REGARD.lacet_max, math.min(REGARD.lacet_max, yaw)),
+            pitch = math.max(-REGARD.tangage_max, math.min(REGARD.tangage_max, pitch)),
         }, true)
     end
 
@@ -440,7 +442,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         if state then return end
         for _, entry in ipairs(seated) do
             if entry.bot and math.random() < 0.4 then
-                regarder(entry, math.random(-40, 40), math.random(-10, 5))
+                regarder(entry, math.random(-60, 60), math.random(-15, 10))
             end
         end
     end
