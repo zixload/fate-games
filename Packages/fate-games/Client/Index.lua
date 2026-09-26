@@ -19,6 +19,8 @@ end)
 
 local Interaction = Package.Require("interaction/init.lua")(SharedConfig.interaction)
 Interaction.Start()
+-- En partie de Liar's Bar, seule son arme se vise, et seulement pour tirer.
+Package.Require("liars_bar/invite_partie.lua")(Interaction)
 local ok_invite, err_invite = pcall(function()
     Package.Require("interaction/invite.lua")(Interaction)
 end)

@@ -20,6 +20,20 @@ return function(config)
     local focused_id = nil
     local tick_handle = nil
 
+    -- Filtre pose par un jeu (ex. Liar's Bar en partie) : fonction(entite) ->
+    -- vrai si l'objet peut etre vise. Aucun filtre : tout ce qui est connu.
+    local filtre = nil
+
+    function Interaction.SetFiltre(f)
+        filtre = f
+    end
+
+    local function permis(entite)
+        if not filtre then return true end
+        local ok, oui = pcall(filtre, entite)
+        return ok and oui == true
+    end
+
     local REACH = (config and config.reach) or 400.0
 
     -- Demi-angle du cone de rattrapage, en degres (voir plus_proche_du_regard).
@@ -90,7 +104,7 @@ return function(config)
         local meilleur, meilleur_cos = nil, CONE
         for _, prop in pairs(Prop.GetPairs()) do
             local entry = prop:IsValid() and known[prop:GetID()] or nil
-            if entry then
+            if entry and permis(prop) then
                 local l = prop:GetLocation()
                 local dx, dy, dz = l.X - pied.X, l.Y - pied.Y, l.Z - pied.Z
                 if math.sqrt(dx * dx + dy * dy + dz * dz) <= (entry.max_distance or REACH) then
@@ -137,7 +151,7 @@ return function(config)
 
         -- Ce que la trace touche l'emporte ; sinon, le cone.
         local id = hit and hit.Entity and hit.Entity:GetID() or nil
-        if id and known[id] then
+        if id and known[id] and permis(hit.Entity) then
             return Interaction.SetFocus(id)
         end
         Interaction.SetFocus(plus_proche_du_regard(character, origin, forward))
