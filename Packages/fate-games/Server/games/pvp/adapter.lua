@@ -157,6 +157,8 @@ return function(Log, Characters, Combat, Armes, config)
             memoire = {}, prochain_pas = 0 }
         P[cid] = p
         configurer(perso, cid)
+        -- Le client distingue allies et ennemis (indicateurs, relever, achever).
+        perso:SetValue("pvp_camp", tostring(o.camp or cid), true)
         equiper(p, o.arme or ARME_DEFAUT)
         return p
     end

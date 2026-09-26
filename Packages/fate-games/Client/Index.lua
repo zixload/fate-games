@@ -63,6 +63,12 @@ local ok_duel, err_duel = pcall(function()
 end)
 if not ok_duel then Console.Error("[duel] chargement impossible : " .. tostring(err_duel)) end
 
+-- Systeme de combat (docs/COMBAT.md) : entrees et HUD du personnage natif.
+local ok_pvp, err_pvp = pcall(function()
+    Package.Require("pvp/init.lua")()
+end)
+if not ok_pvp then Console.Error("[pvp] chargement impossible : " .. tostring(err_pvp)) end
+
 -- HUD provisoire de Liar's Bar : le journal et la main, au clavier.
 local LiarsJournal = Package.Require("liars_bar/journal.lua")(SharedConfig.liars_hud)
 local liars_journal = Package.Require("liars_bar/hud.lua")(

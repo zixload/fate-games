@@ -163,3 +163,37 @@ Client/pvp/               entrées (souris, touches), HUD (jauges, direction de 
 Le moteur suit le même contrat que celui du loup-garou : un état, des fonctions qui le font
 avancer et rendent une liste d'effets (`degats`, `bloque`, `pare`, `esquive`, `statut`, `mort`,
 `a_terre`, `projectile`...), et l'adaptateur les traduit. Tout est testé hors du jeu.
+
+## Essayer (mode dev)
+
+Le système tourne en parallèle du duel, qu'il ne touche pas. Serveur redémarré, dans le chat :
+
+| Commande | Effet |
+| --- | --- |
+| `/pvp` | entrer (personnage natif, épée longue) ou sortir (on retrouve son personnage) |
+| `/pvp arme <id>` | poings, dague, epee_courte, epee_longue, hache, masse, lance, epee_bouclier, baton, pistolet, revolver, fusil, fusil_pompe, fusil_precision, arc, arbalete |
+| `/pvp armure <id>` | aucune, tissu, cuir, mailles, plaques |
+| `/pvp bot [arme] [niveau]` | un bot devant soi (facile, normal, difficile) |
+| `/pvp bots` | retirer les bots |
+| `/pvp aterre` | à terre au lieu de mourir (RP) |
+| `/pvp soin` | se remettre à neuf |
+| `/pvp inverser` | inverser le geste vertical de garde |
+
+Commandes en combat :
+
+| Touche | Corps à corps | Arc | Armes à feu |
+| --- | --- | --- | --- |
+| clic gauche | attaque légère | tenir pour bander, relâcher | tir (natif) |
+| clic molette ou F | attaque lourde | | |
+| clic droit tenu | garde ; la souris choisit le côté, la caméra suit l'ennemi | | visée (native) |
+| Q | feinte pendant l'armement | | |
+| Alt gauche | esquive (direction : touches tenues) | esquive | esquive |
+| 1 à 7 | sorts : trait de feu, onde de choc, éclair, gel, soin, barrière, bond | | |
+| G | relever un allié à terre, achever un ennemi à terre | | |
+
+Au-dessus d'un ennemi qui arme un coup : le côté où mettre sa garde (`<<`, `>>`, `^`), jaune
+pour une légère, rouge pour une lourde, avec une barre qui se vide jusqu'à l'impact. Sa garde
+tenue s'affiche en gris.
+
+Ce qui reste provisoire : les animations (celles du pack par défaut), les modèles d'épées et de
+bouclier (pied-de-biche, batte), l'arc sans modèle. Le moteur n'en dépend pas.

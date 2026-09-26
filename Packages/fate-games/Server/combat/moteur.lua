@@ -911,6 +911,10 @@ return function(R, A, S, G)
             if s.fin > w.t then statuts[#statuts + 1] = { nom = nom, reste = s.fin - w.t } end
         end
         table.sort(statuts, function(a, b) return a.nom < b.nom end)
+        local recharges = {}
+        for sort, fin in pairs(f.recharges) do
+            if fin > w.t then recharges[sort] = fin - w.t end
+        end
         local arme = A[f.arme]
         return {
             sante = f.sante, sante_max = f.sante_max, endurance = f.endurance, endurance_max = f.endurance_max,
@@ -918,7 +922,8 @@ return function(R, A, S, G)
             etat = f.etat, arme = f.arme, armure = f.armure, munitions = f.munitions,
             chargeur = arme and arme.chargeur, recharge = f.recharge_fin and (f.recharge_fin - w.t) or nil,
             garde = f.garde and f.garde.dir or nil, action = f.action and (f.action.phase or f.action.kind) or nil,
-            statuts = statuts, vitesse = vitesse(w, f),
+            statuts = statuts, recharges = recharges, vitesse = vitesse(w, f),
+            bande = f.bande and (w.t - f.bande.debut) or nil,
         }
     end
 

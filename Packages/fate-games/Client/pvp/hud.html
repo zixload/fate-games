@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Combat</title>
+<!--
+  HUD du systeme de combat (pvp/init.lua) : sante, endurance, posture, mana,
+  munitions, statuts, sorts et leurs recharges, messages brefs. Ce qui suit
+  les personnages (indicateurs d'attaque, degats) est au Canvas.
+-->
+<style>
+@font-face { font-family: "Lilita One"; src: url("../vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --sante: #d4453a; --endurance: #8cc063; --posture: #e8b64a; --mana: #5e9ef0; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; font-family: "Lilita One", sans-serif;
+    color: var(--papier); user-select: none; pointer-events: none; }
+body.apercu { background: radial-gradient(circle at 50% 35%, #56606b, #1e242b); }
+.cache { display: none !important; }
+
+#jauges { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); width: 460px; display: flex; flex-direction: column; gap: 6px; }
+.jauge { position: relative; height: 16px; border: 3px solid var(--encre); border-radius: 9px; background: rgba(28, 33, 35, .55); overflow: hidden;
+    box-shadow: 3px 4px 0 rgba(7, 10, 11, .6); }
+.jauge .plein { position: absolute; inset: 0; transform-origin: left; transition: transform .12s; }
+.jauge.sante { height: 22px; }
+.jauge.sante .plein { background: var(--sante); }
+.jauge.endurance .plein { background: var(--endurance); }
+.jauge.mana .plein { background: var(--mana); }
+.jauge .texte { position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; text-shadow: 1px 1px 0 #000; }
+/* La posture monte vers le centre : pleine, la garde casse. */
+#posture { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%); width: 200px; height: 8px; border: 2px solid var(--encre);
+    border-radius: 5px; background: rgba(28, 33, 35, .5); overflow: hidden; }
+#posture .plein { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; transform: translateX(-50%); background: var(--posture); transition: width .12s; }
+#posture.danger .plein { background: #ff7a3a; }
+
+#arme { position: absolute; right: 40px; bottom: 34px; text-align: right; font-size: 22px; text-shadow: 2px 2px 0 #000; }
+#munitions { font-size: 40px; }
+#munitions small { font-size: 20px; opacity: .8; }
+
+#statuts { position: absolute; left: 50%; bottom: 142px; transform: translateX(-50%); display: flex; gap: 8px; }
+.statut { padding: 3px 9px; border-radius: 8px; border: 2px solid var(--encre); background: var(--papier); color: var(--encre); font-size: 14px; }
+.statut.mauvais { background: #f0b3a8; } .statut.bon { background: #c8e6a8; }
+
+#sorts { position: absolute; left: 36px; bottom: 34px; display: flex; gap: 6px; }
+.sort { position: relative; width: 50px; height: 50px; border-radius: 10px; border: 3px solid var(--encre); background: rgba(28, 33, 35, .7);
+    display: grid; place-items: center; font-size: 11px; text-align: center; line-height: 1.05; overflow: hidden; }
+.sort b { position: absolute; top: 2px; left: 5px; font-size: 13px; color: var(--posture); }
+.sort .voile { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, .65); }
+.sort .reste { position: absolute; inset: 0; display: grid; place-items: center; font-size: 18px; }
+
+#message { position: absolute; left: 0; right: 0; top: 58%; text-align: center; font-size: 30px; color: #fff; text-shadow: 2px 2px 0 #000;
+    transition: opacity .3s; }
+#message.efface { opacity: 0; }
+#incantation { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); width: 220px; height: 10px; border: 2px solid var(--encre);
+    border-radius: 6px; background: rgba(28, 33, 35, .6); overflow: hidden; }
+#incantation .plein { height: 100%; width: 0; background: var(--mana); }
+#rouge { position: absolute; inset: 0; box-shadow: inset 0 0 160px rgba(212, 69, 58, .75); opacity: 0; transition: opacity .35s; }
+#mort { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font-size: 70px; color: var(--sante);
+    -webkit-text-stroke: 9px var(--encre); paint-order: stroke fill; text-shadow: 6px 7px 0 rgba(7, 10, 11, .7); }
+</style>
+</head>
+<body>
+<div id="rouge"></div>
+<div id="mort" class="cache">Mort</div>
+<div id="statuts"></div>
+<div id="posture"><div class="plein"></div></div>
+<div id="jauges">
+  <div class="jauge sante"><div class="plein"></div><div class="texte"></div></div>
+  <div class="jauge endurance"><div class="plein"></div></div>
+  <div class="jauge mana"><div class="plein"></div></div>
+</div>
+<div id="arme"><div id="nom-arme"></div><div id="munitions"></div></div>
+<div id="sorts"></div>
+<div id="message" class="efface"></div>
+<div id="incantation" class="cache"><div class="plein"></div></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const NOMS = { poings: "Poings", dague: "Dague", epee_courte: "Épée courte", epee_longue: "Épée longue", hache: "Hache", masse: "Masse",
+  lance: "Lance", epee_bouclier: "Épée et bouclier", baton: "Bâton", pistolet: "Pistolet", revolver: "Revolver", fusil: "Fusil d'assaut",
+  fusil_pompe: "Fusil à pompe", fusil_precision: "Fusil de précision", arc: "Arc", arbalete: "Arbalète" };
+const STATUTS = { saignement: ["Saigne", "mauvais"], brulure: ["Brûle", "mauvais"], ralenti: ["Ralenti", "mauvais"], etourdi: ["Étourdi", "mauvais"],
+  vulnerable: ["Vulnérable", "mauvais"], expose: ["Exposé", "mauvais"], soin: ["Soin", "bon"], barriere: ["Barrière", "bon"] };
+const SORTS = [["1", "trait_de_feu", "Trait de feu"], ["2", "onde_de_choc", "Onde de choc"], ["3", "eclair", "Éclair"], ["4", "gel", "Gel"],
+  ["5", "soin", "Soin"], ["6", "barriere", "Barrière"], ["7", "bond", "Bond"]];
+const RECHARGES = { trait_de_feu: 2.1, onde_de_choc: 6.45, eclair: 8.9, gel: 5.7, soin: 11.2, barriere: 14.35, bond: 7.1 };
+
+function remplir(sel, k) { document.querySelector(sel).style.transform = `scaleX(${Math.max(0, Math.min(1, k))})`; }
+
+function etat(e, arme) {
+  remplir(".jauge.sante .plein", e.sante / e.sante_max);
+  document.querySelector(".jauge.sante .texte").textContent = `${Math.ceil(e.sante)} / ${e.sante_max}`;
+  remplir(".jauge.endurance .plein", e.endurance / e.endurance_max);
+  remplir(".jauge.mana .plein", e.mana / e.mana_max);
+  const post = e.posture / e.posture_max;
+  document.querySelector("#posture .plein").style.width = `${post * 100}%`;
+  $("posture").classList.toggle("danger", post > 0.7);
+  $("nom-arme").textContent = NOMS[e.arme || arme] || "";
+  $("munitions").innerHTML = e.chargeur ? `${e.munitions}<small> / ${e.chargeur}</small>${e.recharge ? " <small>recharge…</small>" : ""}` : "";
+  $("statuts").innerHTML = (e.statuts || []).map((s) => {
+    const [nom, genre] = STATUTS[s.nom] || [s.nom, ""];
+    return `<span class="statut ${genre}">${nom} ${s.reste.toFixed(1)}</span>`;
+  }).join("");
+  $("sorts").innerHTML = SORTS.map(([touche, id, nom]) => {
+    const reste = (e.recharges || {})[id] || 0;
+    const part = Math.min(1, reste / RECHARGES[id]);
+    return `<div class="sort"><b>${touche}</b>${nom}${reste > 0 ? `<div class="voile" style="height:${part * 100}%"></div><div class="reste">${Math.ceil(reste)}</div>` : ""}</div>`;
+  }).join("");
+  $("mort").classList.toggle("cache", e.etat !== "mort");
+  if (e.etat === "a_terre") $("mort").textContent = "À terre";
+  else $("mort").textContent = "Mort";
+  $("mort").classList.toggle("cache", e.etat === "vivant");
+}
+
+let finMessage = null;
+function refus(texte) {
+  clearTimeout(finMessage);
+  $("message").textContent = texte;
+  $("message").classList.remove("efface");
+  finMessage = setTimeout(() => $("message").classList.add("efface"), 1200);
+}
+
+let finRouge = null;
+function touche(montant) {
+  clearTimeout(finRouge);
+  $("rouge").style.opacity = Math.min(1, 0.3 + montant / 40);
+  finRouge = setTimeout(() => { $("rouge").style.opacity = 0; }, 250);
+}
+
+let anim = null;
+function incantation(sort, duree) {
+  const barre = document.querySelector("#incantation .plein");
+  $("incantation").classList.remove("cache");
+  barre.style.transition = "none";
+  barre.style.width = "0";
+  void barre.offsetWidth;
+  barre.style.transition = `width ${duree}s linear`;
+  barre.style.width = "100%";
+  clearTimeout(anim);
+  anim = setTimeout(() => $("incantation").classList.add("cache"), duree * 1000 + 100);
+}
+
+if (typeof Events !== "undefined") {
+  Events.Subscribe("etat", etat);
+  Events.Subscribe("refus", refus);
+  Events.Subscribe("touche", touche);
+  Events.Subscribe("incantation", incantation);
+} else {
+  document.body.classList.add("apercu");
+  etat({ sante: 64, sante_max: 100, endurance: 45, endurance_max: 100, posture: 72, posture_max: 100, mana: 80, mana_max: 100,
+    etat: "vivant", arme: "epee_longue", statuts: [{ nom: "saignement", reste: 3.2 }, { nom: "barriere", reste: 4.1 }],
+    recharges: { eclair: 5.2, soin: 2 } }, "epee_longue");
+  refus("Parade !");
+}
+</script>
+</body>
+</html>

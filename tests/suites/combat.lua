@@ -468,6 +468,7 @@ return function(H)
             a.mana = 5
             local _, r2 = Combat.incanter(w, "a", "eclair")
             H.assert_eq(r2, "mana", "pas assez de mana")
+            H.assert_true((Combat.etat(w, "a").recharges.trait_de_feu or 0) > 0, "la recharge se lit dans l'etat")
         end)
 
         H.it("une incantation est coupee si l'on encaisse fort", function()
