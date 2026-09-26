@@ -106,6 +106,31 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         end
     end
 
+    -- Eclairage : une grille de lumieres dans la forme de l'arene.
+    local function eclairer(A)
+        for _, l in ipairs(A.lumieres or {}) do if l:IsValid() then l:Destroy() end end
+        A.lumieres = {}
+        local L = config.lumiere
+        if not (L and L.enabled) then return end
+        local nx = math.max(1, math.floor(2 * A.demi_x / L.espacement + 0.5))
+        local ny = math.max(1, math.floor(2 * A.demi_y / L.espacement + 0.5))
+        for i = 1, nx do
+            for k = 1, ny do
+                local lx = -A.demi_x + (i - 0.5) * 2 * A.demi_x / nx
+                local ly = -A.demi_y + (k - 0.5) * 2 * A.demi_y / ny
+                local garder = A.forme ~= "cercle" or (lx * lx + ly * ly <= A.demi_x * A.demi_x)
+                if garder then
+                    local pos = monde(A, lx, ly, A.z + L.hauteur)
+                    local ok, lumiere = pcall(Light, pos, Rotator(0, 0, 0),
+                        Color(L.couleur.r, L.couleur.g, L.couleur.b), LightType.Point,
+                        L.intensite, L.rayon, 44, 0, 0, true, L.ombres == true, true)
+                    if ok and lumiere then A.lumieres[#A.lumieres + 1] = lumiere
+                    elseif not ok then Log.Warn("duel", "lumiere impossible : " .. tostring(lumiere)) end
+                end
+            end
+        end
+    end
+
     local function nouvelle_arene(def)
         local A = { nom = def.nom, forme = def.forme or "cercle", x = def.x, y = def.y, z = def.z,
             demi_x = def.demi_x or def.rayon, demi_y = def.demi_y or def.rayon,
@@ -115,6 +140,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         -- les points d'apparition, poses sur le sol, donnent la vraie hauteur.
         if A.departs then A.z = math.min(A.departs[1].z, A.departs[2].z) end
         arenes[#arenes + 1] = A
+        eclairer(A)
         return A
     end
 
@@ -707,6 +733,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             if A.nom == "TEST" then
                 if actif(A) then return nil, "duel en cours" end
                 nettoyer(A)
+                for _, l in ipairs(A.lumieres or {}) do if l:IsValid() then l:Destroy() end end
                 table.remove(arenes, i)
                 break
             end

@@ -28,6 +28,19 @@ return {
     -- Rayon autour de l'arene ou l'on peut regarder le duel.
     rayon_spectateurs = 2500,
 
+    -- Eclairage de l'arene : lumieres ponctuelles en grille au-dessus du sol,
+    -- chaudes, sans ombre (legeres). La doc ne donne pas l'unite d'intensite :
+    -- a regler en jeu. enabled = false si la map eclaire deja l'arene.
+    lumiere = {
+        enabled = true,
+        espacement = 1600,        -- cm entre deux lumieres
+        hauteur = 320,            -- cm au-dessus du sol de l'arene
+        intensite = 150,
+        rayon = 1400,             -- portee de chaque lumiere, cm
+        couleur = { r = 1.0, g = 0.84, b = 0.62 },
+        ombres = false,
+    },
+
     -- Bot de test (/botduel, mode dev) : cadence de tir et chance de toucher.
     bot = { tir_min_ms = 900, tir_max_ms = 1500, precision = 0.35, pas_ms = 2500, pas = 220 },
 
