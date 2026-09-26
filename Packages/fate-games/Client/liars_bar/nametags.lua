@@ -14,7 +14,7 @@ return function(journal, config)
     local erreur_signalee = false
     local CHAMBRES = 6
     local PORTEE = 1200
-    local HAUTEUR_AU_DESSUS_TETE = 58
+    local HAUTEUR_AU_DESSUS_TETE = 34   -- 58 : trop haut (26/09)
     local reglage = config or {}
     local cone_menteur = math.cos(math.rad(reglage.cone_menteur or 12))
     local tangage_barillet = reglage.tangage_barillet or 14

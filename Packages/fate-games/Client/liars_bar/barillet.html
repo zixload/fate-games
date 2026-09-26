@@ -190,7 +190,13 @@
                     markers.delete(id);
                 }
             }
-            if (retracer) requestAnimationFrame(habiller);
+            // Le cadre de "Menteur !" ne se tracait pas toujours au moment ou
+            // il apparait : on retrace tant qu'un cadre visible n'a pas le sien.
+            const sansCadre = [...layer.querySelectorAll(".marker.menteur .liar")]
+                .some((el) => !el.querySelector(":scope > .sk-svg"));
+            if (retracer || sansCadre) {
+                requestAnimationFrame(habiller);
+            }
         }
 
         if (typeof Events !== "undefined") {
