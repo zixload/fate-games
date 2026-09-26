@@ -112,6 +112,11 @@ return {
         fondu_entree = 4, fondu_sortie = 3,
     },
 
+    -- Pseudos au-dessus des personnages (Client/pseudos.lua) : portee (cm),
+    -- hauteur au-dessus de la tete (cm), delai entre deux verifications de mur
+    -- (ms). Taille de l'ecriture : Client/ui/pseudo.lua.
+    pseudos = { portee = 1500, au_dessus = 30, verif_vue_ms = 200 },
+
     -- Petites marches (Client/marche.lua) : hauteur la plus haute montee sans
     -- sauter (cm), poussee vers l'avant (cm/s), delai entre deux (s).
     marche = { hauteur_max = 45, poussee = 140, delai = 0.35 },

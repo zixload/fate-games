@@ -25,10 +25,8 @@ return function(journal, config)
     local tangage_barillet = reglage.tangage_barillet or 14
     local touches = reglage.keys or {}
     local IMG = "package://fate-games/Client/liars_bar/hud/"
-    -- Pseudos : police bitmap Lilita One (scripts/hud/rendre_police.py), le
-    -- Canvas n'ayant pas cette police. NOM : taille par rapport a la planche.
-    local Police = Package.Require("liars_bar/police.lua")
-    local NOM, NOM_MAX, NOM_ESPACE = 0.42, 16, 2
+    -- Pseudos : ecriture partagee avec ceux de la map (ui/pseudo.lua).
+    local Pseudo = Package.Require("ui/pseudo.lua")
     local RANGS = { king = "roi", queen = "dame", ace = "as", joker = "joker" }
 
     local page = WebUI("liars-barillet", "file://liars_bar/barillet.html",
@@ -116,42 +114,8 @@ return function(journal, config)
             Vector2D(0, 0), Vector2D(1, 1), Color.WHITE, BlendMode.AlphaBlend, 0, Vector2D(0.5, 0.5))
     end
 
-    -- Les glyphes d'un pseudo, lettre par lettre (UTF-8 : les accents font
-    -- plusieurs octets). Un caractere absent de la planche devient "?".
-    local function glyphes(texte)
-        local out = {}
-        local ok = pcall(function()
-            for _, cp in utf8.codes(texte) do
-                out[#out + 1] = Police.glyphes[utf8.char(cp)] or Police.glyphes["?"]
-                if #out >= NOM_MAX then break end
-            end
-        end)
-        if not ok then
-            out = {}
-            for ch in texte:gmatch(".") do out[#out + 1] = Police.glyphes[ch] or Police.glyphes["?"] end
-        end
-        return out
-    end
-
-    -- Un pseudo centre sur x, pose sur la ligne y (son bas). Rend sa hauteur.
     local function pseudo(c, texte, x, y, s)
-        local gs = glyphes(texte)
-        if #gs == 0 then return 0 end
-        local k = NOM * s
-        local largeur = 0
-        for _, g in ipairs(gs) do largeur = largeur + (g.a + NOM_ESPACE) * k end
-        local cx = x - largeur / 2
-        local haut = y - (Police.base + 10) * k
-        local ul, uh = Police.case_l / Police.largeur, Police.case_h / Police.hauteur
-        for _, g in ipairs(gs) do
-            local col, lig = g.i % Police.colonnes, math.floor(g.i / Police.colonnes)
-            c:DrawTexture(IMG .. "police.png", Vector2D(cx - Police.marge * k, haut),
-                Vector2D(Police.case_l * k, Police.case_h * k),
-                Vector2D(col * ul, lig * uh), Vector2D(ul, uh),
-                Color.WHITE, BlendMode.AlphaBlend, 0, Vector2D(0.5, 0.5))
-            cx = cx + (g.a + NOM_ESPACE) * k
-        end
-        return (Police.base + 10) * k
+        return Pseudo.Dessiner(c, texte, x, y, s)
     end
 
     -- Barillet pose sur le point (x, y) : son bas y touche, comme avant.

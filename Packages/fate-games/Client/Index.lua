@@ -72,6 +72,12 @@ local ok_tags, err_tags = pcall(function()
 end)
 if not ok_tags then Console.Error("[etiquettes] chargement impossible : " .. tostring(err_tags)) end
 
+-- Pseudos au-dessus des personnages, partout sur la map.
+local ok_pseudos, err_pseudos = pcall(function()
+    Package.Require("pseudos.lua")(liars_journal, SharedConfig.pseudos)
+end)
+if not ok_pseudos then Console.Error("[pseudos] chargement impossible : " .. tostring(err_pseudos)) end
+
 -- Mourir se sent : flash, secousse, camera qui bascule, voile.
 local ok_mort, err_mort = pcall(function()
     Package.Require("liars_bar/mort.lua")(liars_journal, SharedConfig.liars_hud.mort)
