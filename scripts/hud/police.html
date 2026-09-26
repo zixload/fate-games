@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Police des pseudos</title>
+<!--
+  Police bitmap des pseudos au-dessus des tetes (Liar's Bar) : chaque glyphe
+  en Lilita One, papier cerne d'encre avec une ombre dure, dans une planche
+  de 16 colonnes. Le Canvas natif n'a pas cette police (FontType) : il compose
+  les pseudos glyphe par glyphe dans cette planche, sans retard sur la camera.
+  scripts/hud/rendre_police.sh rend la planche et ecrit les avances en Lua.
+-->
+<style>
+@font-face { font-family: "Lilita One"; src: url("../../Packages/fate-games/Client/vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+html, body { margin: 0; background: transparent; }
+canvas { display: block; }
+#metriques { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<canvas id="planche"></canvas>
+<pre id="metriques"></pre>
+<script>
+// Un glyphe par case, a l'echelle 2 (la planche est affichee au double).
+const COLONNES = 16, CASE_L = 64, CASE_H = 72, TAILLE = 44, MARGE = 12, BASE = 52;
+const GLYPHES = [];
+for (let c = 32; c <= 126; c++) GLYPHES.push(String.fromCharCode(c));
+for (const c of "éèêëàâäîïôöùûüçÉÈÊÀÂÎÔÛÇ") GLYPHES.push(c);
+
+document.fonts.load(`${TAILLE}px "Lilita One"`).then(() => {
+  const lignes = Math.ceil(GLYPHES.length / COLONNES);
+  const cv = document.getElementById("planche");
+  cv.width = COLONNES * CASE_L; cv.height = lignes * CASE_H;
+  const g = cv.getContext("2d");
+  g.font = `${TAILLE}px "Lilita One"`;
+  g.textBaseline = "alphabetic";
+  g.lineJoin = "round";
+  const avances = {};
+  GLYPHES.forEach((ch, i) => {
+    const x = (i % COLONNES) * CASE_L + MARGE, y = Math.floor(i / COLONNES) * CASE_H + BASE;
+    // Ombre dure, contour encre, puis le papier.
+    g.lineWidth = 9; g.strokeStyle = "rgba(7, 10, 11, .75)"; g.strokeText(ch, x + 3, y + 3);
+    g.fillStyle = "rgba(7, 10, 11, .75)"; g.fillText(ch, x + 3, y + 3);
+    g.lineWidth = 9; g.strokeStyle = "#1c2123"; g.strokeText(ch, x, y);
+    g.fillStyle = "#efe6d2"; g.fillText(ch, x, y);
+    avances[ch] = Math.round(g.measureText(ch).width * 10) / 10;
+  });
+  document.getElementById("metriques").textContent = JSON.stringify({
+    colonnes: COLONNES, case_l: CASE_L, case_h: CASE_H, marge: MARGE, base: BASE,
+    largeur: cv.width, hauteur: cv.height, glyphes: GLYPHES, avances,
+  });
+});
+</script>
+</body>
+</html>
