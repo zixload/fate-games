@@ -96,6 +96,14 @@ local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, DB, Ids, Ch
 LoupGarou.Init()
 Emotes.Init()
 
+-- Systeme de combat (docs/COMBAT.md) : moteur pur combat/, adaptateur sur le
+-- personnage natif. En dev, /pvp pour l'essayer.
+local CombatSysteme = Package.Require("combat/init.lua")
+local PvP = Package.Require("games/pvp/adapter.lua")(Log, Characters, CombatSysteme,
+    Package.Require("games/pvp/armes_nanos.lua")({}),
+    { dev = ServerConfig.dev and ServerConfig.dev.liars_bots })
+PvP.Init()
+
 -- Poser l'arene du duel sous ses pieds : "/arene [rayon]", en mode dev.
 if ServerConfig.dev and ServerConfig.dev.liars_bots then
     Chat.Subscribe("PlayerSubmit", function(message, player)
@@ -491,6 +499,10 @@ Player.Subscribe("Destroy", function(player)
     if not ok_duel then
         Log.Error("duel", "OnPlayerLeave a leve : " .. tostring(err_duel))
     end
+
+    -- Le PvP rend au joueur son personnage habituel avant que la session ferme.
+    local ok_pvp, err_pvp = pcall(PvP.OnPlayerLeave, player)
+    if not ok_pvp then Log.Error("pvp", "OnPlayerLeave a leve : " .. tostring(err_pvp)) end
 
     local session = Characters.SessionByPlayer(player:GetID())
     if session then Boutique.Oublier(session.account) end
