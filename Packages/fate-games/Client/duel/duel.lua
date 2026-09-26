@@ -293,22 +293,51 @@ return function(SharedConfig)
         if not ok then Console.Error("[duel] ligne de vue : " .. tostring(err)) end
     end, 200)
 
+    ------------------------------------------------------------ musique
+
+    -- La musique du duel (AdhesiveWombat - Night Shade), pour les combattants,
+    -- du decompte a la fin : basse, elle monte et redescend en fondu.
+    local mu = SharedConfig.duel_musique or {}
+    local musique = nil
+
+    local function musique_on()
+        if musique and musique:IsValid() then return end
+        local ok, err = pcall(function()
+            local boucle = SoundLoopMode and (SoundLoopMode.Forever or SoundLoopMode.Default) or nil
+            musique = Sound(Vector(), "package://fate-games/Client/Sounds/musique_duel.ogg", true, false,
+                SoundType.Music, 0, 1, 400, 3600, AttenuationFunction and AttenuationFunction.Linear or nil,
+                true, boucle, false)
+            musique:FadeIn(mu.fondu_entree or 3, mu.volume or 0.22)
+        end)
+        if not ok then Console.Error("[duel] musique : " .. tostring(err)) end
+    end
+
+    local function musique_off()
+        if not (musique and musique:IsValid()) then musique = nil return end
+        local m = musique
+        musique = nil
+        pcall(function() m:FadeOut(mu.fondu_sortie or 3, 0, true) end)
+    end
+
     ------------------------------------------------------------ evenements
 
     -- Un etat vide : on s'est eloigne de l'arene, le HUD se ferme.
     Events.SubscribeRemote("duel:etat", function(e)
         etat = e
         if not e and regarde then regarde = false; appeler("regarde", false) end
+        -- Sorti de l'arene ou duel annule : la musique s'eteint en douceur.
+        if not e or e.phase == "attente" or e.phase == "vide" then musique_off() end
         appeler("etat", e, moi())
     end)
     Events.SubscribeRemote("duel:mes_armes", function(liste, choisie)
         mes_armes, arme_choisie = liste or {}, choisie
         appeler("armes", mes_armes, choisie)
     end)
-    Events.SubscribeRemote("duel:decompte", function(ms) appeler("decompte", ms) end)
+    Events.SubscribeRemote("duel:decompte", function(ms) appeler("decompte", ms); musique_on() end)
     Events.SubscribeRemote("duel:manche", function(n) appeler("manche", n); pv_affiches = nil end)
     Events.SubscribeRemote("duel:manche_gagnee", function(camp) appeler("mancheGagnee", camp) end)
     Events.SubscribeRemote("duel:fin", function(camp, cagnotte)
+        musique_off()
         local j = mon_joueur()
         appeler("fin", camp, cagnotte, j ~= nil and j.camp == camp)
         if regarde then regarde = false; appeler("regarde", false) end

@@ -32,6 +32,9 @@ return {
         ancrage_max = 60,
     },
 
+    -- Musique du duel : volume (0-1) et fondus en secondes.
+    duel_musique = { volume = 0.22, fondu_entree = 3, fondu_sortie = 3.5 },
+
     -- Trainee d'un tir de duel : longueur du trait (cm), ecart depuis le canon,
     -- epaisseur (echelle du cube de 100 cm), opacite, vitesse d'avance (cm/s).
     duel_trainee = { longueur = 140, ecart = 60, epaisseur = 0.006, opacite = 0.45, vitesse = 30000 },
