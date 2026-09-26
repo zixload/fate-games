@@ -193,7 +193,7 @@ Commandes en combat :
 | Q | feinte pendant l'armement | | |
 | V | bousculade (traverse la garde, sans dégâts) | | |
 | Alt gauche | esquive (direction : touches tenues) | esquive | esquive |
-| 1 à 7 | sorts : trait de feu, onde de choc, éclair, gel, soin, barrière, bond | | |
+| & é " ' ( - è (AZERTY) ou 1 à 7 (QWERTY) | sorts : trait de feu, onde de choc, éclair, gel, soin, barrière, bond | | |
 | G | relever un allié à terre, achever un ennemi à terre | | |
 
 Au-dessus d'un ennemi qui arme un coup : le côté où mettre sa garde (`<<`, `>>`, `^`), jaune

@@ -58,7 +58,7 @@ return function(config, Interaction)
         night_white_wolf = { texte = "Nuit · Le loup blanc rôde", icone = "lune", qui = { white_wolf = true },
             invite = "lg_designer", consigne = "Tu peux dévorer un loup : regarde-le et appuie sur [E]" },
         night_witch      = { texte = "Nuit · La sorcière prépare ses potions", icone = "lune", qui = { witch = true },
-            invite = "sorciere", consigne = "[1] sauver la victime · [2] puis [E] sur un joueur pour l'empoisonner · [3] ne rien faire" },
+            invite = "sorciere", consigne = "[&] sauver la victime · [é] puis [E] sur un joueur pour l'empoisonner · [\"] ne rien faire" },
         night_seer       = { texte = "Nuit · La voyante sonde", icone = "lune", qui = { seer = true },
             invite = "lg_sonder", consigne = "Regarde un joueur et appuie sur [E] pour découvrir son rôle" },
         dawn             = { texte = "Aube", icone = "soleil" },
@@ -639,23 +639,23 @@ return function(config, Interaction)
         end
         -- La sorciere : [1] sauver, [2] preparer le poison, [3] ne rien faire.
         if etat.phase == "night_witch" and etat.role == "witch" and peut_designer() then
-            if touche == "One" or touche == "NumPadOne" then
+            if touche == "One" or touche == "NumPadOne" or touche == "Ampersand" then
                 if etat.potions.vie and etat.victime then
                     Events.CallRemote("ww:designer", Reliability.Reliable, etat.victime)
                 end
                 return false
-            elseif touche == "Two" or touche == "NumPadTwo" then
+            elseif touche == "Two" or touche == "NumPadTwo" or touche == "E_AccentAigu" then
                 if etat.potions.mort then
                     etat.poison = not etat.poison
                     panneau_sorciere()
                 end
                 return false
-            elseif touche == "Three" or touche == "NumPadThree" then
+            elseif touche == "Three" or touche == "NumPadThree" or touche == "Quote" then
                 Events.CallRemote("ww:renoncer", Reliability.Reliable)
                 return false
             elseif touche == "E" then
                 if not etat.poison then
-                    appeler("lg:message", "Appuie d'abord sur [2] pour préparer la potion de mort", 3)
+                    appeler("lg:message", "Appuie d'abord sur [é] pour préparer la potion de mort", 3)
                 elseif etat.vise and etat.vise:IsValid() then
                     Events.CallRemote("ww:designer", Reliability.Reliable, etat.vise:GetID())
                     etat.poison = false

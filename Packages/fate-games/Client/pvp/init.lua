@@ -13,7 +13,8 @@
 --   Alt gauche           esquive (direction : Z Q S D ou W A S D tenues)
 -- Arc : clic gauche tenu pour bander, relache pour tirer.
 -- Armes a feu : les commandes natives (tir, visee, R pour recharger).
--- Sorts : 1 trait de feu, 2 onde de choc, 3 eclair, 4 gel, 5 soin, 6 barriere, 7 bond.
+-- Sorts, rangee du haut (& e " ' ( - e en AZERTY, 1 a 7 en QWERTY) : trait de feu,
+-- onde de choc, eclair, gel, soin, barriere, bond.
 -- G : relever un allie a terre, achever un ennemi a terre.
 -- /pvp inverser : inverse le geste vertical (garde en haut).
 
@@ -23,8 +24,12 @@ return function()
     local FAMILLE = { poings = "melee", dague = "melee", epee_courte = "melee", epee_longue = "melee", hache = "melee",
         masse = "melee", lance = "melee", epee_bouclier = "melee", baton = "melee", pistolet = "tir", revolver = "tir",
         fusil = "tir", fusil_pompe = "tir", fusil_precision = "tir", arc = "arc", arbalete = "arc" }
+    -- Touches des sorts : la rangee du haut, en QWERTY (One...) comme en
+    -- AZERTY (& e " ' ( - e, qu'Unreal nomme par leur caractere).
     local SORTS = { One = "trait_de_feu", Two = "onde_de_choc", Three = "eclair", Four = "gel", Five = "soin",
-        Six = "barriere", Seven = "bond" }
+        Six = "barriere", Seven = "bond",
+        Ampersand = "trait_de_feu", E_AccentAigu = "onde_de_choc", Quote = "eclair", Apostrophe = "gel",
+        LeftParantheses = "soin", Hyphen = "barriere", E_AccentGrave = "bond" }
     local MIROIR = { gauche = "droite", droite = "gauche", haut = "haut" }
     local SYMBOLE = { gauche = "<<", droite = ">>", haut = "^" }
     local ROUGE = { couleur = Color(1, 0.3, 0.25) }

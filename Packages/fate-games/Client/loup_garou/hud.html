@@ -277,7 +277,9 @@ function revelation(r) {
 let finMessage = null;
 function message(texte, secondes) {
   clearTimeout(finMessage);
-  $("message").innerHTML = nettoyer(texte).replace(/\[([^\]]+)\]/g, '<span class="touche">$1</span>');
+  // Echapper plutot que supprimer : une touche peut etre "&" (AZERTY).
+  const echappe = String(texte == null ? "" : texte).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  $("message").innerHTML = echappe.replace(/\[([^\]]+)\]/g, '<span class="touche">$1</span>');
   $("message").classList.toggle("efface", !texte);
   if (texte && secondes !== 0) finMessage = setTimeout(() => $("message").classList.add("efface"), (secondes || 4) * 1000);
 }
@@ -314,11 +316,11 @@ function sorciere(v) {
   const titre = !victime ? "Les loups n'ont choisi personne"
     : v.moi ? "Les loups <b>t'ont choisi</b> !" : `Les loups ont choisi <b>${victime}</b>`;
   $("sorciere").innerHTML = `<div class="titre">${titre}</div>`
-    + `<div class="choix${v.vie && victime ? "" : " use"}">${T("1")}<span><span class="vie">Potion de vie</span>`
+    + `<div class="choix${v.vie && victime ? "" : " use"}">${T("&amp;")}<span><span class="vie">Potion de vie</span>`
     + `<small>${!victime ? "personne à sauver" : v.moi ? "te sauver" : `sauver ${victime}`}</small></span></div>`
-    + `<div class="choix${v.mort ? "" : " use"}${v.arme ? " arme" : ""}">${T("2")}<span><span class="mort">Potion de mort</span>`
+    + `<div class="choix${v.mort ? "" : " use"}${v.arme ? " arme" : ""}">${T("é")}<span><span class="mort">Potion de mort</span>`
     + `<small>${v.arme ? `vise un joueur puis ${T("E")}` : "puis vise un joueur"}</small></span></div>`
-    + `<div class="choix">${T("3")}<span>Ne rien faire<small>garder ses potions</small></span></div>`;
+    + `<div class="choix">${T("&quot;")}<span>Ne rien faire<small>garder ses potions</small></span></div>`;
   montrer("sorciere", true);
   retracer();
 }

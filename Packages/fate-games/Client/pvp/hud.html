@@ -79,8 +79,9 @@ const NOMS = { poings: "Poings", dague: "Dague", epee_courte: "Épée courte", e
   fusil_pompe: "Fusil à pompe", fusil_precision: "Fusil de précision", arc: "Arc", arbalete: "Arbalète" };
 const STATUTS = { saignement: ["Saigne", "mauvais"], brulure: ["Brûle", "mauvais"], ralenti: ["Ralenti", "mauvais"], etourdi: ["Étourdi", "mauvais"],
   vulnerable: ["Vulnérable", "mauvais"], expose: ["Exposé", "mauvais"], soin: ["Soin", "bon"], barriere: ["Barrière", "bon"] };
-const SORTS = [["1", "trait_de_feu", "Trait de feu"], ["2", "onde_de_choc", "Onde de choc"], ["3", "eclair", "Éclair"], ["4", "gel", "Gel"],
-  ["5", "soin", "Soin"], ["6", "barriere", "Barrière"], ["7", "bond", "Bond"]];
+// Touches en AZERTY (la rangee du haut) ; 1 a 7 marchent aussi en QWERTY.
+const SORTS = [["&amp;", "trait_de_feu", "Trait de feu"], ["é", "onde_de_choc", "Onde de choc"], ["&quot;", "eclair", "Éclair"],
+  ["'", "gel", "Gel"], ["(", "soin", "Soin"], ["-", "barriere", "Barrière"], ["è", "bond", "Bond"]];
 const RECHARGES = { trait_de_feu: 2.1, onde_de_choc: 6.45, eclair: 8.9, gel: 5.7, soin: 11.2, barriere: 14.35, bond: 7.1 };
 
 function remplir(sel, k) { document.querySelector(sel).style.transform = `scaleX(${Math.max(0, Math.min(1, k))})`; }
