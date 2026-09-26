@@ -108,6 +108,9 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             demi_x = def.demi_x or def.rayon, demi_y = def.demi_y or def.rayon,
             yaw = def.yaw or 0, d = Duel.Nouveau(), numero = 0,
             departs = (def.depart_a and def.depart_b) and { def.depart_a, def.depart_b } or nil }
+        -- Le bas de la forme peut s'enfoncer sous le sol (DUEL_1 descend a -850) :
+        -- les points d'apparition, poses sur le sol, donnent la vraie hauteur.
+        if A.departs then A.z = math.min(A.departs[1].z, A.departs[2].z) end
         arenes[#arenes + 1] = A
         dessiner_anneau(A)
         return A
