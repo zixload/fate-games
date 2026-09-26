@@ -113,7 +113,12 @@ return {
 
     -- HUD du Loup-Garou (Client/loup_garou/hud.lua) : portee des marques
     -- au-dessus des tetes (cm) et demi-angle de visee pour designer (degres).
-    loup_garou = { portee = 1500, cone = 10 },
+    loup_garou = {
+        portee = 1500, cone = 10,
+        -- Cartes de role au sol (Client/loup_garou/cartes.lua), en cm ; tourner :
+        -- degres a ajouter si le dessin apparait de travers.
+        cartes = { largeur = 60, hauteur = 90, tourner = 0 },
+    },
 
     -- Pseudos au-dessus des personnages (Client/pseudos.lua) : portee (cm),
     -- hauteur au-dessus de la tete (cm), delai entre deux verifications de mur

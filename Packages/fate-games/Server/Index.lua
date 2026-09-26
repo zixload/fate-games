@@ -472,6 +472,7 @@ Player.Subscribe("Ready", function(player)
     if not ok_voix then Log.Warn("voix", "VOIP locale indisponible : " .. tostring(err_voix)) end
     -- Le joueur doit connaitre ce qui est deja interactif dans le monde.
     Interactables.SendSnapshotTo(player)
+    pcall(LoupGarou.OnPlayerReady, player)
 end)
 
 Player.Subscribe("Destroy", function(player)

@@ -72,9 +72,10 @@ local ok_tags, err_tags = pcall(function()
 end)
 if not ok_tags then Console.Error("[etiquettes] chargement impossible : " .. tostring(err_tags)) end
 
--- HUD du Loup-Garou (le moteur viendra ensuite ; /lg pour le voir en jeu).
+-- HUD du Loup-Garou et ses cartes de role posees sur le tapis.
 local ok_lg, err_lg = pcall(function()
     Package.Require("loup_garou/hud.lua")(SharedConfig.loup_garou)
+    Package.Require("loup_garou/cartes.lua")(SharedConfig.loup_garou and SharedConfig.loup_garou.cartes)
 end)
 if not ok_lg then Console.Error("[loup-garou] chargement impossible : " .. tostring(err_lg)) end
 

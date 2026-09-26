@@ -87,6 +87,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     -- sieges[i] : { x, y, yaw, occupant, repere } ; siege_de[id] : son numero.
     local decor = { centre = nil, objets = {}, sieges = {}, siege_de = {}, reperes = {} }
     local memoires = {}      -- id de bot -> ce qu'il retient (bots.lua)
+    local cartes = {}        -- siege -> { role } : carte au sol, role une fois retournee
     local prochain_bot = -1
 
     local function rng(k) return math.random(k) end
@@ -261,6 +262,32 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         decor.siege_de[id] = nil
     end
 
+    -- Les cartes de role au sol, devant chaque place (Client/loup_garou/cartes.lua) :
+    -- publiees a tous, le role seulement une fois la carte retournee.
+    local RECUL_CARTE = config.recul_carte or 110    -- cm, de la place vers le feu
+    local function publier_cartes()
+        local liste, c = {}, decor.centre
+        if c then
+            for n, carte in pairs(cartes) do
+                local siege = decor.sieges[n]
+                if siege then
+                    local k = (RAYON - RECUL_CARTE) / RAYON
+                    liste[#liste + 1] = { n = n, x = c.x + (siege.x - c.x) * k, y = c.y + (siege.y - c.y) * k,
+                        z = c.sol + EPAISSEUR_TAPIS + 0.4, yaw = siege.yaw, role = carte.role }
+                end
+            end
+        end
+        Events.BroadcastRemote("ww:cartes", Reliability.Reliable, liste)
+    end
+
+    local function retourner_carte(id, role)
+        local n = decor.siege_de[id]
+        if n and cartes[n] then
+            cartes[n].role = role
+            publier_cartes()
+        end
+    end
+
     -- La pose de repos d'un joueur : Idle ou Idle Lazy selon son siege.
     local function pose_de(id)
         local n = decor.siege_de[id] or 1
@@ -297,6 +324,13 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         end
         Log.Info("werewolf", ("partie lancee a %d joueurs"):format(#ids))
         diffuser("ww:salon", nil)
+        -- Une carte face cachee devant chaque joueur.
+        cartes = {}
+        for _, id in ipairs(ids) do
+            local n = decor.siege_de[id]
+            if n then cartes[n] = {} end
+        end
+        publier_cartes()
         A.Appliquer(fx)
     end
 
@@ -397,7 +431,29 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         envoyer_salon()
     end
 
-    -- Des bots sur les places libres, assis, deja prets.
+    -- Une tenue au hasard pour un bot (Shared/appearances.lua), comme au Liar's
+    -- Bar ; les tenues deja portees par un bot passent apres les autres.
+    local Apparences = Package.Require("Shared/appearances.lua")
+    local function habiller_bot(corps)
+        if not (corps and corps:IsValid() and corps:IsA(CharacterSimple)) then return end
+        local portees = {}
+        for _, b in pairs(bots) do if b.look then portees[b.look] = true end end
+        local libres = {}
+        for _, a in ipairs(Apparences.list) do if not portees[a.id] then libres[#libres + 1] = a.id end end
+        if #libres == 0 then for _, a in ipairs(Apparences.list) do libres[#libres + 1] = a.id end end
+        local id = libres[math.random(#libres)]
+        local look = Apparences.Resolve(id)
+        if not look then return end
+        pcall(function()
+            corps:SetMesh(look.body)
+            corps:RemoveAllSkeletalMeshesAttached()
+            for i, mesh in ipairs(look.head) do corps:AddSkeletalMeshAttached("ww_tete_" .. i, mesh) end
+            for i, mesh in ipairs(look.worn) do corps:AddSkeletalMeshAttached("ww_tenue_" .. i, mesh) end
+        end)
+        return id
+    end
+
+    -- Des bots sur les places libres, assis, habilles au hasard, deja prets.
     function A.AjouterBots(player, n)
         if s.statut == "partie" then return dire(player, "Une partie est en cours.") end
         if not decor.centre then return dire(player, "Le cercle n'est pas pose : /lg centre d'abord.") end
@@ -410,6 +466,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             local ok, corps = pcall(Characters.CorpsAssis, siege.x, siege.y,
                 decor.centre.debout + POSES[1].z + AJUSTEMENT, siege.yaw)
             bots[id] = { nom = "Bot " .. (-id), corps = ok and corps or nil }
+            bots[id].look = ok and habiller_bot(corps) or nil
             -- Les pseudos au-dessus des tetes (Client/pseudos.lua) le lisent.
             if ok and corps then corps:SetValue("pseudo", bots[id].nom, true) end
             siege.occupant, decor.siege_de[id] = id, place
@@ -499,6 +556,8 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         if c and c:IsValid() then c:SetValue("ww_mort", true, true) end
         -- Les morts restent assis, hebetes (ANIM_WW_Sitting_Dazed).
         if decor.siege_de[e.player] then asseoir(e.player, MORT) end
+        -- Sa carte se retourne : tout le monde voit ce qu'il etait.
+        if s.match then retourner_carte(e.player, Match.role(s.match, e.player)) end
     end
     TRADUIRE.voice_channel = function(e) regler_voix(e.player, e.channel) end
     TRADUIRE.chrono = function(e) diffuser("ww:chrono", e.reste) end
@@ -544,8 +603,16 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         Log.Info("werewolf", "partie terminee : " .. tostring(e.winner))
         local ok, err = pcall(enregistrer, e.winner, e.summary or {})
         if not ok then Log.Error("werewolf", "resultat : " .. tostring(err)) end
+        -- Fin de partie : toutes les cartes se retournent.
+        for id, role in pairs((e.summary or {}).roles or {}) do
+            local n = decor.siege_de[id]
+            if n and cartes[n] then cartes[n].role = role end
+        end
+        publier_cartes()
         Timer.SetTimeout(function()
             diffuser("ww:fin")
+            cartes = {}
+            publier_cartes()
             for _, id in ipairs(salon.ordre) do regler_voix(id, "normal") end
             -- On reste assis pour la partie suivante ; les morts se redressent.
             for _, id in ipairs(salon.ordre) do asseoir(id, pose_de(id)) end
@@ -589,6 +656,10 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         local fx, raison = Engine.designer(s, player:GetID(), cible)
         if fx then return A.Appliquer(fx) end
         if REFUS[raison] then envoyer(player:GetID(), "ww:annonce", REFUS[raison]) end
+    end
+
+    function A.OnPlayerReady(player)
+        if next(cartes) then publier_cartes() end
     end
 
     function A.OnPlayerLeave(player)
