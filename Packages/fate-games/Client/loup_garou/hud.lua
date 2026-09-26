@@ -452,6 +452,24 @@ return function(config, Interaction)
         return invite
     end
 
+    -- Les votants d'un joueur, "(Moi)" compris, tries ; au-dela de 5, "+n".
+    local function votants_de(id, mon_id, noms)
+        local out, moi = {}, false
+        for votant, choix in pairs(etat.choix) do
+            if choix.id == id then
+                if votant == mon_id then moi = true else out[#out + 1] = noms[votant] or "?" end
+            end
+        end
+        table.sort(out)
+        if moi then table.insert(out, 1, "(Moi)") end
+        if #out > 5 then
+            local reste = #out - 4
+            for k = #out, 5, -1 do out[k] = nil end
+            out[5] = "+" .. reste
+        end
+        return out
+    end
+
     local function dessiner(c, largeur, hauteur)
         etat.vise = nil
         if Ecran.noir then return surligner(nil) end
@@ -471,8 +489,13 @@ return function(config, Interaction)
 
         local meilleur, meilleur_cos = nil, CONE
         local poses = {}
+        local noms = {}   -- id de personnage -> pseudo, pour la liste des votants
         for _, class in ipairs({ CharacterSimple, Character }) do
             for _, ch in pairs(class.GetAll()) do
+                if ch:IsValid() and ch:GetValue("ww_joueur", false) then
+                    local p = ch:GetPlayer()
+                    noms[ch:GetID()] = p and p:GetName() or ch:GetValue("pseudo", "?")
+                end
                 -- Seuls les joueurs de la partie comptent (ww_joueur, pose par le
                 -- serveur) ; les morts ne sont plus visables.
                 if ch:IsValid() and ch:GetID() ~= mon_id and ch:GetValue("ww_joueur", false) then
@@ -506,6 +529,11 @@ return function(config, Interaction)
                 sprite(c, ("voix_%d%s"):format(math.min(12, n), n == max and "_tete" or ""), e.x, y - 14 * e.s, 96, 56, e.s)
                 y = y - 40 * e.s
             end
+            -- Ceux qui votent contre lui, juste au-dessus de son compteur.
+            for _, nom in ipairs(votants_de(id, mon_id, noms)) do
+                local h = Pseudo.Dessiner(c, "> " .. nom, e.x, y - 2 * e.s, 0.75 * e.s, ROUGE)
+                y = y - h - 3 * e.s
+            end
             -- Les marques cote a cote : loup allie, amoureux, maire.
             local marques = {}
             if etat.allies[id] then marques[#marques + 1] = { "lg_allie", 62, 62 } end
@@ -520,13 +548,6 @@ return function(config, Interaction)
                 end
                 y = y - 54 * e.s
             end
-            local choix = etat.choix[id]
-            if choix then
-                local cible = choix.id == mon_id and "(Moi)" or choix.nom
-                -- Au-dessus du votant : pour qui il vote ("vote > Nino").
-                local h = Pseudo.Dessiner(c, "vote > " .. cible, e.x, y - 4 * e.s, 0.8 * e.s, ROUGE)
-                y = y - h - 10 * e.s
-            end
             ::suivant::
         end
 
@@ -537,6 +558,11 @@ return function(config, Interaction)
             local x, y = largeur / 2 - 44, 138
             sprite(c, ("voix_%d%s"):format(math.min(12, n), n == max and "_tete" or ""), x, y, 96, 56, 1)
             Pseudo.Dessiner(c, etat.phase == "day_mayor" and "pour toi" or "contre toi", x + 104, y + 14, 1)
+            -- Et qui : sous le compteur.
+            local ligne = y + 58
+            for _, nom in ipairs(votants_de(mon_id, mon_id, noms)) do
+                ligne = ligne + Pseudo.Dessiner(c, "> " .. nom, largeur / 2, ligne, 0.8, ROUGE) + 4
+            end
         end
     end
 
