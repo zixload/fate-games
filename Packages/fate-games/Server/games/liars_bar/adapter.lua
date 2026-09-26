@@ -602,29 +602,35 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         send(e.audience, "liars:shoot", chair(e.seat), e.chamber, e.fatal)
     end
 
+    local function jouer_accusation(character, accuser_chair, target_chair)
+        if not (character and character:IsValid() and character:IsA(CharacterSimple)) then
+            return false, "corps Creative indisponible"
+        end
+        local origin = config.layout.chairs[accuser_chair].location
+        local target = config.layout.chairs[target_chair].location
+        local _, _, _, facing = position_assise(accuser_chair)
+        local yaw = math.rad(facing)
+        -- (-sin, cos) est la gauche du personnage dans le plan XY.
+        local lateral = (target.x - origin.x) * -math.sin(yaw)
+            + (target.y - origin.y) * math.cos(yaw)
+        -- En jeu les clips importes Left/Right pointent du cote oppose :
+        -- on inverse ici leur choix sans modifier les assets deja cuits.
+        local side = lateral > 40 and "right" or lateral < -40 and "left" or "center"
+        local ok, result = pcall(function()
+            return character:PlayAnimation(ANIMATIONS.accuse[side], "DefaultSlot", false,
+                0.08, 0.15, 1.0, true)
+        end)
+        if not ok then return false, tostring(result) end
+        if result == false then return false, "animation refusee : " .. ANIMATIONS.accuse[side] end
+        return true, side
+    end
+
     TRANSLATORS.accuse = function(e)
         local accuser_chair, target_chair = chair(e.accuser), chair(e.target)
         send(e.audience, "liars:accuse", accuser_chair, target_chair)
         viser_chaise(target_chair)
-
-        local character = character_of(e.accuser)
-        if character and character:IsValid() and character:IsA(CharacterSimple) then
-            local origin = config.layout.chairs[accuser_chair].location
-            local target = config.layout.chairs[target_chair].location
-            local _, _, _, facing = position_assise(accuser_chair)
-            local yaw = math.rad(facing)
-            -- (-sin, cos) est la gauche du personnage dans le plan XY.
-            local lateral = (target.x - origin.x) * -math.sin(yaw)
-                + (target.y - origin.y) * math.cos(yaw)
-            -- En jeu les clips importes Left/Right pointent du cote oppose :
-            -- on inverse ici leur choix sans modifier les assets deja cuits.
-            local side = lateral > 40 and "right" or lateral < -40 and "left" or "center"
-            local ok, err = pcall(function()
-                character:PlayAnimation(ANIMATIONS.accuse[side], "DefaultSlot", false,
-                    0.08, 0.15, 1.0, true)
-            end)
-            if not ok then Log.Warn("liars", "geste d'accusation : " .. tostring(err)) end
-        end
+        local ok, detail = jouer_accusation(character_of(e.accuser), accuser_chair, target_chair)
+        if not ok then Log.Warn("liars", "geste d'accusation : " .. tostring(detail)) end
     end
 
     TRANSLATORS.eliminated = function(e)
@@ -1267,6 +1273,41 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         Log.Info("liars", ("%d bot(s) a la table"):format(assis))
         diffuser_salon()
         return true, assis
+    end
+
+    -- Previsualisation hors partie : le meme clip et le meme corps que lors
+    -- d'une accusation reelle, sans attendre la decision aleatoire du bot.
+    function Adapter.PreviewBotAccusation(player, bot_chair, target_chair)
+        if state then return false, "partie_en_cours" end
+        target_chair = target_chair or (player and seat_by_player[player:GetID()])
+        if not target_chair or not config.layout.chairs[target_chair] then
+            return false, "chaise_cible_invalide"
+        end
+        if not bot_chair then
+            local opposite = (target_chair + 1) % #config.layout.chairs + 1
+            local premier_bot
+            for _, entry in ipairs(seated) do
+                if entry.bot and entry.chair ~= target_chair then
+                    premier_bot = premier_bot or entry.chair
+                    if entry.chair == opposite then
+                        bot_chair = opposite
+                        break
+                    end
+                end
+            end
+            bot_chair = bot_chair or premier_bot
+        end
+        if not bot_chair or not config.layout.chairs[bot_chair] or bot_chair == target_chair then
+            return false, "chaise_bot_invalide"
+        end
+        for _, entry in ipairs(seated) do
+            if entry.chair == bot_chair and entry.bot then
+                local ok, detail = jouer_accusation(entry.body, bot_chair, target_chair)
+                if not ok then return false, detail end
+                return true, bot_chair, target_chair, detail
+            end
+        end
+        return false, "aucun_bot_sur_cette_chaise"
     end
 
     -- L'argent des mises (domain/boutique.lua). Sans elle, on joue pour

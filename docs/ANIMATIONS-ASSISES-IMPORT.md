@@ -46,3 +46,10 @@ exec(open("C:/Users/ingam/OneDrive/Documents/fate-games/scripts/unreal/import_se
 Le serveur choisit gauche, face ou droite selon la chaise visée. Les FBX et
 les fichiers Blender éditables sont dans `art/animations`. Cuire ensuite
 `my-asset-pack` dans l'éditeur avant le test en jeu.
+
+Pour vérifier le geste depuis sa place sans attendre qu'un bot accuse au
+hasard : s'asseoir, ajouter des bots avec `/bots 3`, puis taper `/accusebot`.
+Le bot d'en face pointe vers sa chaise, sans lancer la partie (ou un autre
+bot disponible si cette place est vide).
+`/accusebot 3` choisit le bot de la chaise 3 ; `/accusebot 3 1` le fait pointer
+vers la chaise 1. La commande est réservée au mode développement.

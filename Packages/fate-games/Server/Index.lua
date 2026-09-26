@@ -152,6 +152,25 @@ if ServerConfig.dev and ServerConfig.dev.liars_bots then
         return false
     end)
 
+    -- Voir le vrai geste d'accusation sur un bot assis, face a soi, avant de
+    -- lancer la partie. /accusebot choisit le bot d'en face et sa propre chaise.
+    Chat.Subscribe("PlayerSubmit", function(message, player)
+        local texte = tostring(message)
+        if texte ~= "/accusebot" and not texte:match("^/accusebot%s+") then return end
+        local bot, cible = texte:match("^/accusebot%s+(%d+)%s+(%d+)%s*$")
+        if not bot then bot = texte:match("^/accusebot%s+(%d+)%s*$") end
+        if texte ~= "/accusebot" and not bot then
+            Chat.SendMessage(player, "usage : /accusebot [chaise bot 1-4] [chaise cible 1-4]")
+            return false
+        end
+        local ok, a, b, cote = LiarsBar.PreviewBotAccusation(player,
+            bot and tonumber(bot) or nil, cible and tonumber(cible) or nil)
+        Chat.SendMessage(player, ok and
+            ("bot chaise %d accuse chaise %d (%s)"):format(a, b, cote)
+            or ("accusebot : " .. tostring(a)))
+        return false
+    end)
+
     -- /prise affiche les valeurs ; /prise z -2 les ajuste ; six nombres
     -- remplacent les valeurs. L'arme du mannequin bouge sans rejouer la pose.
     Chat.Subscribe("PlayerSubmit", function(message, player)
