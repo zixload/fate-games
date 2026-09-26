@@ -44,7 +44,8 @@ local LiarsBots = Package.Require("games/liars_bar/bots.lua")(LiarsConfig)
 local DuelConfig = Package.Require("games/duel/data/config.lua")
 local DuelLogic  = Package.Require("games/duel/logic.lua")(DuelConfig)
 local DuelJeu    = Package.Require("games/duel/adapter.lua")(
-    Log, Characters, Boutique, Catalogue, DuelLogic, DuelConfig)
+    Log, Characters, Boutique, Catalogue, DuelLogic, DuelConfig,
+    Package.Require("games/duel/data/arenes.lua"))
 
 local LiarsBar = Package.Require("games/liars_bar/adapter.lua")(
     Log, DB, Ids, Characters, Interactables, Intents,
@@ -85,7 +86,7 @@ if ServerConfig.dev and ServerConfig.dev.liars_bots then
         if not texte:match("^/arene") then return end
         local rayon = tonumber(texte:match("^/arene%s+(%d+)"))
         local ligne, err = DuelJeu.PoserArene(player, rayon)
-        Chat.SendMessage(player, ligne and ("arene posee, a recopier dans games/duel/data/config.lua : " .. ligne)
+        Chat.SendMessage(player, ligne and (ligne .. " (disparait au redemarrage)")
             or ("arene : " .. tostring(err)))
         if ligne then Log.Info("duel", ligne) end
         return false

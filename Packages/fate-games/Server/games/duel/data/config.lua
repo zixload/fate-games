@@ -19,14 +19,10 @@ return {
     cadence_ms = 350,             -- entre deux tirs, verifie par le serveur
     portee     = 6000,
 
-    -- L'arene : un cercle au sol. /arene (dev) la pose sous ses pieds et
-    -- affiche les valeurs a recopier ici.
-    arene = {
-        x = 0, y = 0, z = 0,
-        rayon = 900,
-        yaw = 0,                  -- axe sur lequel les deux camps se font face
-        placee = false,           -- faux tant qu'elle n'a pas ete posee
-    },
+    -- Les arenes se posent dans la map : cylindres DUEL_* lus par
+    -- scripts/unreal/export_arenes.py (data/arenes.lua). /arene (dev) en ajoute
+    -- une de test sous ses pieds, avec ce rayon par defaut.
+    rayon_test = 900,
     -- Rayon autour de l'arene ou l'on peut regarder le duel.
     rayon_spectateurs = 2500,
 

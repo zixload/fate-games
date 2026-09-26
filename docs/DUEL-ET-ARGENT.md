@@ -20,9 +20,12 @@ déduit des mouvements.
 
 ## Le duel
 
-Une arène au sol sur la carte : un cercle, placé avec `/arene` (mode dev).
+Une seule arène, derrière les trois portes du temple de MapEgypt : un cube nommé
+`DUEL_1` posé dans la map depuis l'ADK, à la taille de la salle, lu par
+`scripts/unreal/export_arenes.py`. `/arene` (mode dev) pose une arène ronde de test
+sous ses pieds.
 
-1. On entre dans le cercle : le panneau du duel s'ouvre. Le premier arrivé
+1. On entre dans l'arène : le panneau du duel s'ouvre. Le premier arrivé
    choisit le format (1v1 ou 2v2) et la mise, parmi 0, 50, 100 et 250.
 2. Les autres voient format et mise avant d'entrer. Les camps se remplissent
    dans l'ordre d'arrivée.
@@ -30,7 +33,8 @@ Une arène au sol sur la carte : un cercle, placé avec `/arene` (mode dev).
    puis décompte de 3 secondes. Un joueur sans assez d'argent bloque le départ
    et est signalé.
 4. Pendant le combat, l'arène est fermée : un joueur extérieur qui entre est
-   repoussé au bord, un combattant qui sort est ramené dedans.
+   renvoyé là où il était avant d'entrer, un combattant qui sort est ramené à
+   son départ.
 5. Manches : chacun réapparaît à son bout de l'arène avec 100 points de vie. Une
    manche se gagne quand tout le camp adverse est mort. Premier à deux manches.
 6. Les spectateurs qui s'approchent peuvent suivre la vue d'un combattant.
