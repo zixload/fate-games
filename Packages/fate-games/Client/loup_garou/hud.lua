@@ -136,7 +136,7 @@ return function(config, Interaction)
     -- StartCameraFade (doc Player), Sky.SetFog, PostProcess ; le HUD reste
     -- au-dessus.
     local NUIT = config.nuit or { dort = 0.45, agit = 0.72, mort = 0.35, fondu = 1.5,
-        brume = 100, brume_jour = 0, vignette = 1.6, grain = 0.4, couleur = 0.2 }
+        brume = 35, brume_jour = 0, vignette = 1.0, grain = 0.3, couleur = 0.35 }
     local COULEUR_NUIT = Color(0.02, 0.03, 0.07)
     local endormi = false
 
@@ -168,6 +168,28 @@ return function(config, Interaction)
             player:StartCameraFade(depuis, voile, NUIT.fondu, COULEUR_NUIT, false, voile > 0)
         end)
     end
+
+    -- /lg nuit <reglage> <valeur> : regler le sommeil en direct (brume 0-100,
+    -- voile 0-1, vignette, grain, couleur 0-1) ; /lg nuit seul affiche les
+    -- valeurs. A reporter ensuite dans NUIT ci-dessus.
+    local REGLAGES_NUIT = { brume = true, dort = true, voile = "dort", vignette = true, grain = true, couleur = true }
+    Chat.Subscribe("PlayerSubmit", function(message)
+        local cle, valeur = tostring(message):match("^/lg nuit%s*(%a*)%s*([%d%.]*)")
+        if not cle then return end
+        local champ = REGLAGES_NUIT[cle] == true and cle or REGLAGES_NUIT[cle]
+        if champ and tonumber(valeur) then
+            NUIT[champ] = tonumber(valeur)
+            if endormi then
+                endormi = false
+                sommeil(true)
+            end
+            etat.voile = nil
+            ambiance()
+        end
+        Chat.AddMessage(("nuit : brume %s | voile %s | vignette %s | grain %s | couleur %s"):format(
+            NUIT.brume, NUIT.dort, NUIT.vignette, NUIT.grain, NUIT.couleur))
+        return false
+    end)
 
     -- Le panneau du salon : la vue du serveur, plus les lignes de reglage.
     local function dessiner_salon()
