@@ -325,12 +325,16 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
                 local c = personnage(id)
                 local pos, rot = depart_de(A, id)
                 if c then
-                    pcall(function()
-                        if c:IsDead() then c:Respawn(pos, rot) else c:SetLocation(pos); c:SetRotation(rot) end
+                    -- Respawn pour tous, vivants compris : il remplit la vie (doc
+                    -- Damageable) et place au depart. Un simple SetHealth laissait
+                    -- au survivant la vie perdue a la manche d'avant.
+                    local ok, err = pcall(function()
                         c:SetMaxHealth(config.sante)
+                        c:Respawn(pos, rot)
                         c:SetHealth(config.sante)
                         c:SetValue("duel", { camp = j.camp, combat = true, arme = arme_de(id) }, true)
                     end)
+                    if not ok then Log.Warn("duel", "remise en etat de manche : " .. tostring(err)) end
                     Characters.VuePremiere(id, true, config.camera)
                 end
                 tir[id] = { balles = config.chargeur, dernier = 0 }
