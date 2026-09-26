@@ -81,8 +81,15 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     end
 
     local s = Engine.nouveau()
-    local salon = { ordre = {}, pret = {}, createur = nil, max = 10, debat = 180,
+    local salon = { ordre = {}, pret = {}, createur = nil, max = 10, debat = 180, mise = 0,
         compo = Roles.par_defaut(6) }
+    -- Argent (domain/boutique.lua), comme au duel : mise commune, cagnotte aux
+    -- gagnants, bonus de participation. Rien avec des bots.
+    local Boutique = config.boutique
+    local MISES = config.mises or { 0, 50, 100, 250 }
+    local BONUS = config.bonus_participation or 10
+    local comptes, mise_partie, partie_id, numero_partie = {}, 0, nil, 0
+    local joueurs_partie = {}
     local bots = {}          -- id negatif -> { nom, corps }
     -- sieges[i] : { x, y, yaw, occupant, repere } ; siege_de[id] : son numero.
     local decor = { centre = nil, objets = {}, sieges = {}, siege_de = {}, reperes = {} }
@@ -147,13 +154,28 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     local D = config.decor or {}
     local FICHIER = D.fichier or "loup_garou.json"
     local COUSSINS = D.coussins or { "Red", "Blue", "Yellow", "Green", "Purple", "White", "Brown" }
+    -- Poses assises (docs/WEREWOLF-ASSETS-IMPORT.md) : hauteur du pivot du
+    -- personnage au-dessus du sol sous le tapis (cm, echelle 0,8). Une pose
+    -- tiree au hasard a chaque prise de place.
     local POSES = D.poses or {
-        -- Hauteur du pivot du personnage au-dessus du sol sous le tapis (cm),
-        -- mesuree par l'import (echelle 0,8).
         { anim = "my-asset-pack::ANIM_WW_Sitting_Idle", z = 11.0 },
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Glance", z = 11.0 },
         { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Lazy", z = 12.8 },
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Shift", z = 12.8 },
     }
-    local MORT = D.mort or { anim = "my-asset-pack::ANIM_WW_Sitting_Dazed", z = 11.6 }
+    -- Elimine : un geste agace (GESTES.mort), puis assis un peu en retrait.
+    local MORT = D.mort or { anim = "my-asset-pack::ANIM_WW_Seated_Dead_Idle", z = 11.0 }
+    -- La nuit, qui ne joue pas dort : tete basse, respiration.
+    local SOMMEIL = D.sommeil or { anim = "my-asset-pack::ANIM_WW_Seated_Sleep", z = 11.0 }
+    -- Joues une fois, puis retour a la pose (duree en secondes).
+    local GESTES = D.gestes or {
+        vote   = { anim = "my-asset-pack::ANIM_WW_Seated_Vote", duree = 1.767 },
+        pointe = { anim = "my-asset-pack::ANIM_WW_Seated_Vote_Point", duree = 2.2 },
+        maire  = { anim = "my-asset-pack::ANIM_WW_Seated_Mayor_Cheer", duree = 2.467 },
+        mort   = { anim = "my-asset-pack::ANIM_WW_Seated_Death", duree = 2.0 },
+    }
+    -- Brume animee autour du cercle, la nuit (Fab FogArea, docs/FOG-AREA-ADK.md).
+    local BRUME = D.brume == nil and "my-asset-pack::BP_FogArea" or D.brume
     local TAPIS = D.tapis or "my-asset-pack::SM_WW_Carpet"
     local EPAISSEUR_TAPIS = D.epaisseur_tapis or 0.8
     local AJUSTEMENT = D.ajustement_z or 0      -- retouche en jeu si les vetements depassent
@@ -232,17 +254,26 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         dire(player, ("Centre du loup-garou enregistre (%d, %d), sol a %d."):format(x, y, sol))
     end
 
-    -- Assoit un joueur (ou un bot) sur son siege, dans une pose.
-    local function asseoir(id, pose)
+    -- La pose de repos d'un joueur : tiree au hasard a sa prise de place.
+    local poses_tirees = {}
+    local function pose_de(id)
+        if not poses_tirees[id] then poses_tirees[id] = POSES[math.random(#POSES)] end
+        return poses_tirees[id]
+    end
+
+    -- Assoit un joueur (ou un bot) sur son siege, dans une pose ; `lacet`
+    -- tourne le corps (pour pointer quelqu'un), sinon face au centre.
+    local function asseoir(id, pose, lacet)
         local siege = decor.sieges[decor.siege_de[id] or 0]
         local c = personnage(id)
         if not (siege and c and c:IsValid() and decor.centre) then return end
         local z = decor.centre.debout + pose.z + AJUSTEMENT
+        local yaw = lacet or siege.yaw
         if id > 0 then
-            Characters.Sit(id, siege.x, siege.y, siege.yaw, z)
+            Characters.Sit(id, siege.x, siege.y, yaw, z)
         else
             c:SetLocation(Vector(siege.x, siege.y, z))
-            c:SetRotation(Rotator(0, siege.yaw, 0))
+            c:SetRotation(Rotator(0, yaw, 0))
             pcall(function() c:SetGravityEnabled(false) end)
         end
         local ancienne = c:GetValue("ww_pose", nil)
@@ -262,6 +293,49 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         local n = decor.siege_de[id]
         if n and decor.sieges[n] then decor.sieges[n].occupant = nil end
         decor.siege_de[id] = nil
+        poses_tirees[id] = nil
+    end
+
+    -- Pose du moment : elimine, endormi (nuit), ou sa pose de repos.
+    local endormis, elimines, gestes = {}, {}, {}
+    local function pose_actuelle(id)
+        if elimines[id] then return MORT end
+        if endormis[id] then return SOMMEIL end
+        return pose_de(id)
+    end
+
+    -- Un geste joue une fois (vote, pointage, maire, mort), puis la pose du
+    -- moment reprend. Un nouveau geste coupe le precedent.
+    local function geste(id, g, lacet)
+        local c = personnage(id)
+        if not (g and c and c:IsValid() and decor.siege_de[id]) then return end
+        local jeton = {}
+        gestes[id] = jeton
+        if lacet then asseoir(id, pose_actuelle(id), lacet) end
+        pcall(function() c:PlayAnimation(g.anim, "DefaultSlot", false, 0.15, 0.25, 1.0, true) end)
+        Timer.SetTimeout(function()
+            if gestes[id] ~= jeton then return end
+            gestes[id] = nil
+            if decor.siege_de[id] then asseoir(id, pose_actuelle(id)) end
+        end, math.max(200, math.floor(g.duree * 1000) - 200))
+    end
+
+    -- La brume de la nuit : posee par le serveur, vue de tous autour du cercle.
+    local brume = nil
+    local function brume_nuit(oui)
+        if oui and not brume and decor.centre and BRUME ~= "" then
+            local c = decor.centre
+            local ok, b = pcall(Blueprint, Vector(c.x, c.y, c.sol), Rotator(0, 0, 0), BRUME, CollisionType.NoCollision)
+            if ok and b then
+                brume = b
+            else
+                Log.Warn("werewolf", "brume indisponible (" .. tostring(BRUME) .. ") : " .. tostring(b))
+                BRUME = ""
+            end
+        elseif not oui and brume then
+            if brume:IsValid() then brume:Destroy() end
+            brume = nil
+        end
     end
 
     -- Les cartes de role au sol, devant chaque place (Client/loup_garou/cartes.lua) :
@@ -290,11 +364,6 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         end
     end
 
-    -- La pose de repos d'un joueur : Idle ou Idle Lazy selon son siege.
-    local function pose_de(id)
-        local n = decor.siege_de[id] or 1
-        return POSES[(n - 1) % #POSES + 1]
-    end
 
     ---------------------------------------------------------------- salon
 
@@ -304,21 +373,33 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         for _, id in ipairs(salon.ordre) do joueurs[#joueurs + 1] = { nom = nom(id), pret = salon.pret[id] == true } end
         for i, id in ipairs(salon.ordre) do
             local vue = { joueurs = {}, max = salon.max, compo = salon.compo, debat = salon.debat,
-                createur = id == salon.createur }
+                mise = salon.mise, mises = MISES, createur = id == salon.createur }
             for k, j in ipairs(joueurs) do vue.joueurs[k] = { nom = j.nom, pret = j.pret, moi = k == i } end
             envoyer(id, "ww:salon", vue)
         end
     end
 
-    local function lancer()
-        local ids = {}
-        for _, id in ipairs(salon.ordre) do ids[#ids + 1] = id end
-        if #ids > salon.max then return diffuser("ww:annonce", "Trop de joueurs pour cette partie.") end
+    -- Rend a chacun sa mise (partie qui ne demarre pas).
+    local function rendre_mises()
+        if not (Boutique and mise_partie > 0) then return end
+        local liste = {}
+        for _, account in pairs(comptes) do liste[#liste + 1] = account end
+        if #liste > 0 then Boutique.Solder(partie_id, liste, liste, mise_partie * #liste, 0, nil) end
+        mise_partie = 0
+    end
+
+    local recit, nuit_notee, jour_note, victime_nuit = {}, 0, 0, nil
+
+    local function demarrer(ids)
         s = Engine.nouveau({ debat = salon.debat })
         memoires = {}
+        recit, nuit_notee, jour_note, victime_nuit = {}, 0, 0, nil
+        endormis, elimines, gestes = {}, {}, {}
+        joueurs_partie = ids
         s.debut = os.date("!%Y-%m-%dT%H:%M:%SZ")
         local fx, raison = Engine.demarrer(s, ids, salon.compo, rng)
         if not fx then
+            rendre_mises()
             salon.pret = {}
             for id in pairs(bots) do salon.pret[id] = true end
             envoyer_salon()
@@ -342,6 +423,42 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         end
         publier_cartes()
         A.Appliquer(fx)
+    end
+
+    -- La mise est prelevee a chaque joueur avant le debut (tout ou rien).
+    local function lancer()
+        local ids = {}
+        for _, id in ipairs(salon.ordre) do ids[#ids + 1] = id end
+        if #ids > salon.max then return diffuser("ww:annonce", "Trop de joueurs pour cette partie.") end
+        mise_partie = next(bots) and 0 or (salon.mise or 0)
+        comptes = {}
+        local liste = {}
+        for _, id in ipairs(ids) do
+            local session = id > 0 and Characters.SessionByPlayer(id) or nil
+            if session and session.account then
+                comptes[id] = session.account
+                liste[#liste + 1] = session.account
+            end
+        end
+        numero_partie = numero_partie + 1
+        partie_id = ("werewolf:%d:%d"):format(os.time(), numero_partie)
+        if not Boutique or mise_partie <= 0 then
+            mise_partie = 0
+            return demarrer(ids)
+        end
+        Boutique.Miser(liste, mise_partie, partie_id, nil, function(ok, raison, fauches)
+            if ok then return demarrer(ids) end
+            mise_partie = 0
+            local qui = {}
+            for _, account in ipairs(fauches or {}) do
+                for id, a in pairs(comptes) do if a == account then qui[#qui + 1] = nom(id) end end
+            end
+            salon.pret = {}
+            for id in pairs(bots) do salon.pret[id] = true end
+            envoyer_salon()
+            diffuser("ww:annonce", raison == "solde" and ("Pas assez de pièces : " .. table.concat(qui, ", "))
+                or "La mise n'a pas pu être prélevée.")
+        end)
     end
 
     local function tous_prets()
@@ -428,7 +545,11 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         if s.statut == "partie" or player:GetID() ~= salon.createur then return end
         sens = (tonumber(sens) or 0) > 0 and 1 or -1
         local b = BORNES_SALON[cle]
-        if b then
+        if cle == "mise" then
+            local i = 1
+            for k, v in ipairs(MISES) do if v == salon.mise then i = k end end
+            salon.mise = MISES[math.max(1, math.min(#MISES, i + sens))]
+        elseif b then
             salon[cle] = math.max(b[1], math.min(b[2], salon[cle] + sens * b[3]))
         elseif Roles.bornes[cle] then
             local r = Roles.bornes[cle]
@@ -499,6 +620,21 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         envoyer_salon()
     end
 
+    ---------------------------------------------------------------- recit
+
+    -- Le recit de la partie, montre a tous a la fin (ecran de resultat).
+    local function noter(texte) recit[#recit + 1] = texte end
+
+    -- Ce que les roles de nuit ont fait, au moment ou ils le font.
+    local function noter_designation(phase, acteur, cible)
+        if phase == "night_guard" then
+            noter("Le gardien protège " .. nom(cible) .. ".")
+        elseif phase == "night_witch" then
+            noter(cible == victime_nuit and ("La sorcière sauve " .. nom(cible) .. ".")
+                or ("La sorcière empoisonne " .. nom(cible) .. "."))
+        end
+    end
+
     ---------------------------------------------------------------- bots de test
 
     -- Les bots jouent avec bots.lua (le meme cerveau que les parties simulees
@@ -514,7 +650,10 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
                     local cible = Bots.choisir(s, id, rng, memoires[id])
                     if not cible then return end
                     local fx = Engine.designer(s, id, cible)
-                    if fx then A.Appliquer(fx) end
+                    if fx then
+                        noter_designation(phase, id, cible)
+                        A.Appliquer(fx)
+                    end
                 end, math.random(2000, 6000) + coup * 900)
             end
         end
@@ -558,8 +697,50 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         for _, a in ipairs(e.allies) do allies[#allies + 1] = { id = id_personnage(a), nom = nom(a) } end
         envoyer(e.player, "ww:role", e.role, allies)
     end
+    -- Qui joue a chaque phase de nuit : les autres dorment.
+    local EVEILLES = { night_cupid = { cupid = true }, night_guard = { guard = true },
+        night_wolves = { wolf = true, white_wolf = true }, night_white_wolf = { white_wolf = true },
+        night_witch = { witch = true }, night_seer = { seer = true } }
+    local choix_jour = {}    -- votant -> cible, pour pointer a la fin du vote
+
+    local function lacet_vers(id, cible)
+        local a, b = decor.sieges[decor.siege_de[id] or 0], decor.sieges[decor.siege_de[cible] or 0]
+        if a and b then return math.deg(math.atan(b.y - a.y, b.x - a.x)) end
+    end
+
     TRADUIRE.phase = function(e)
+        local nuit = EVEILLES[e.id]
+        -- Le recit : un titre par nuit et par jour.
+        if nuit and s.nuit ~= nuit_notee then
+            nuit_notee = s.nuit
+            noter("#Nuit " .. tostring(s.nuit))
+        elseif e.id == "dawn" and jour_note ~= s.nuit then
+            jour_note = s.nuit
+            noter("#Jour " .. tostring(s.nuit))
+        end
+        if e.id == "day_debate" or e.id == "dawn" then choix_jour = {} end
+        if e.id ~= "night_witch" and not nuit then victime_nuit = nil end
+        brume_nuit(nuit ~= nil)
         diffuser("ww:phase", e.id, e.duree)
+        -- Qui dort, qui se reveille.
+        for _, id in ipairs(salon.ordre) do
+            if s.match and Match.vivant(s.match, id) then
+                local dort = nuit ~= nil and not nuit[Match.role(s.match, id)]
+                if (endormis[id] or false) ~= dort then
+                    endormis[id] = dort or nil
+                    if not gestes[id] then asseoir(id, pose_actuelle(id)) end
+                end
+            end
+        end
+        -- Fin du vote : chacun pointe du doigt celui qu'il a choisi.
+        if e.id == "execution" then
+            for votant, cible in pairs(choix_jour) do
+                if s.match and Match.vivant(s.match, votant) then
+                    geste(votant, GESTES.pointe, lacet_vers(votant, cible))
+                end
+            end
+            choix_jour = {}
+        end
         faire_jouer_bots(e.id)
     end
     TRADUIRE.votes = function(e)
@@ -572,20 +753,39 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     end
     -- Qui vote qui : le jour a tous, la nuit aux loups (meme public que les voix).
     TRADUIRE.point_at = function(e)
+        -- Le jour, voter se voit : main levee. La nuit, les loups restent discrets.
+        if e.audience == "all" and e.target then
+            geste(e.player, GESTES.vote)
+            local phase = Engine.phase(s)
+            if phase == "day_debate" or phase == "day_vote" then choix_jour[e.player] = e.target end
+        end
         local cible = e.target and id_personnage(e.target) or nil
         local nom_cible = e.target and nom(e.target) or nil
         for _, id in ipairs(destinataires(e.audience)) do
             envoyer(id, "ww:pointe", id_personnage(e.player), cible, nom_cible)
         end
     end
-    TRADUIRE.reveal = function(e) envoyer(e.viewer, "ww:vision", nom(e.target), e.role) end
-    TRADUIRE.lovers = function(e) envoyer(e.player, "ww:amoureux", id_personnage(e.partner), nom(e.partner)) end
+    TRADUIRE.reveal = function(e)
+        envoyer(e.viewer, "ww:vision", nom(e.target), e.role)
+        noter(("La voyante sonde %s : %s."):format(nom(e.target), NOMS_ROLES[e.role] or "?"))
+    end
+    local amoureux_notes = {}
+    TRADUIRE.lovers = function(e)
+        envoyer(e.player, "ww:amoureux", id_personnage(e.partner), nom(e.partner))
+        local a, b = math.min(e.player, e.partner), math.max(e.player, e.partner)
+        local cle = a .. ":" .. b
+        if amoureux_notes[cle] ~= recit then
+            amoureux_notes[cle] = recit
+            noter(("Cupidon lie %s et %s."):format(nom(a), nom(b)))
+        end
+    end
     TRADUIRE.kill = function(e)
         envoyer(e.player, "ww:mort")
         local c = personnage(e.player)
         if c and c:IsValid() then c:SetValue("ww_mort", true, true) end
-        -- Les morts restent assis, hebetes (ANIM_WW_Sitting_Dazed).
-        if decor.siege_de[e.player] then asseoir(e.player, MORT) end
+        -- Le mort fait mine de rager, puis reste assis, un peu en retrait.
+        elimines[e.player], endormis[e.player] = true, nil
+        if decor.siege_de[e.player] then geste(e.player, GESTES.mort) end
         -- Sa carte se retourne : tout le monde voit ce qu'il etait.
         if s.match then retourner_carte(e.player, Match.role(s.match, e.player)) end
     end
@@ -593,12 +793,25 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     TRADUIRE.chrono = function(e)
         for _, id in ipairs(destinataires(e.audience)) do envoyer(id, "ww:chrono", e.reste) end
     end
-    TRADUIRE.mayor = function(e) diffuser("ww:maire", id_personnage(e.player), nom(e.player)) end
-    TRADUIRE.victim = function(e) envoyer(e.player, "ww:victime", id_personnage(e.target), nom(e.target)) end
+    TRADUIRE.mayor = function(e)
+        diffuser("ww:maire", id_personnage(e.player), nom(e.player))
+        geste(e.player, GESTES.maire)
+    end
+    TRADUIRE.victim = function(e)
+        envoyer(e.player, "ww:victime", id_personnage(e.target), nom(e.target))
+        if victime_nuit ~= e.target then
+            victime_nuit = e.target
+            noter("Les loups choisissent " .. nom(e.target) .. ".")
+        end
+    end
     TRADUIRE.potions = function(e) envoyer(e.player, "ww:potions", e.vie, e.mort) end
     TRADUIRE.announce = function(e)
         local f = ANNONCES[e.key]
-        if f then diffuser("ww:annonce", f(e.args)) end
+        if not f then return end
+        local texte = f(e.args)
+        noter(texte)
+        diffuser("ww:annonce", texte, true)
+        if e.key == "chasseur" then diffuser("ww:son", "gunshot") end
     end
     -- Gagne-t-il ? Selon son camp, ou pour les amoureux leur lien.
     local function a_gagne(gagnant, id, role, amoureux)
@@ -629,10 +842,54 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         end
     end
 
+    -- Cagnotte aux gagnants qui ont mise, bonus a chacun ; puis l'ecran de
+    -- resultat : victoire ou defaite, les roles, les gains, le recit.
+    local function solder_et_montrer(gagnant, resume)
+        local roles, lignes = resume.roles or {}, {}
+        local participants, gagnants = {}, {}
+        for _, id in ipairs(joueurs_partie) do
+            local role = roles[id]
+            local gagne = role ~= nil and a_gagne(gagnant, id, role, resume.amoureux) or false
+            lignes[#lignes + 1] = { id = id, nom = nom(id), role = role, nom_role = NOMS_ROLES[role] or "?",
+                vivant = resume.vivants ~= nil and resume.vivants[id] == true, gagne = gagne, gain = 0 }
+            if comptes[id] then
+                participants[#participants + 1] = comptes[id]
+                if gagne then gagnants[#gagnants + 1] = comptes[id] end
+            end
+        end
+        -- Personne a payer parmi ceux qui ont mise : chacun reprend sa mise.
+        if #gagnants == 0 then gagnants = participants end
+        local cagnotte = mise_partie * #participants
+        local bonus = next(bots) and 0 or BONUS
+        local part = #gagnants > 0 and math.floor(cagnotte / #gagnants) or 0
+        local payes = {}
+        for _, a in ipairs(gagnants) do payes[a] = true end
+        for _, l in ipairs(lignes) do
+            if comptes[l.id] then l.gain = (payes[comptes[l.id]] and part or 0) + bonus - mise_partie end
+        end
+        if Boutique and #participants > 0 and (cagnotte > 0 or bonus > 0) then
+            Boutique.Solder(partie_id, participants, gagnants, cagnotte, bonus, nil)
+        end
+        local titre = GAGNANTS[gagnant] or GAGNANTS.none
+        local publiques = {}
+        for _, l in ipairs(lignes) do
+            publiques[#publiques + 1] = { nom = l.nom, role = l.role, nom_role = l.nom_role, vivant = l.vivant,
+                gagne = l.gagne, gain = comptes[l.id] and l.gain or nil }
+        end
+        for i, l in ipairs(lignes) do
+            envoyer(l.id, "ww:resultat", { titre = titre, gagne = l.gagne, role = l.role, nom_role = l.nom_role,
+                mise = mise_partie, gain = comptes[l.id] and l.gain or nil, moi = i, joueurs = publiques, recit = recit })
+        end
+        mise_partie, comptes = 0, {}
+    end
+
     TRADUIRE.match_ended = function(e)
         local texte = GAGNANTS[e.winner] or GAGNANTS.none
         diffuser("ww:victoire", e.winner)
-        diffuser("ww:annonce", texte)
+        diffuser("ww:annonce", texte, true)
+        brume_nuit(false)
+        local ok_r, err_r = pcall(solder_et_montrer, e.winner, e.summary or {})
+        if not ok_r then Log.Error("werewolf", "resultat affiche : " .. tostring(err_r)) end
         Log.Info("werewolf", "partie terminee : " .. tostring(e.winner))
         local ok, err = pcall(enregistrer, e.winner, e.summary or {})
         if not ok then Log.Error("werewolf", "resultat : " .. tostring(err)) end
@@ -648,6 +905,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             publier_cartes()
             for _, id in ipairs(salon.ordre) do regler_voix(id, "normal") end
             -- On reste assis pour la partie suivante ; les morts se redressent.
+            endormis, elimines, gestes = {}, {}, {}
             for _, id in ipairs(salon.ordre) do asseoir(id, pose_de(id)) end
             voix_actuelle = {}
             for _, id in ipairs(salon.ordre) do
@@ -692,7 +950,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         local phase = Engine.phase(s)
         local fx, raison = Engine.designer(s, player:GetID(), cible)
         if fx then
-            envoyer(player:GetID(), "ww:action", phase)   -- le son de son geste (loup_garou/sons.lua)
+            noter_designation(phase, player:GetID(), cible)
             return A.Appliquer(fx)
         end
         if REFUS[raison] then envoyer(player:GetID(), "ww:annonce", REFUS[raison]) end

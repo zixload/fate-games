@@ -81,6 +81,44 @@ body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); 
 .place.vide { opacity: .45; }
 #salon .aide { display: flex; flex-wrap: wrap; gap: 10px 14px; font-size: 15px; align-items: center; }
 #salon .aide span { display: inline-flex; gap: 6px; align-items: center; }
+
+/* Annonce (aube, execution, chasseur...) : au milieu de l'ecran. */
+#annonce { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%) rotate(-1.5deg); max-width: 72%; text-align: center;
+    font-size: 46px; line-height: 1.15; color: var(--papier); -webkit-text-stroke: 8px var(--encre); paint-order: stroke fill;
+    text-shadow: 5px 6px 0 var(--ombre); transition: opacity .5s, top .5s; }
+#annonce.efface { opacity: 0; top: 41%; }
+
+/* Elimine : un tampon au centre, qui file ensuite dans le coin. */
+#elimine { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%) rotate(-8deg); font-size: 96px; color: #d4453a;
+    -webkit-text-stroke: 10px var(--encre); paint-order: stroke fill; text-shadow: 7px 8px 0 var(--ombre);
+    transition: top .7s, left .7s, font-size .7s, transform .7s; }
+#elimine.coin { top: 140px; left: calc(100% - 150px); transform: translate(-50%, -50%) rotate(-6deg); font-size: 34px; -webkit-text-stroke: 6px var(--encre); }
+
+/* Fin de partie : victoire ou defaite, les roles, les gains, le recit. */
+#resultat { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(7, 10, 11, .62); pointer-events: auto; }
+#resultat .panneau { width: min(900px, 90vw); padding: 24px 30px 26px; display: flex; flex-direction: column; gap: 12px; }
+#res-titre { font-size: 66px; text-align: center; color: #d9b56a; -webkit-text-stroke: 9px var(--encre); paint-order: stroke fill;
+    text-shadow: 6px 7px 0 var(--ombre); }
+#res-titre.defaite { color: #d4453a; }
+#res-sous { text-align: center; font-size: 22px; }
+#res-sous .plus { color: #2f7a35; } #res-sous .moins { color: #b8332d; }
+#res-corps { display: grid; grid-template-columns: 1fr 1.15fr; gap: 20px; }
+#res-joueurs, #res-recit { max-height: 50vh; overflow-y: auto; }
+#res-corps h3 { margin: 0 0 6px; font-size: 22px; font-weight: normal; color: var(--laiton-fonce); }
+.res-j { display: flex; align-items: center; gap: 8px; font-size: 18px; padding: 4px 8px; border-radius: 8px; }
+.res-j img { width: 26px; }
+.res-j .n { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res-j .r { font-size: 14px; color: var(--laiton-fonce); }
+.res-j.mort .n { color: #7b7466; font-style: italic; }
+.res-j.gagne { background: rgba(217, 181, 106, .4); }
+.res-j .g { min-width: 58px; text-align: right; font-size: 16px; }
+.res-j .g.plus { color: #2f7a35; } .res-j .g.moins { color: #b8332d; }
+#res-recit h4 { margin: 10px 0 3px; font-size: 20px; font-weight: normal; }
+#res-recit h4:first-child { margin-top: 0; }
+#res-recit p { margin: 2px 0; font-size: 16px; line-height: 1.3; }
+#res-fermer { position: absolute; top: 10px; right: 12px; width: 46px; height: 46px; border-radius: 50%; border: 3px solid var(--encre);
+    background: #f6eedb; font: inherit; font-size: 26px; line-height: 1; cursor: pointer; }
+#res-fermer:hover { background: var(--laiton); }
 </style>
 </head>
 <body>
@@ -103,6 +141,18 @@ body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); 
     <div id="carte"><div class="interieur"><img id="carte-face" alt=""><img class="dos" src="img/dos_nuit.png" alt=""></div></div>
     <div id="titre-role"></div>
     <div id="allies"></div>
+  </div>
+</div>
+
+<div id="annonce" class="efface"></div>
+<div id="elimine" class="cache">Éliminé</div>
+
+<div id="resultat" class="cache">
+  <div class="panneau sk" data-graine="97" data-rayon="18">
+    <button id="res-fermer" aria-label="Fermer">✕</button>
+    <div id="res-titre"></div>
+    <div id="res-sous"></div>
+    <div id="res-corps"><div id="res-joueurs"></div><div id="res-recit"></div></div>
   </div>
 </div>
 
@@ -211,8 +261,55 @@ function salon(v) {
   retracer();
 }
 
+// ---------------------------------------------------------------- annonce
+let finAnnonce = null;
+function annonce(texte, secondes) {
+  clearTimeout(finAnnonce);
+  $("annonce").textContent = nettoyer(texte);
+  $("annonce").classList.toggle("efface", !texte);
+  if (texte) finAnnonce = setTimeout(() => $("annonce").classList.add("efface"), (secondes || 5) * 1000);
+}
+
+let versCoin = null;
+function elimine(oui) {
+  clearTimeout(versCoin);
+  const e = $("elimine");
+  e.classList.remove("coin");
+  montrer("elimine", !!oui);
+  if (oui) versCoin = setTimeout(() => e.classList.add("coin"), 2600);
+}
+
+// ---------------------------------------------------------------- resultat
+const IMAGES = { wolf: "loup", white_wolf: "loup_blanc", villager: "villageois", seer: "voyante",
+  hunter: "chasseur", guard: "gardien", cupid: "cupidon", witch: "sorciere" };
+const pieces = (n) => `${n > 0 ? "+" : ""}${n} pièce${Math.abs(n) > 1 ? "s" : ""}`;
+function resultat(r) {
+  if (!r) { montrer("resultat", false); return; }
+  $("res-titre").textContent = r.gagne ? "Victoire" : "Défaite";
+  $("res-titre").classList.toggle("defaite", !r.gagne);
+  let sous = `${nettoyer(r.titre)} Tu étais ${nettoyer(r.nom_role)}.`;
+  if (r.gain != null) sous += ` <span class="${r.gain >= 0 ? "plus" : "moins"}">${pieces(r.gain)}</span>`;
+  if (r.mise) sous += ` (mise : ${r.mise})`;
+  $("res-sous").innerHTML = sous;
+  const joueurs = (r.joueurs || []).map((j, i) => `<div class="res-j${j.gagne ? " gagne" : ""}${j.vivant ? "" : " mort"}">`
+    + `<img src="img/${IMAGES[j.role] || "dos_nuit"}.png" alt="">`
+    + `<span class="n">${nettoyer(j.nom)}${i + 1 === r.moi ? " (toi)" : ""}</span><span class="r">${nettoyer(j.nom_role)}</span>`
+    + (j.gain != null ? `<span class="g ${j.gain >= 0 ? "plus" : "moins"}">${pieces(j.gain)}</span>` : "")
+    + `</div>`);
+  $("res-joueurs").innerHTML = "<h3>Les joueurs</h3>" + joueurs.join("");
+  const recit = (r.recit || []).map((l) => String(l).startsWith("#")
+    ? `<h4>${nettoyer(String(l).slice(1))}</h4>` : `<p>${nettoyer(l)}</p>`);
+  $("res-recit").innerHTML = "<h3>La partie</h3>" + (recit.join("") || "<p>Rien à raconter.</p>");
+  montrer("resultat", true);
+  retracer();
+}
+$("res-fermer").addEventListener("click", () => {
+  montrer("resultat", false);
+  if (typeof Events !== "undefined") Events.Call("fermer_resultat");
+});
+
 function tout_cacher() {
-  phase(null); rappel(null); salon(null); message("");
+  phase(null); rappel(null); salon(null); message(""); annonce(""); elimine(false);
   montrer("revelation", false);
 }
 
@@ -224,6 +321,9 @@ if (typeof Events !== "undefined") {
   Events.Subscribe("lg:message", message);
   Events.Subscribe("lg:salon", salon);
   Events.Subscribe("lg:cacher", tout_cacher);
+  Events.Subscribe("lg:annonce", annonce);
+  Events.Subscribe("lg:elimine", elimine);
+  Events.Subscribe("lg:resultat", resultat);
   Events.Call("pret");
 } else {
   document.body.classList.add("apercu");
@@ -234,6 +334,14 @@ if (typeof Events !== "undefined") {
         { nom: "Loup Blanc", image: "loup_blanc", valeur: "0" }, { nom: "Voyante", image: "voyante", valeur: "1" },
         { nom: "Chasseur", image: "chasseur", valeur: "1" }, { nom: "Gardien", image: "gardien", valeur: "0" },
         { nom: "Cupidon", image: "cupidon", valeur: "0" }, { nom: "Débat", valeur: "3:00" }] });
+  } else if (location.hash === "#resultat") {
+    resultat({ gagne: true, titre: "Le village gagne !", nom_role: "Voyante", gain: 42, mise: 50, moi: 1,
+      joueurs: [{ nom: "Toi", role: "seer", nom_role: "Voyante", vivant: true, gagne: true, gain: 42 },
+        { nom: "Ana", role: "wolf", nom_role: "Loup-Garou", vivant: false, gagne: false, gain: -40 },
+        { nom: "Ben", role: "villager", nom_role: "Villageois", vivant: false, gagne: true, gain: 42 },
+        { nom: "Lou", role: "witch", nom_role: "Sorcière", vivant: true, gagne: true, gain: 42 }],
+      recit: ["#Nuit 1", "Les loups choisissent Ben.", "La voyante sonde Ana : Loup-Garou.", "La sorcière sauve Ben.",
+        "#Jour 1", "Personne n'est mort cette nuit.", "Le village élimine Ana. C'était : Loup-Garou."] });
   } else {
   phase({ texte: "Nuit · Les loups choisissent", icone: "lune", duree: 45 });
   revelation({ image: "loup", nom: "Loup-Garou", article: "", allies: "Ton allié : Ana" });

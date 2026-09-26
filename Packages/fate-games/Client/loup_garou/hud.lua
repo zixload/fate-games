@@ -88,6 +88,7 @@ return function(config, Interaction)
         { cle = "guard",      nom = "Gardien",     min = 0, max = 1,  pas = 1, image = "gardien" },
         { cle = "cupid",      nom = "Cupidon",     min = 0, max = 1,  pas = 1, image = "cupidon" },
         { cle = "debat",      nom = "Débat",       min = 60, max = 300, pas = 30 },
+        { cle = "mise",       nom = "Mise",        valeurs = { 0, 50, 100, 250 } },
     }
 
     local pret_page = false
@@ -135,10 +136,9 @@ return function(config, Interaction)
     -- un voile leger pour les morts qui suivent la partie. Le jour, rien.
     -- StartCameraFade (doc Player), Sky.SetFog, PostProcess ; le HUD reste
     -- au-dessus.
-    -- Pas de voile ni de brume par defaut : la nuit, qui dort baisse la tete,
-    -- c'est tout (/lg nuit pour essayer autre chose).
-    local NUIT = config.nuit or { dort = 0, agit = 0, mort = 0, fondu = 1.5,
-        brume = 0, brume_jour = 0, vignette = 0.6, grain = 0, couleur = 1 }
+    -- Reglages retenus en jeu le 26/09 (/lg nuit pour en essayer d'autres).
+    local NUIT = config.nuit or { dort = 0.2, agit = 0, mort = 0, fondu = 1.5,
+        brume = 25, brume_jour = 0, vignette = 1.5, grain = 0, couleur = 0.5, vignette_mort = 1.1 }
     local COULEUR_NUIT = Color(0.02, 0.03, 0.07)
     local endormi = false
     local essai = false      -- /lg nuit essai : sommeil force, pour regler hors partie
@@ -221,10 +221,13 @@ return function(config, Interaction)
         local compo, speciaux = v.compo or {}, 0
         local lignes = {}
         for i, r in ipairs(REGLAGES) do
-            local valeur = r.cle == "max" and v.max or (r.cle == "debat" and v.debat or compo[r.cle] or 0)
+            local valeur = r.cle == "max" and v.max or (r.cle == "debat" and v.debat)
+                or (r.cle == "mise" and (v.mise or 0)) or compo[r.cle] or 0
             if r.image then speciaux = speciaux + (compo[r.cle] or 0) end
-            lignes[i] = { nom = r.nom, image = r.image,
-                valeur = r.cle == "debat" and (("%d:%02d"):format(valeur // 60, valeur % 60)) or tostring(valeur),
+            local texte = tostring(valeur)
+            if r.cle == "debat" then texte = ("%d:%02d"):format(valeur // 60, valeur % 60)
+            elseif r.cle == "mise" then texte = valeur > 0 and (valeur .. " pièces") or "aucune" end
+            lignes[i] = { nom = r.nom, image = r.image, valeur = texte,
                 choisie = v.createur and i == etat.ligne or false }
         end
         appeler("lg:salon", { joueurs = v.joueurs, max = v.max, createur = v.createur, lignes = lignes,
@@ -329,12 +332,44 @@ return function(config, Interaction)
         rappel(reste)
     end
 
-    function H.annonce(texte) appeler("lg:message", texte, 5) end
+    -- Les annonces de la partie (aube, execution, chasseur, victoire) au milieu
+    -- de l'ecran ; les refus et petites infos en bas.
+    function H.annonce(texte, centre)
+        if centre then appeler("lg:annonce", texte, 6) else appeler("lg:message", texte, 5) end
+    end
+
+    -- L'ecran de resultat se ferme a la croix : la souris le temps de le lire.
+    local resultat_ouvert = false
+    local function fermer_resultat()
+        if not resultat_ouvert then return end
+        resultat_ouvert = false
+        appeler("lg:resultat", nil)
+        pcall(function()
+            page:SetVisibility(WidgetVisibility.VisibleNotHitTestable)
+            page:RemoveFocus()
+            Input.SetMouseEnabled(false)
+        end)
+    end
+    page:Subscribe("fermer_resultat", fermer_resultat)
+
+    function H.resultat(r)
+        if type(r) ~= "table" then return end
+        resultat_ouvert = true
+        appeler("lg:resultat", r)
+        pcall(function()
+            page:SetVisibility(WidgetVisibility.Visible)
+            page:BringToFront()
+            page:SetFocus()
+            Input.SetMouseEnabled(true)
+        end)
+    end
 
     function H.mort()
         etat.mort = true
         ambiance()
-        if etat.role ~= "hunter" then appeler("lg:message", "Tu es mort. Tu peux encore regarder la partie.", 6) end
+        appeler("lg:elimine", true)
+        pcall(PostProcess.SetImageEffects, NUIT.vignette_mort, 0)
+        if etat.role ~= "hunter" then appeler("lg:message", "Tu es éliminé. Tu peux encore regarder la partie.", 6) end
     end
 
     function H.fin()
@@ -342,6 +377,7 @@ return function(config, Interaction)
         etat = neuf()
         etat.voile = voile
         ambiance()
+        pcall(PostProcess.SetImageEffects, 0.6, 0)
         appeler("lg:cacher")
     end
 
@@ -374,10 +410,39 @@ return function(config, Interaction)
             Vector2D(0, 0), Vector2D(1, 1), Color.WHITE, BlendMode.AlphaBlend, 0, Vector2D(0.5, 0.5))
     end
 
+    -- Celui qu'on vise s'allume (a la place de l'invite papier) : or pour
+    -- designer, vert pour sauver, violet pour empoisonner (doc Actor, doc Client).
+    local SURBRILLANCE = 2
+    local COULEURS = { defaut = Color(3, 2.2, 0.6), lg_sauver = Color(0.6, 3, 0.8), lg_empoisonner = Color(2.2, 0.6, 3) }
+    local allume, allume_couleur = nil, nil
+    local function surligner(ch, invite)
+        local couleur = ch and (COULEURS[invite] or COULEURS.defaut) or nil
+        if ch == allume and couleur == allume_couleur then return end
+        if allume and allume:IsValid() then pcall(function() allume:SetHighlightEnabled(false, SURBRILLANCE) end) end
+        allume, allume_couleur = nil, nil
+        if not ch then return end
+        pcall(function()
+            Client.SetHighlightColor(couleur, SURBRILLANCE, HighlightMode.Always)
+            ch:SetHighlightEnabled(true, SURBRILLANCE)
+        end)
+        allume, allume_couleur = ch, couleur
+    end
+    local ROUGE = { couleur = Color(1, 0.32, 0.26) }
+
+    local function invite_pour(ph, id)
+        local invite = ph and ph.invite
+        if invite == "sorciere" then
+            -- La victime : la sauver ; un autre : l'empoisonner. Selon les potions.
+            if id == etat.victime then return etat.potions.vie and "lg_sauver" or nil end
+            return etat.potions.mort and "lg_empoisonner" or nil
+        end
+        return invite
+    end
+
     local function dessiner(c, largeur, hauteur)
         etat.vise = nil
-        if Ecran.noir then return end
-        if not etat.phase and not next(etat.allies) and not etat.amoureux and not etat.maire then return end
+        if Ecran.noir then return surligner(nil) end
+        if not etat.phase and not next(etat.allies) and not etat.amoureux and not etat.maire then return surligner(nil) end
         local player = Client.GetLocalPlayer()
         if not player then return end
         local moi = player:GetControlledCharacter()
@@ -414,7 +479,7 @@ return function(config, Interaction)
             end
         end
         etat.vise = meilleur
-        local vise_id = meilleur and meilleur:GetID()
+        surligner(meilleur, meilleur and invite_pour(ph, meilleur:GetID()))
 
         for _, e in ipairs(poses) do
             local id, y = e.ch:GetID(), e.y
@@ -444,20 +509,8 @@ return function(config, Interaction)
             end
             local choix = etat.choix[id]
             if choix then
-                local h = Pseudo.Dessiner(c, "> " .. choix.nom, e.x, y - 4 * e.s, 0.8 * e.s)
+                local h = Pseudo.Dessiner(c, "> " .. choix.nom, e.x, y - 4 * e.s, 0.8 * e.s, ROUGE)
                 y = y - h - 10 * e.s
-            end
-            local invite = ph and ph.invite
-            if invite == "sorciere" then
-                -- La victime : la sauver ; un autre : l'empoisonner. Selon les potions.
-                if id == etat.victime then
-                    invite = etat.potions.vie and "lg_sauver" or nil
-                else
-                    invite = etat.potions.mort and "lg_empoisonner" or nil
-                end
-            end
-            if id == vise_id and invite then
-                sprite(c, invite, e.x, y - 22 * e.s, LARGEUR_INVITE[invite] or 190, 62, e.s)
             end
             ::suivant::
         end
@@ -489,7 +542,11 @@ return function(config, Interaction)
     -- Hors moteur (demo), les reglages s'appliquent sur place, dans leurs bornes.
     local function regler_localement(r, sens)
         local v = etat.salon
-        if r.cle == "max" then
+        if r.cle == "mise" then
+            local k = 1
+            for j, m in ipairs(r.valeurs) do if m == (v.mise or 0) then k = j end end
+            v.mise = r.valeurs[math.max(1, math.min(#r.valeurs, k + sens))]
+        elseif r.cle == "max" then
             v.max = math.max(r.min, math.min(r.max, v.max + sens * r.pas))
         elseif r.cle == "debat" then
             v.debat = math.max(r.min, math.min(r.max, v.debat + sens * r.pas))
@@ -503,6 +560,10 @@ return function(config, Interaction)
 
     Input.Subscribe("KeyPress", function(touche)
         if chat_ouvert then return end
+        if resultat_ouvert and touche == "Escape" then
+            fermer_resultat()
+            return false
+        end
         if touche == "E" and etat.vise and peut_designer() and etat.vise:IsValid() then
             Events.CallRemote("ww:designer", Reliability.Reliable, etat.vise:GetID())
             return false

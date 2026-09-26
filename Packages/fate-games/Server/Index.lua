@@ -91,7 +91,8 @@ LiarsBar.Init()
 DuelJeu.Init()
 local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, DB, Ids, Characters, Interactables, WwEngine, WwRoles, WwMatch,
     { bots = ServerConfig.dev and ServerConfig.dev.liars_bots, volume = ServerConfig.voice.volume,
-      canaux = ServerConfig.voice.canaux_loup_garou })
+      canaux = ServerConfig.voice.canaux_loup_garou, boutique = Boutique,
+      bonus_participation = DuelConfig.bonus_participation })
 LoupGarou.Init()
 Emotes.Init()
 
