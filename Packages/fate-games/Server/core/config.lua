@@ -68,8 +68,11 @@ return {
 
     -- Voix de proximite native, spatialisée par nanos world.
     voice = {
-        max_distance = 900, -- cm : toute la table et une partie de la salle
-        volume = 1.0,
+        -- cm, portee de la voix de proximite (defaut nanos : 3600). Le son
+        -- decroit jusqu'a cette distance : a 900, meme la table s'entendait
+        -- mal (26/09).
+        max_distance = 2500,
+        volume = 2.0,   -- multiplicateur (1 = volume d'origine), trop bas a 1
     },
 
     dev = {
