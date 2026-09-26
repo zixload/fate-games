@@ -133,6 +133,13 @@ function phase(p) {
   tic();
   retracer();
 }
+// Le minuteur de la phase en cours change (tout le monde a vote).
+function chrono(reste) {
+  finPhase = performance.now() + reste * 1000;
+  minuteurActif = true;
+  montrer("minuteur", true);
+  tic();
+}
 function tic() {
   if (!minuteurActif) return;
   const reste = Math.max(0, Math.ceil((finPhase - performance.now()) / 1000));
@@ -211,6 +218,7 @@ function tout_cacher() {
 
 if (typeof Events !== "undefined") {
   Events.Subscribe("lg:phase", phase);
+  Events.Subscribe("lg:chrono", chrono);
   Events.Subscribe("lg:rappel", rappel);
   Events.Subscribe("lg:revelation", revelation);
   Events.Subscribe("lg:message", message);

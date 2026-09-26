@@ -16,7 +16,7 @@ return function(Match)
         night_wolves = { wolf = true, white_wolf = true }, night_white_wolf = { white_wolf = true },
         night_seer = { seer = true }, night_witch = { witch = true },
         hunter_shot = "tireur", mayor_succession = "maire",
-        day_mayor = "tous", day_vote = "tous",
+        day_mayor = "tous", day_vote = "tous", day_debate = "tous",
     }
 
     -- Peut-il designer dans la phase en cours ? Combien de fois (Cupidon : 2).
@@ -37,10 +37,12 @@ return function(Match)
         return liste[rng(#liste)]
     end
 
-    -- La cible la plus designee du bulletin en cours, si elle convient.
+    -- La cible la plus designee du bulletin en cours (le jour : le vote du
+    -- village, ouvert des le debat), si elle convient.
     local function en_tete(s, filtre)
+        local b = (s.phase == "day_vote" or s.phase == "day_debate") and s.vote_jour or s.bulletin
         local c = {}
-        for _, cible in pairs(s.bulletin and s.bulletin.choix or {}) do c[cible] = (c[cible] or 0) + 1 end
+        for _, cible in pairs(b and b.choix or {}) do c[cible] = (c[cible] or 0) + 1 end
         local meilleure, max = nil, 0
         for cible, n in pairs(c) do
             if n > max and filtre(cible) then meilleure, max = cible, n end
@@ -89,10 +91,10 @@ return function(Match)
             local out = {}
             for _, v in ipairs(vivants) do if not deja[v] then out[#out + 1] = v end end
             return au_hasard(out, rng)
-        elseif phase == "day_vote" or phase == "day_mayor" then
+        elseif phase == "day_vote" or phase == "day_debate" or phase == "day_mayor" then
             -- La voyante denonce un loup qu'elle a vu.
             for v, role in pairs(memoire.vus) do
-                if Match.vivant(m, v) and (role == "wolf" or role == "white_wolf") and phase == "day_vote" then return v end
+                if Match.vivant(m, v) and (role == "wolf" or role == "white_wolf") and phase ~= "day_mayor" then return v end
             end
             -- Un loup ne vote pas contre les siens.
             local filtre = Match.est_loup(m, id) and pas_loup or function(v) return v ~= id end

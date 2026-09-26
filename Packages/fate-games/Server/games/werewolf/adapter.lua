@@ -410,6 +410,8 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             local ok, corps = pcall(Characters.CorpsAssis, siege.x, siege.y,
                 decor.centre.debout + POSES[1].z + AJUSTEMENT, siege.yaw)
             bots[id] = { nom = "Bot " .. (-id), corps = ok and corps or nil }
+            -- Les pseudos au-dessus des tetes (Client/pseudos.lua) le lisent.
+            if ok and corps then corps:SetValue("pseudo", bots[id].nom, true) end
             siege.occupant, decor.siege_de[id] = id, place
             entrer_au_salon(id)
             salon.pret[id] = true
@@ -499,6 +501,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         if decor.siege_de[e.player] then asseoir(e.player, MORT) end
     end
     TRADUIRE.voice_channel = function(e) regler_voix(e.player, e.channel) end
+    TRADUIRE.chrono = function(e) diffuser("ww:chrono", e.reste) end
     TRADUIRE.mayor = function(e) diffuser("ww:maire", id_personnage(e.player), nom(e.player)) end
     TRADUIRE.victim = function(e) envoyer(e.player, "ww:victime", id_personnage(e.target), nom(e.target)) end
     TRADUIRE.potions = function(e) envoyer(e.player, "ww:potions", e.vie, e.mort) end
@@ -570,12 +573,22 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
 
     ---------------------------------------------------------------- entrees
 
+    -- Pourquoi une designation est refusee, dit au joueur plutot que rien.
+    local REFUS = {
+        hors_phase = "Ce n'est pas le moment.",
+        mort = "Tu es mort.",
+        interdit = "Tu ne peux pas choisir ce joueur.",
+        cible_invalide = "Ce joueur n'est plus en jeu.",
+        deja_choisi = "Déjà choisi.",
+    }
+
     function A.Designer(player, cid)
         if s.statut ~= "partie" then return end
         local cible = par_personnage(tonumber(cid))
         if not cible then return end
-        local fx = Engine.designer(s, player:GetID(), cible)
-        if fx then A.Appliquer(fx) end
+        local fx, raison = Engine.designer(s, player:GetID(), cible)
+        if fx then return A.Appliquer(fx) end
+        if REFUS[raison] then envoyer(player:GetID(), "ww:annonce", REFUS[raison]) end
     end
 
     function A.OnPlayerLeave(player)

@@ -27,6 +27,8 @@ return function(journal, config)
     local function nom_de(character)
         local p = character:GetPlayer()
         if p then return p:GetName() end
+        local pseudo = character:GetValue("pseudo", nil)
+        if type(pseudo) == "string" and pseudo ~= "" then return pseudo end
         local chaise = character:GetValue("liars_chair", 0)
         if type(chaise) == "number" and chaise > 0 then return journal.names[chaise] end
     end

@@ -36,4 +36,8 @@ return {
     -- Le maire est elu ce jour-la (le jour qui suit la nuit n), avant le debat,
     -- s'il n'y en a pas encore. Sa voix compte double et departage.
     maire = { jour = 2 },
+
+    -- Quand tous ceux qui votent ont vote (loups, village, maire), la phase
+    -- ne s'arrete pas d'un coup : il reste ces secondes pour changer d'avis.
+    confirmation = 10,
 }

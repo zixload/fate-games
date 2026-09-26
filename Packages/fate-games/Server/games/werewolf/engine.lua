@@ -65,6 +65,17 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
 
     local entrer, suivante
 
+    -- Tout le monde a vote : il reste Phases.confirmation secondes.
+    local function presser(s, fx)
+        local c = Phases.confirmation or 10
+        if s.reste > c then
+            s.reste = c
+            fx[#fx + 1] = Effects.chrono(c)
+        end
+    end
+
+    local function poids_maire(s) return s.maire and { [s.maire] = 2 } or nil end
+
     local function commencer_nuit(s, fx)
         s.nuit = s.nuit + 1
         s.file = {}
@@ -114,8 +125,12 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         s.lies = {}
         fx[#fx + 1] = Effects.phase(id, s.reste)
         if id == "dawn" then
+            -- Le vote du jour s'ouvre des le debat et court jusqu'a la fin du vote.
+            s.vote_jour = Voting.nouveau()
             resoudre_nuit(s, fx)
             verifier(s, fx)
+        elseif id == "day_vote" then
+            if Voting.votants(s.vote_jour) >= #Match.vivants(s.match) then presser(s, fx) end
         elseif id == "execution" then
             if s.condamne then
                 local c = s.condamne
@@ -168,9 +183,8 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         elseif id == "night_guard" then
             s.protege_avant = s.protege
         elseif id == "day_vote" then
-            local poids = s.maire and { [s.maire] = 2 } or nil
-            s.condamne = Voting.depouiller(s.bulletin, "aucun", s.rng, poids,
-                s.maire and Voting.choix(s.bulletin, s.maire))
+            s.condamne = Voting.depouiller(s.vote_jour, "aucun", s.rng, poids_maire(s),
+                s.maire and Voting.choix(s.vote_jour, s.maire))
         elseif id == "day_mayor" then
             -- Il faut un maire : egalite tiree au sort, et sans vote, au hasard.
             local elu = Voting.depouiller(s.bulletin, "hasard", s.rng)
@@ -258,7 +272,7 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
             Voting.designer(s.bulletin, acteur, cible)
             fx[#fx + 1] = Effects.votes(Voting.compte(s.bulletin), "wolves")
             fx[#fx + 1] = Effects.point_at(acteur, cible, "wolves")
-            if Voting.votants(s.bulletin) >= #Match.loups_vivants(m) then terminer(s, fx) end
+            if Voting.votants(s.bulletin) >= #Match.loups_vivants(m) then presser(s, fx) end
         elseif id == "night_guard" then
             if role ~= "guard" or cible == s.protege_avant then return nil, "interdit" end
             s.protege = cible
@@ -297,15 +311,18 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
                 fx[#fx + 1] = Effects.lovers(b, a)
                 terminer(s, fx)
             end
-        elseif id == "day_vote" then
+        elseif id == "day_vote" or id == "day_debate" then
+            -- Le vote du village s'ouvre des le debat ; il se clot a la fin du vote.
             if cible == acteur then return nil, "interdit" end
-            Voting.designer(s.bulletin, acteur, cible)
-            fx[#fx + 1] = Effects.votes(Voting.compte(s.bulletin, s.maire and { [s.maire] = 2 } or nil), "all")
+            Voting.designer(s.vote_jour, acteur, cible)
+            fx[#fx + 1] = Effects.votes(Voting.compte(s.vote_jour, poids_maire(s)), "all")
             fx[#fx + 1] = Effects.point_at(acteur, cible, "all")
+            if id == "day_vote" and Voting.votants(s.vote_jour) >= #Match.vivants(m) then presser(s, fx) end
         elseif id == "day_mayor" then
             Voting.designer(s.bulletin, acteur, cible)
             fx[#fx + 1] = Effects.votes(Voting.compte(s.bulletin), "all")
             fx[#fx + 1] = Effects.point_at(acteur, cible, "all")
+            if Voting.votants(s.bulletin) >= #Match.vivants(m) then presser(s, fx) end
         elseif succession then
             if cible == acteur then return nil, "interdit" end
             s.maire = cible

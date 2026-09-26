@@ -16,6 +16,7 @@
 --   ww:maire    (id, nom)         le maire du village (medaille au-dessus de lui)
 --   ww:victime  (id, nom)         prive, a la sorciere : la victime des loups
 --   ww:potions  (vie, mort)       prive, a la sorciere : ce qu'il lui reste
+--   ww:chrono   (reste)           tout le monde a vote : le minuteur tombe a 10 s
 --   ww:annonce  (texte)           message transitoire
 --   ww:mort     ()                on est mort : plus de designation
 --   ww:fin      ()                fin de partie : tout se range
@@ -67,7 +68,8 @@ return function(config)
             invite = "lg_elire", consigne = "Regarde un joueur et appuie sur [E] pour l'élire maire" },
         mayor_succession = { texte = "Le maire désigne son successeur", icone = "soleil", qui = "maire",
             invite = "lg_nommer", consigne = "Tu étais le maire : regarde un joueur et appuie sur [E] pour lui passer la médaille" },
-        day_debate       = { texte = "Jour · Débat", icone = "soleil" },
+        day_debate       = { texte = "Jour · Débat", icone = "soleil", qui = "tous",
+            invite = "lg_voter", consigne = "Débattez. Le vote est ouvert : regarde un joueur et appuie sur [E]" },
         day_vote         = { texte = "Jour · Le village vote", icone = "soleil", qui = "tous",
             invite = "lg_voter", consigne = "Regarde un joueur et appuie sur [E] pour voter contre lui" },
         execution        = { texte = "Jour · Exécution", icone = "soleil" },
@@ -191,8 +193,9 @@ return function(config)
     end
 
     function H.phase(id, duree)
+        -- Le vote du village court du debat a la fin du vote : on garde ses voix.
+        if not (id == "day_vote" and etat.phase == "day_debate") then etat.votes = {} end
         etat.phase = id
-        etat.votes = {}
         if id ~= "night_witch" then etat.victime = nil end
         local ph = PHASES[id]
         appeler("lg:phase", ph and { texte = ph.texte, icone = ph.icone, duree = duree } or nil)
@@ -201,6 +204,11 @@ return function(config)
     end
 
     function H.votes(compte) etat.votes = compte or {} end
+
+    function H.chrono(reste)
+        appeler("lg:chrono", reste)
+        appeler("lg:message", ("Tout le monde a voté : %d secondes pour changer d'avis."):format(reste), 4)
+    end
 
     local function rappel(petit)
         local moi = etat.role and ROLES[etat.role]
