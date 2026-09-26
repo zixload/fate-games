@@ -1,10 +1,9 @@
 -- Ciel jour/nuit du loup-garou (Sky de nanos, Ultra Dynamic Sky).
 --
--- Seuls les joueurs de la partie recoivent les phases (ww:phase) : le ciel ne
--- change que chez eux, les autres gardent l'eclairage de la map. Sky.Spawn
--- remplace le soleil, le ciel et le brouillard de la map et nanos n'a rien
--- pour les rendre : pose au debut de la premiere partie, le ciel reste
--- jusqu'a la reconnexion (en plein jour une fois la partie finie).
+-- Tout le serveur est sous le ciel de nanos : Sky.Spawn remplace le soleil,
+-- le ciel et le brouillard de la map des l'arrivee du joueur, a midi. Seuls
+-- les joueurs de la partie recoivent les phases (ww:phase) : chez eux, la
+-- nuit tombe et le jour se leve ; a la fin, retour a midi.
 --
 -- Les transitions font defiler le temps vers l'avant, vite : le soleil se
 -- couche, la nuit tombe, l'aube se leve.
@@ -21,7 +20,8 @@ return function()
         day_mayor = { 11, 0, 20 }, day_debate = { 13, 0, 30 },
         day_vote = { 17, 0, 20 }, execution = { 19, 30, 6 },
     }
-    local FIN = { 12, 0, 6 }
+    local JOUR = { 12, 0 }        -- l'heure du serveur hors partie
+    local FIN = { JOUR[1], JOUR[2], 6 }
     local MOMENTS = { jour = { 12, 0 }, aube = { 6, 0 }, soir = { 19, 30 }, nuit = { 23, 0 } }
     local APERCU = 6   -- secondes de defilement pour /lg ciel
 
@@ -38,7 +38,7 @@ return function()
         end
         pcall(Sky.SetAnimateTimeOfDay, false)
         pcall(Sky.SetMoonPhase, 15)          -- pleine lune (0 a 30)
-        pcall(Sky.SetTimeOfDay, 12, 0, 0)    -- la premiere nuit tombe depuis midi
+        pcall(Sky.SetTimeOfDay, JOUR[1], JOUR[2], 0)
         pret = true
         return true
     end
@@ -89,7 +89,9 @@ return function()
     end
 
     Events.SubscribeRemote("ww:phase", function(id) viser(PHASES[id]) end)
-    Events.SubscribeRemote("ww:fin", function() if pret then viser(FIN) end end)
+    Events.SubscribeRemote("ww:fin", function() viser(FIN) end)
+
+    preparer()
 
     Chat.Subscribe("PlayerSubmit", function(message)
         local arg = tostring(message):match("^/lg ciel%s*(%S*)")
