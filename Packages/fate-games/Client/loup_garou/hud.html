@@ -99,6 +99,13 @@ body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); 
     text-shadow: 6px 7px 0 var(--ombre); opacity: 0; transition: opacity .3s; }
 #vcarte.tourne + #vtitre { opacity: 1; transition-delay: .5s; }
 
+/* Un role dans un texte : sa couleur. */
+.role-villager { color: #e8d6a8; } .role-seer { color: #b58cf0; } .role-wolf { color: #e0564b; }
+.role-white_wolf { color: #e6f0ff; } .role-hunter { color: #8cc063; } .role-witch { color: #5fd0a8; }
+.role-guard { color: #6fa3f0; } .role-cupid { color: #f38bb6; }
+[class^="role-"] { white-space: nowrap; }
+#res-recit .role-villager { color: #a08a55; } #res-recit .role-white_wolf { color: #7f93b3; }
+
 /* Annonce (aube, execution, chasseur...) : au milieu de l'ecran. */
 #annonce { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%) rotate(-1.5deg); max-width: 72%; text-align: center;
     font-size: 46px; line-height: 1.15; color: var(--papier); -webkit-text-stroke: 8px var(--encre); paint-order: stroke fill;
@@ -193,6 +200,8 @@ const $ = (id) => document.getElementById(id);
 const nettoyer = (s) => String(s == null ? "" : s).replace(/[<>&]/g, "");
 const montrer = (id, oui) => $(id).classList.toggle("cache", !oui);
 const retracer = () => requestAnimationFrame(habiller);
+// Texte venu du serveur, nettoye, ses roles ([[wolf|Loup-Garou]]) en couleur.
+const avecRoles = (s) => nettoyer(s).replace(/\[\[([a-z_]+)\|([^\]]+)\]\]/g, '<span class="role-$1">$2</span>');
 
 // ---------------------------------------------------------------- phase et minuteur
 let finPhase = 0, minuteurActif = false;
@@ -308,7 +317,7 @@ function vision(v) {
 let finAnnonce = null;
 function annonce(texte, secondes) {
   clearTimeout(finAnnonce);
-  $("annonce").textContent = nettoyer(texte);
+  $("annonce").innerHTML = avecRoles(texte);
   $("annonce").classList.toggle("efface", !texte);
   if (texte) finAnnonce = setTimeout(() => $("annonce").classList.add("efface"), (secondes || 5) * 1000);
 }
@@ -341,7 +350,7 @@ function resultat(r) {
     + `</div>`);
   $("res-joueurs").innerHTML = "<h3>Les joueurs</h3>" + joueurs.join("");
   const recit = (r.recit || []).map((l) => String(l).startsWith("#")
-    ? `<h4>${nettoyer(String(l).slice(1))}</h4>` : `<p>${nettoyer(l)}</p>`);
+    ? `<h4>${nettoyer(String(l).slice(1))}</h4>` : `<p>${avecRoles(l)}</p>`);
   $("res-recit").innerHTML = "<h3>La partie</h3>" + (recit.join("") || "<p>Rien à raconter.</p>");
   montrer("resultat", true);
   retracer();
@@ -378,6 +387,8 @@ if (typeof Events !== "undefined") {
         { nom: "Loup Blanc", image: "loup_blanc", valeur: "0" }, { nom: "Voyante", image: "voyante", valeur: "1" },
         { nom: "Chasseur", image: "chasseur", valeur: "1" }, { nom: "Gardien", image: "gardien", valeur: "0" },
         { nom: "Cupidon", image: "cupidon", valeur: "0" }, { nom: "Débat", valeur: "3:00" }] });
+  } else if (location.hash === "#annonce") {
+    annonce("Le village élimine Ana. C'était : [[wolf|Loup-Garou]].", 60);
   } else if (location.hash === "#vision") {
     rappel({ image: "voyante", nom: "Voyante", petit: "Pixel est Loup-Garou\nNino est Villageois" });
     vision({ image: "loup", titre: "Pixel est Loup-Garou" });
@@ -388,7 +399,7 @@ if (typeof Events !== "undefined") {
         { nom: "Ben", role: "villager", nom_role: "Villageois", vivant: false, gagne: true, gain: 42 },
         { nom: "Lou", role: "witch", nom_role: "Sorcière", vivant: true, gagne: true, gain: 42 }],
       recit: ["#Nuit 1", "Les loups choisissent Ben.", "La voyante sonde Ana : Loup-Garou.", "La sorcière sauve Ben.",
-        "#Jour 1", "Personne n'est mort cette nuit.", "Le village élimine Ana. C'était : Loup-Garou."] });
+        "#Jour 1", "Personne n'est mort cette nuit.", "Ana est éliminé par le vote du village ([[wolf|Loup-Garou]])."] });
   } else {
   phase({ texte: "Nuit · Les loups choisissent", icone: "lune", duree: 45 });
   revelation({ image: "loup", nom: "Loup-Garou", article: "", allies: "Ton allié : Ana" });

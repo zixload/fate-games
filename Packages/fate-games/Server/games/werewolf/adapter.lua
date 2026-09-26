@@ -28,6 +28,9 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
 
     local NOMS_ROLES = { wolf = "Loup-Garou", white_wolf = "Loup Blanc", villager = "Villageois",
         seer = "Voyante", hunter = "Chasseur", guard = "Gardien", cupid = "Cupidon", witch = "Sorcière" }
+    -- Un role dans un texte d'annonce ou du recit : le client le colore
+    -- ([[wolf|Loup-Garou]], loup_garou/hud.html).
+    local function role_txt(role) return ("[[%s|%s]]"):format(tostring(role), NOMS_ROLES[role] or "?") end
     local GAGNANTS = { village = "Le village gagne !", wolves = "Les loups-garous gagnent !",
         white_wolf = "Le loup blanc gagne seul !", lovers = "Les amoureux gagnent !",
         none = "Partie terminée sans vainqueur." }
@@ -704,10 +707,22 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         return table.concat(t, ", ")
     end
 
+    -- Ces annonces redisent une mort : le recit la note deja, avec sa cause.
+    local DEJA_DANS_LE_RECIT = { aube_morts = true, execution = true, chasseur = true, depart = true }
+    local MORTS = {
+        loups = "%s est dévoré par les loups-garous (%s).",
+        loup_blanc = "%s est dévoré par le Loup Blanc (%s).",
+        sorciere = "%s est empoisonné par la sorcière (%s).",
+        vote = "%s est éliminé par le vote du village (%s).",
+        chasseur = "%s est abattu par le chasseur (%s).",
+        chagrin = "%s meurt de chagrin avec son amoureux (%s).",
+        depart = "%s quitte la partie (%s).",
+    }
+
     local ANNONCES = {
         aube_morts = function(a) return "Au lever du jour, on découvre : " .. liste_noms(a.morts) .. "." end,
         aube_personne = function() return "Personne n'est mort cette nuit." end,
-        execution = function(a) return ("Le village élimine %s. C'était : %s."):format(nom(a.joueur), NOMS_ROLES[a.role] or "?") end,
+        execution = function(a) return ("Le village élimine %s. C'était : %s."):format(nom(a.joueur), role_txt(a.role)) end,
         egalite = function() return "Égalité : le village ne tranche pas." end,
         chasseur = function(a) return ("%s tire en mourant et emporte %s."):format(nom(a.tireur), nom(a.joueur)) end,
         depart = function(a) return nom(a.joueur) .. " a quitté la partie." end,
@@ -799,7 +814,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     end
     TRADUIRE.reveal = function(e)
         envoyer(e.viewer, "ww:vision", nom(e.target), e.role)
-        noter(("La voyante sonde %s : %s."):format(nom(e.target), NOMS_ROLES[e.role] or "?"))
+        noter(("La voyante sonde %s : %s."):format(nom(e.target), role_txt(e.role)))
     end
     local amoureux_notes = {}
     TRADUIRE.lovers = function(e)
@@ -815,6 +830,8 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         envoyer(e.player, "ww:mort")
         local c = personnage(e.player)
         if c and c:IsValid() then c:SetValue("ww_mort", true, true) end
+        local role = s.match and Match.role(s.match, e.player)
+        noter((MORTS[e.cause] or "%s meurt (%s)."):format(nom(e.player), role_txt(role)))
         -- Le mort fait mine de rager, puis reste assis, un peu en retrait.
         elimines[e.player], endormis[e.player] = true, nil
         if decor.siege_de[e.player] then geste(e.player, GESTES.mort) end
@@ -841,7 +858,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         local f = ANNONCES[e.key]
         if not f then return end
         local texte = f(e.args)
-        noter(texte)
+        if not DEJA_DANS_LE_RECIT[e.key] then noter(texte) end
         diffuser("ww:annonce", texte, true)
         if e.key == "chasseur" then diffuser("ww:son", "gunshot") end
     end

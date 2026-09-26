@@ -104,12 +104,12 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
     -- A l'aube : la victime des loups meurt, sauf si le gardien la protege ;
     -- celle du loup blanc aussi.
     local function resoudre_nuit(s, fx)
-        local morts = {}
-        if s.victime_loups and s.victime_loups ~= s.protege then morts[#morts + 1] = s.victime_loups end
-        if s.victime_blanc and s.victime_blanc ~= s.victime_loups then morts[#morts + 1] = s.victime_blanc end
-        if s.victime_sorciere then morts[#morts + 1] = s.victime_sorciere end
+        local morts = {}   -- { id, cause }
+        if s.victime_loups and s.victime_loups ~= s.protege then morts[#morts + 1] = { s.victime_loups, "loups" } end
+        if s.victime_blanc and s.victime_blanc ~= s.victime_loups then morts[#morts + 1] = { s.victime_blanc, "loup_blanc" } end
+        if s.victime_sorciere then morts[#morts + 1] = { s.victime_sorciere, "sorciere" } end
         local avant = #fx
-        for _, id in ipairs(morts) do tuer(s, id, "nuit", fx) end
+        for _, m in ipairs(morts) do tuer(s, m[1], m[2], fx) end
         local tues = {}
         for i = avant + 1, #fx do
             if fx[i].kind == "kill" then tues[#tues + 1] = fx[i].player end
