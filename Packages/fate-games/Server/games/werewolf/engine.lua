@@ -51,6 +51,11 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
             s.pile[#s.pile + 1] = r.on_death
             s.tireurs[#s.tireurs + 1] = id
         end
+        -- Le maire mort designe son successeur.
+        if s.maire == id then
+            s.maire, s.ancien_maire = nil, id
+            s.pile[#s.pile + 1] = "mayor_succession"
+        end
         local p = Match.partenaire(s.match, id)
         if p and Match.vivant(s.match, p) then tuer(s, p, "chagrin", fx) end
     end
@@ -69,7 +74,14 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
                 s.file[#s.file + 1] = p.id
             end
         end
-        for _, id in ipairs(Phases.jour) do s.file[#s.file + 1] = id end
+        for _, id in ipairs(Phases.jour) do
+            -- L'election du maire, avant le debat du jour prevu.
+            if id == "day_debate" and not s.maire and not s.maire_elu
+                and Phases.maire and s.nuit >= Phases.maire.jour then
+                s.file[#s.file + 1] = "day_mayor"
+            end
+            s.file[#s.file + 1] = id
+        end
         s.victime_loups, s.victime_blanc, s.protege = nil, nil, nil
         fx[#fx + 1] = Effects.world_light("night")
         for _, id in ipairs(Match.vivants(s.match)) do
@@ -147,7 +159,29 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         elseif id == "night_guard" then
             s.protege_avant = s.protege
         elseif id == "day_vote" then
-            s.condamne = Voting.depouiller(s.bulletin, "aucun", s.rng)
+            local poids = s.maire and { [s.maire] = 2 } or nil
+            s.condamne = Voting.depouiller(s.bulletin, "aucun", s.rng, poids,
+                s.maire and Voting.choix(s.bulletin, s.maire))
+        elseif id == "day_mayor" then
+            -- Il faut un maire : egalite tiree au sort, et sans vote, au hasard.
+            local elu = Voting.depouiller(s.bulletin, "hasard", s.rng)
+            local vivants = Match.vivants(s.match)
+            if not elu and #vivants > 0 then elu = vivants[s.rng(#vivants)] end
+            if elu then
+                s.maire, s.maire_elu = elu, true
+                fx[#fx + 1] = Effects.mayor(elu)
+                fx[#fx + 1] = Effects.announce("maire", { joueur = elu })
+            end
+        elseif id == "mayor_succession" then
+            if not s.maire then
+                local vivants = Match.vivants(s.match)
+                if #vivants > 0 then
+                    s.maire = vivants[s.rng(#vivants)]
+                    fx[#fx + 1] = Effects.mayor(s.maire)
+                    fx[#fx + 1] = Effects.announce("successeur", { joueur = s.maire })
+                end
+            end
+            s.ancien_maire = nil
         elseif id == "hunter_shot" then
             s.tireur = nil
         end
@@ -205,7 +239,8 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         if not role then return nil, "pas_joueur" end
         if not Match.vivant(m, cible) then return nil, "cible_invalide" end
         local tir = id == "hunter_shot" and acteur == s.tireur
-        if not tir and not Match.vivant(m, acteur) then return nil, "mort" end
+        local succession = id == "mayor_succession" and acteur == s.ancien_maire
+        if not (tir or succession) and not Match.vivant(m, acteur) then return nil, "mort" end
 
         local fx = {}
         if id == "night_wolves" then
@@ -242,8 +277,18 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         elseif id == "day_vote" then
             if cible == acteur then return nil, "interdit" end
             Voting.designer(s.bulletin, acteur, cible)
+            fx[#fx + 1] = Effects.votes(Voting.compte(s.bulletin, s.maire and { [s.maire] = 2 } or nil), "all")
+            fx[#fx + 1] = Effects.point_at(acteur, cible, "all")
+        elseif id == "day_mayor" then
+            Voting.designer(s.bulletin, acteur, cible)
             fx[#fx + 1] = Effects.votes(Voting.compte(s.bulletin), "all")
             fx[#fx + 1] = Effects.point_at(acteur, cible, "all")
+        elseif succession then
+            if cible == acteur then return nil, "interdit" end
+            s.maire = cible
+            fx[#fx + 1] = Effects.mayor(cible)
+            fx[#fx + 1] = Effects.announce("successeur", { joueur = cible })
+            terminer(s, fx)
         elseif tir then
             if cible == acteur then return nil, "interdit" end
             tuer(s, cible, "chasseur", fx)

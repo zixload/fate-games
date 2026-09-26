@@ -183,6 +183,56 @@ return function(H)
             H.assert_false(Match.vivant(s.match, b), "morte de chagrin")
         end)
 
+        H.it("le maire est elu au jour prevu, sa voix compte double et departage", function()
+            local s = partie(7, { wolf = 1 })
+            local loup = Match.loups_vivants(s.match)[1]
+            -- Premiere nuit, premier jour sans election.
+            Engine.designer(s, loup, villageois(s))
+            jusqua(s, "day_vote")
+            jusqua(s, "night_wolves")
+            Engine.designer(s, loup, villageois(s))
+            jusqua(s, "day_mayor")
+            local vivants = Match.vivants(s.match)
+            local maire = vivants[1] == loup and vivants[2] or vivants[1]
+            for _, id in ipairs(vivants) do Engine.designer(s, id, maire) end
+            local vus = jusqua(s, "day_debate")
+            local elu
+            for _, e in ipairs(vus) do if e.kind == "mayor" then elu = e.player end end
+            H.assert_eq(elu, maire, "elu")
+            jusqua(s, "day_vote")
+            -- Egalite 1 contre 1 : le choix du maire l'emporte (sa voix compte double).
+            local autre = nil
+            for _, id in ipairs(Match.vivants(s.match)) do
+                if id ~= maire and id ~= loup then autre = id break end
+            end
+            Engine.designer(s, maire, loup)
+            Engine.designer(s, autre, maire)
+            -- L'execution tue le loup et le village gagne dans la meme seconde.
+            for _ = 1, 120 do
+                if s.statut == "finie" or Engine.phase(s) == "execution" then break end
+                Engine.avancer(s, 1)
+            end
+            H.assert_false(Match.vivant(s.match, loup), "le loup est elimine grace au maire")
+            H.assert_eq(s.statut, "finie", "plus de loup : le village gagne")
+        end)
+
+        H.it("le maire mort designe son successeur", function()
+            local s = partie(7, { wolf = 1 })
+            local loup = Match.loups_vivants(s.match)[1]
+            Engine.designer(s, loup, villageois(s))
+            jusqua(s, "night_wolves")
+            Engine.designer(s, loup, villageois(s))
+            jusqua(s, "day_mayor")
+            local maire = villageois(s)
+            for _, id in ipairs(Match.vivants(s.match)) do Engine.designer(s, id, maire) end
+            jusqua(s, "night_wolves")
+            Engine.designer(s, loup, maire)
+            jusqua(s, "mayor_succession")
+            local heritier = villageois(s)
+            H.assert_true(Engine.designer(s, maire, heritier) ~= nil, "le maire mort nomme")
+            H.assert_eq(s.maire, heritier, "nouveau maire")
+        end)
+
         H.it("un depart sous le minimum arrete la partie sans vainqueur", function()
             local s = partie(4)
             local fx = Engine.depart(s, villageois(s))

@@ -65,6 +65,7 @@ const BOUCLIER = '<svg class="ico" viewBox="0 0 30 32" aria-hidden="true"><path 
 const COEUR = '<svg class="ico" viewBox="0 0 32 30" aria-hidden="true"><path d="M16 27C6 20 2 15 4 9c2-5 8-5 12 0 4-5 10-5 12 0 2 6-2 11-12 18z" fill="#d98b8b" stroke="#1c2123" stroke-width="2.4" stroke-linejoin="round"/></svg>';
 const MIRE = '<svg class="ico" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="#1c2123" stroke-width="2.6"/><circle cx="16" cy="16" r="3" fill="#b8332d"/><path d="M16 1v8M16 23v8M1 16h8M23 16h8" stroke="#1c2123" stroke-width="2.6" stroke-linecap="round"/></svg>';
 const OEIL = '<svg class="ico" viewBox="0 0 34 24" aria-hidden="true"><path d="M2 12C8 3 26 3 32 12 26 21 8 21 2 12z" fill="#f6eedb" stroke="#1c2123" stroke-width="2.4" stroke-linejoin="round"/><circle cx="17" cy="12" r="5" fill="#5d7d76" stroke="#1c2123" stroke-width="2"/><circle cx="17" cy="12" r="2" fill="#1c2123"/></svg>';
+const MEDAILLE = '<svg class="ico" viewBox="0 0 30 34" aria-hidden="true"><path d="M8 1l6 13M22 1l-6 13" stroke="#1c2123" stroke-width="7" stroke-linecap="round"/><path d="M8 1l6 13M22 1l-6 13" stroke="#5b728c" stroke-width="4" stroke-linecap="round"/><circle cx="15" cy="22" r="10" fill="#d9b56a" stroke="#1c2123" stroke-width="2.4"/><path d="M15 15.5l2 4.2 4.6.5-3.4 3.1 1 4.5-4.2-2.4-4.2 2.4 1-4.5-3.4-3.1 4.6-.5z" fill="#8a6d3b" stroke="#1c2123" stroke-width="1.4" stroke-linejoin="round"/></svg>';
 const NEZ = '<svg class="nez" viewBox="0 0 38 30" aria-hidden="true">'
   + '<path d="M13 3c-6 1-10 6-10 12s4 11 10 12c2 0 3-1 4-2"/><path d="M13 11c1 0 2 1 2 2"/>'
   + '<path d="M16 16c6-1 13-2 20-2"/><path d="M16 19c6 0 12-1 19-3"/><path d="M9 22c2 1 4 1 6 0"/></svg>';
@@ -92,6 +93,9 @@ const SPRITES = {
   lg_tirer: () => [158, 62, `<div class="lg-invite sk" data-graine="85" data-rayon="14">${MIRE}<span class="touche">E</span>Tirer</div>`],
   lg_sonder: () => [176, 62, `<div class="lg-invite sk" data-graine="87" data-rayon="14">${OEIL}<span class="touche">E</span>Sonder</div>`],
   lg_coeur: () => [56, 52, `<div style="display:grid;place-items:center;width:48px;height:44px">${COEUR.replace('class="ico"', 'class="ico" style="width:44px;height:40px;filter:drop-shadow(3px 4px 0 rgba(7,10,11,.7))"')}</div>`],
+  lg_elire: () => [160, 62, `<div class="lg-invite sk" data-graine="89" data-rayon="14">${MEDAILLE}<span class="touche">E</span>Élire</div>`],
+  lg_nommer: () => [178, 62, `<div class="lg-invite sk" data-graine="91" data-rayon="14">${MEDAILLE}<span class="touche">E</span>Nommer</div>`],
+  lg_maire: () => [56, 60, `<div style="display:grid;place-items:center;width:50px;height:54px">${MEDAILLE.replace('class="ico"', 'class="ico" style="width:44px;height:50px;filter:drop-shadow(3px 4px 0 rgba(7,10,11,.7))"')}</div>`],
   lg_allie: () => [62, 62, '<div class="lg-allie"><img src="../../art/cartes/lg_loup.png" alt=""></div>'],
   texte: () => {
     const t = q.get("t") || "", taille = Number(q.get("taille") || 17), l = Number(q.get("l") || 110), h = Number(q.get("h") || 24);

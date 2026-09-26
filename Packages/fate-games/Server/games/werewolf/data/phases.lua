@@ -12,6 +12,8 @@ return {
         night_seer       = 20,
         dawn             = 10,
         hunter_shot      = 15,
+        day_mayor        = 60,    -- election du maire : debat et vote
+        mayor_succession = 15,    -- le maire mort designe son successeur
         day_debate       = 180,   -- reglable dans le salon
         day_vote         = 45,
         execution        = 8,
@@ -28,4 +30,8 @@ return {
 
     -- Le jour, toujours dans cet ordre, puis la nuit suivante.
     jour = { "dawn", "day_debate", "day_vote", "execution" },
+
+    -- Le maire est elu ce jour-la (le jour qui suit la nuit n), avant le debat,
+    -- s'il n'y en a pas encore. Sa voix compte double et departage.
+    maire = { jour = 2 },
 }

@@ -49,6 +49,9 @@ return function()
         return effet("voice_channel", { player = joueur, channel = canal }, joueur)
     end
 
+    -- Le maire du village, public.
+    function E.mayor(joueur) return effet("mayor", { player = joueur }, "all") end
+
     function E.announce(cle, args) return effet("announce", { key = cle, args = args or {} }, "all") end
 
     function E.world_light(phase) return effet("world_light", { phase = phase }, "all") end

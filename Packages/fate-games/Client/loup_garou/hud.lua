@@ -13,6 +13,7 @@
 --   ww:votes    (compte)          { [id de personnage] = voix } du vote en cours
 --   ww:vision   (nom, role)       resultat de la voyante, dans son rappel
 --   ww:amoureux (id, nom)         prive : lie par Cupidon a ce joueur
+--   ww:maire    (id, nom)         le maire du village (medaille au-dessus de lui)
 --   ww:annonce  (texte)           message transitoire
 --   ww:mort     ()                on est mort : plus de designation
 --   ww:fin      ()                fin de partie : tout se range
@@ -57,12 +58,17 @@ return function(config)
         dawn             = { texte = "Aube", icone = "soleil" },
         hunter_shot      = { texte = "Le chasseur tire", icone = "soleil", qui = { hunter = true },
             invite = "lg_tirer", consigne = "Tu es mort : regarde un joueur et appuie sur [E] pour l'emporter avec toi" },
+        day_mayor        = { texte = "Jour · Élection du maire", icone = "soleil", qui = "tous",
+            invite = "lg_elire", consigne = "Regarde un joueur et appuie sur [E] pour l'élire maire" },
+        mayor_succession = { texte = "Le maire désigne son successeur", icone = "soleil", qui = "maire",
+            invite = "lg_nommer", consigne = "Tu étais le maire : regarde un joueur et appuie sur [E] pour lui passer la médaille" },
         day_debate       = { texte = "Jour · Débat", icone = "soleil" },
         day_vote         = { texte = "Jour · Le village vote", icone = "soleil", qui = "tous",
             invite = "lg_voter", consigne = "Regarde un joueur et appuie sur [E] pour voter contre lui" },
         execution        = { texte = "Jour · Exécution", icone = "soleil" },
     }
-    local LARGEUR_INVITE = { lg_designer = 196, lg_voter = 170, lg_proteger = 192, lg_lier = 150, lg_tirer = 158, lg_sonder = 176 }
+    local LARGEUR_INVITE = { lg_designer = 196, lg_voter = 170, lg_proteger = 192, lg_lier = 150, lg_tirer = 158,
+        lg_sonder = 176, lg_elire = 160, lg_nommer = 178 }
 
     -- Reglages du salon, dans l'ordre du panneau : cle, nom, bornes, pas.
     local REGLAGES = {
@@ -80,10 +86,11 @@ return function(config)
     local file = {}
     local function neuf()
         return { role = nil, allies = {}, phase = nil, votes = {}, mort = false, salon = nil,
-            vise = nil, amoureux = nil, ligne = 1, demo = false }
+            vise = nil, amoureux = nil, maire = nil, etait_maire = false, ligne = 1, demo = false }
     end
     local etat = neuf()
     local chat_ouvert = false
+    local Pseudo = Package.Require("ui/pseudo.lua")
 
     local page = WebUI("loup-garou", "file://loup_garou/hud.html",
         WidgetVisibility.VisibleNotHitTestable, true, true)
@@ -105,8 +112,10 @@ return function(config)
     local function peut_designer()
         local ph = etat.phase and PHASES[etat.phase]
         if not (ph and ph.qui) then return false end
-        -- Le chasseur tire une fois mort ; les autres, vivants seulement.
-        if etat.mort and etat.phase ~= "hunter_shot" then return false end
+        -- Le chasseur tire une fois mort, le maire mort nomme son successeur ;
+        -- les autres, vivants seulement.
+        if etat.mort and etat.phase ~= "hunter_shot" and etat.phase ~= "mayor_succession" then return false end
+        if ph.qui == "maire" then return etat.etait_maire end
         return ph.qui == "tous" or ph.qui[etat.role] == true
     end
 
@@ -178,6 +187,24 @@ return function(config)
         appeler("lg:message", ("Cupidon t'a lié à %s : si l'un meurt, l'autre aussi."):format(tostring(nom)), 6)
     end
 
+    local function mon_personnage_id()
+        local player = Client.GetLocalPlayer()
+        local moi = player and player:GetControlledCharacter()
+        return moi and moi:GetID()
+    end
+
+    -- Le maire : medaille au-dessus de lui ; si c'est moi, le rappel le dit.
+    function H.maire(id, _nom)
+        etat.maire = id
+        local moi = id ~= nil and id == mon_personnage_id()
+        if moi then
+            etat.etait_maire = true
+            rappel("Tu es le maire : ta voix compte double")
+        elseif etat.etait_maire and etat.phase == "mayor_succession" then
+            etat.etait_maire = false
+        end
+    end
+
     function H.annonce(texte) appeler("lg:message", texte, 5) end
 
     function H.mort()
@@ -212,7 +239,7 @@ return function(config)
 
     local function dessiner(c, largeur, hauteur)
         etat.vise = nil
-        if not etat.phase and not next(etat.allies) and not etat.amoureux then return end
+        if not etat.phase and not next(etat.allies) and not etat.amoureux and not etat.maire then return end
         local player = Client.GetLocalPlayer()
         if not player then return end
         local moi = player:GetControlledCharacter()
@@ -255,21 +282,31 @@ return function(config)
                 sprite(c, ("voix_%d%s"):format(math.min(12, n), n == max and "_tete" or ""), e.x, y - 14 * e.s, 96, 56, e.s)
                 y = y - 40 * e.s
             end
-            if etat.allies[id] or etat.amoureux == id then
-                local x = e.x
-                if etat.allies[id] and etat.amoureux == id then
-                    sprite(c, "lg_allie", x - 28 * e.s, y - 24 * e.s, 62, 62, e.s)
-                    sprite(c, "lg_coeur", x + 28 * e.s, y - 22 * e.s, 56, 52, e.s)
-                elseif etat.allies[id] then
-                    sprite(c, "lg_allie", x, y - 24 * e.s, 62, 62, e.s)
-                else
-                    sprite(c, "lg_coeur", x, y - 22 * e.s, 56, 52, e.s)
+            -- Les marques cote a cote : loup allie, amoureux, maire.
+            local marques = {}
+            if etat.allies[id] then marques[#marques + 1] = { "lg_allie", 62, 62 } end
+            if etat.amoureux == id then marques[#marques + 1] = { "lg_coeur", 56, 52 } end
+            if etat.maire == id then marques[#marques + 1] = { "lg_maire", 56, 60 } end
+            if #marques > 0 then
+                local pas = 56 * e.s
+                local x0 = e.x - pas * (#marques - 1) / 2
+                for k, mq in ipairs(marques) do
+                    sprite(c, mq[1], x0 + (k - 1) * pas, y - 26 * e.s, mq[2], mq[3], e.s)
                 end
-                y = y - 50 * e.s
+                y = y - 54 * e.s
             end
             if id == vise_id and ph and ph.invite then
                 sprite(c, ph.invite, e.x, y - 22 * e.s, LARGEUR_INVITE[ph.invite] or 190, 62, e.s)
             end
+        end
+
+        -- Mes voix : mon compteur est au-dessus de ma tete, hors de ma vue. On
+        -- le pose sous le bandeau de phase, cerne de rouge si je suis en tete.
+        local n = mon_id and etat.votes[mon_id]
+        if n and n > 0 then
+            local x, y = largeur / 2 - 44, 138
+            sprite(c, ("voix_%d%s"):format(math.min(12, n), n == max and "_tete" or ""), x, y, 96, 56, 1)
+            Pseudo.Dessiner(c, etat.phase == "day_mayor" and "pour toi" or "contre toi", x + 104, y + 14, 1)
         end
     end
 
@@ -394,6 +431,18 @@ return function(config)
             if not etat.role then devenir("villager") end
             if v[1] then H.amoureux(v[1]:GetID(), nom_de(v[1], 1)) end
         end,
+        maire = function()
+            local v = voisins()
+            H.salon(nil)
+            if not etat.role then devenir("villager") end
+            H.phase("day_mayor", 60)
+            local compte = {}
+            local mon = mon_personnage_id()
+            if mon then compte[mon] = 2 end
+            if v[1] then compte[v[1]:GetID()] = 1 end
+            H.votes(compte)
+            if v[1] then H.maire(v[1]:GetID(), nom_de(v[1], 1)) end
+        end,
         chasseur = function()
             H.salon(nil); devenir("hunter"); H.mort(); H.phase("hunter_shot", 15)
         end,
@@ -420,7 +469,7 @@ return function(config)
             f(mots[4])
         else
             Chat.AddMessage("/lg demo salon | role [loup|loup_blanc|voyante|chasseur|gardien|cupidon|villageois]")
-            Chat.AddMessage("/lg demo nuit | gardien | cupidon | voyante | chasseur | amoureux | jour | stop")
+            Chat.AddMessage("/lg demo nuit | gardien | cupidon | voyante | chasseur | amoureux | maire | jour | stop")
         end
         return false
     end)

@@ -262,7 +262,7 @@ return function(Log, Characters, Engine, Roles, Match, config)
 
     local QUI = { night_wolves = { wolf = true, white_wolf = true }, night_white_wolf = { white_wolf = true },
         night_guard = { guard = true }, night_seer = { seer = true }, night_cupid = { cupid = true },
-        day_vote = "tous", hunter_shot = { hunter = true } }
+        day_vote = "tous", day_mayor = "tous", hunter_shot = { hunter = true }, mayor_succession = "maire" }
 
     local function faire_jouer_bots(phase)
         local qui = QUI[phase]
@@ -270,8 +270,8 @@ return function(Log, Characters, Engine, Roles, Match, config)
         for id in pairs(bots) do
             local role = Match.role(s.match, id)
             local vivant = Match.vivant(s.match, id)
-            local actif = (qui == "tous" and vivant) or (type(qui) == "table" and qui[role]
-                and (vivant or (phase == "hunter_shot" and s.tireur == id)))
+            local actif = (qui == "tous" and vivant) or (qui == "maire" and s.ancien_maire == id)
+                or (type(qui) == "table" and qui[role] and (vivant or (phase == "hunter_shot" and s.tireur == id)))
             if actif then
                 for coup = 1, phase == "night_cupid" and 2 or 1 do
                     Timer.SetTimeout(function()
@@ -313,6 +313,8 @@ return function(Log, Characters, Engine, Roles, Match, config)
         egalite = function() return "Égalité : le village ne tranche pas." end,
         chasseur = function(a) return ("%s tire en mourant et emporte %s."):format(nom(a.tireur), nom(a.joueur)) end,
         depart = function(a) return nom(a.joueur) .. " a quitté la partie." end,
+        maire = function(a) return nom(a.joueur) .. " est élu maire : sa voix compte double." end,
+        successeur = function(a) return nom(a.joueur) .. " devient maire." end,
     }
 
     local TRADUIRE = {}
@@ -342,6 +344,7 @@ return function(Log, Characters, Engine, Roles, Match, config)
         if c and c:IsValid() then c:SetValue("ww_mort", true, true) end
     end
     TRADUIRE.voice_channel = function(e) regler_voix(e.player, e.channel) end
+    TRADUIRE.mayor = function(e) diffuser("ww:maire", id_personnage(e.player), nom(e.player)) end
     TRADUIRE.announce = function(e)
         local f = ANNONCES[e.key]
         if f then diffuser("ww:annonce", f(e.args)) end

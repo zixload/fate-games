@@ -238,6 +238,12 @@ du moteur entre parenthèses ; chacun est une entrée du registre des rôles plu
 | Voyante (`seer`) | `night_seer`, ordre 20 | inchangé. |
 | Chasseur (`hunter`) | `hunter_shot`, empilée par son `on_death` | en mourant, désigne un joueur qui meurt avec lui (la pile de phases, prévue plus haut). |
 
+**Le maire.** Élu par le village le jour 2 (`Phases.maire.jour`), dans une phase `day_mayor`
+avant le débat : chacun désigne un candidat, égalité tirée au sort, et sans vote un vivant au
+hasard. Sa voix compte double au vote du jour et départage une égalité. S'il meurt, la phase
+`mayor_succession` est empilée comme le tir du chasseur : il désigne son successeur, ou un vivant
+au hasard. Effet public `mayor(player)`, traduit en `ww:maire` (médaille au-dessus de sa tête).
+
 Victoire, en plus des règles existantes : le **loup blanc** gagne seul s'il reste le dernier vivant ;
 deux **amoureux** de camps opposés gagnent ensemble s'ils sont les deux derniers vivants.
 
