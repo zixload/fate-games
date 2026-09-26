@@ -6,8 +6,8 @@
 -- Corps a corps :
 --   clic gauche          attaque legere, dans la direction du dernier geste de souris
 --   clic molette ou F    attaque lourde
---   clic droit (tenu)    garde ; un geste de souris la change de cote, la camera
---                        se cale sur l'ennemi le plus proche
+--   clic droit (tenu)    garde ; un geste de souris la change de cote (la camera
+--                        reste fixe tant qu'on tient)
 --   Q                    feinte (pendant l'armement)
 --   V                    bousculade (ne blesse pas, traverse la garde)
 --   Alt gauche           esquive (direction : Z Q S D ou W A S D tenues)
@@ -41,7 +41,6 @@ return function()
     local chat_ouvert = false
     local direction, inverser = "droite", false
     local en_garde, bande = false, false
-    local verrou = nil          -- l'ennemi que la camera suit en garde
     local mouvements = {}
     local attaques, gardes, a_terre, camps = {}, {}, {}, {}
     local nombres, traits, projectiles = {}, {}, {}
@@ -257,9 +256,10 @@ return function()
                 if en_garde then envoyer("pvp:garde", d) end
             end
         end
-        -- En garde, la souris choisit le cote : la camera, elle, suit l'ennemi
-        -- (s'il y en a un a portee ; sinon on garde la main sur la camera).
-        if en_garde and verrou then return false end
+        -- En garde, la souris ne fait que choisir le cote : la camera reste fixe
+        -- (la recaler sur l'ennemi a chaque image la faisait partir dans tous
+        -- les sens). On relache le clic droit pour regarder ailleurs.
+        if en_garde then return false end
     end)
 
     local function ennemi_proche(portee, cone)
@@ -406,19 +406,6 @@ return function()
             end
         end
         -- En garde : la camera se cale sur l'ennemi le plus proche.
-        verrou = nil
-        if actif and en_garde then
-            local e = ennemi_proche(1500, 0.2)
-            verrou = e
-            local p = Client.GetLocalPlayer()
-            if e and p then
-                local cam = p:GetCameraLocation()
-                local voulu = (e:GetLocation() + Vector(0, 0, 40) - cam):ToOrientationRotator()
-                local r = p:GetCameraRotation()
-                local dyaw = ((voulu.Yaw - r.Yaw + 180) % 360) - 180
-                p:SetCameraRotation(Rotator(r.Pitch + (voulu.Pitch - r.Pitch) * 0.25, r.Yaw + dyaw * 0.25, 0))
-            end
-        end
     end)
 
     ---------------------------------------------------------------- canvas

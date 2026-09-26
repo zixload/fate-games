@@ -189,7 +189,7 @@ Commandes en combat :
 | --- | --- | --- | --- |
 | clic gauche | attaque légère | tenir pour bander, relâcher | tir (natif) |
 | clic molette ou F | attaque lourde | | |
-| clic droit tenu | garde ; la souris choisit le côté, la caméra suit l'ennemi | | visée (native) |
+| clic droit tenu | garde ; la souris choisit le côté (la caméra reste fixe tant qu'on tient) | | visée (native) |
 | Q | feinte pendant l'armement | | |
 | V | bousculade (traverse la garde, sans dégâts) | | |
 | Alt gauche | esquive (direction : touches tenues) | esquive | esquive |
