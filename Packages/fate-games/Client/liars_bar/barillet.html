@@ -49,7 +49,7 @@
         .sk-svg .trait2 { fill: none; stroke: var(--encre); stroke-width: 1.4px; opacity: .4; }
 
         /* Menteur : au-dessus du barillet du joueur precedent, quand on le regarde. */
-        .liar { display: none; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; margin-bottom: 6px;
+        .liar { display: none; align-items: center; gap: 6px; padding: 6px 12px 6px 8px; margin-bottom: 6px;
             font: 18px "Lilita One", sans-serif; color: var(--encre); white-space: nowrap; }
         .marker.menteur .liar { display: flex; }
         .liar svg { width: 38px; height: 30px; overflow: visible; }
@@ -190,11 +190,11 @@
                     markers.delete(id);
                 }
             }
-            // Le cadre de "Menteur !" ne se tracait pas toujours au moment ou
-            // il apparait : on retrace tant qu'un cadre visible n'a pas le sien.
-            const sansCadre = [...layer.querySelectorAll(".marker.menteur .liar")]
-                .some((el) => !el.querySelector(":scope > .sk-svg"));
-            if (retracer || sansCadre) {
+            // Le cadre de "Menteur !" se tracait parfois avant que le texte ait
+            // sa largeur (police pas encore chargee) et restait trop petit. Tant
+            // qu'il est visible, on repasse : habiller() ne retrace que si la
+            // taille a change.
+            if (retracer || layer.querySelector(".marker.menteur")) {
                 requestAnimationFrame(habiller);
             }
         }
