@@ -23,5 +23,6 @@ compléter quand elle n'est pas connue : elle sert aux crédits du jeu.
 | `lg_role.ogg` | `dragon-studio-spooky-chimes-359878.mp3` | Pixabay (Dragon Studio), licence Pixabay |
 | `lg_potion.ogg` | `freesound_community-085594_potion-35983.mp3` | Pixabay (freesound community), licence Pixabay |
 | `lg_gardien.ogg` | `impactMetal_heavy_002.ogg` | Kenney, Impact Sounds, CC0 |
+| `lg_cupidon` | `dennish18-arrow-body-impact-146419.mp3` | Pixabay (dennish18), licence Pixabay |
 
 Vérifier la licence Mixkit pour un jeu diffusé avant une sortie publique.

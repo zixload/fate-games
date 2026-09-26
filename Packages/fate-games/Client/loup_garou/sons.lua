@@ -66,6 +66,9 @@ return function(config)
     local NUIT = { night_cupid = true, night_guard = true, night_wolves = true, night_white_wolf = true,
         night_witch = true, night_seer = true }
     local VOTES = { day_debate = true, day_vote = true, day_mayor = true, night_wolves = true }
+    -- Au debut du tour d'un role, tout le monde l'entend : on sait qui joue.
+    local SONS_DE_ROLE = { night_cupid = "lg_cupidon", night_guard = "lg_gardien", night_witch = "lg_potion",
+        night_seer = "lg_voyante" }
 
     Events.SubscribeRemote("ww:role", function(role)
         etat.role = role
@@ -82,7 +85,13 @@ return function(config)
         end
 
         if NUIT[id] then
-            if not NUIT[avant or ""] then jouer("lg_hurlement") end
+            local premiere = not NUIT[avant or ""]
+            if premiere then jouer("lg_hurlement") end
+            if SONS_DE_ROLE[id] then
+                -- Apres le hurlement de la tombee de la nuit, pas par-dessus.
+                local nom = SONS_DE_ROLE[id]
+                Timer.SetTimeout(function() if etat.phase == id then jouer(nom) end end, premiere and 2500 or 300)
+            end
             mettre_ambiance("lg_nuit")
             if id == "night_wolves" and (etat.role == "wolf" or etat.role == "white_wolf") then jouer("lg_loups", 0.5) end
         elseif id == "dawn" then
@@ -107,7 +116,13 @@ return function(config)
         jouer("lg_tictac", 0.5)
     end)
 
-    -- Un vote tombe ; contre moi, ca se sent ; en tete, le coeur bat.
+    -- Chaque vote s'entend, meme un changement d'avis ; contre moi, autre son.
+    Events.SubscribeRemote("ww:pointe", function(_, cible)
+        if not cible then return end
+        if cible == mon_id() then jouer("lg_vote_contre_toi") else jouer("lg_vote", 0.45) end
+    end)
+
+    -- En tete des votes contre moi : le coeur bat.
     Events.SubscribeRemote("ww:votes", function(compte)
         local moi = mon_id()
         local sur_moi, total, max = 0, 0, 0
@@ -116,25 +131,14 @@ return function(config)
             if n > max then max = n end
             if cid == moi then sur_moi = n end
         end
-        if sur_moi > etat.votes_sur_moi then
-            jouer("lg_vote_contre_toi")
-        elseif total ~= etat.total_votes then
-            jouer("lg_vote", 0.45)
-        end
         etat.votes_sur_moi, etat.total_votes = sur_moi, total
         battre(sur_moi > 0 and sur_moi == max and etat.phase ~= "day_mayor")
     end)
 
-    Events.SubscribeRemote("ww:vision", function() jouer("lg_voyante") end)
-    Events.SubscribeRemote("ww:potions", function(vie, mort)
-        -- Au debut de sa phase la sorciere recoit ses potions ; ensuite, chaque
-        -- potion utilisee en renvoie l'etat : c'est la qu'on l'entend.
-        if etat.potions and (etat.potions.vie ~= vie or etat.potions.mort ~= mort) then jouer("lg_potion") end
-        etat.potions = { vie = vie, mort = mort }
-    end)
-    Events.SubscribeRemote("ww:action", function(phase)
-        if phase == "night_guard" then jouer("lg_gardien") end
-    end)
+    -- Cupidon vient de me lier a quelqu'un.
+    Events.SubscribeRemote("ww:amoureux", function() jouer("lg_cupidon") end)
+    -- Un son demande par le serveur (le coup de feu du chasseur...).
+    Events.SubscribeRemote("ww:son", function(nom) if type(nom) == "string" then jouer(nom) end end)
     Events.SubscribeRemote("ww:maire", function() jouer("lg_maire") end)
 
     -- Une carte se retourne : quelqu'un vient de mourir.
@@ -190,7 +194,7 @@ return function(config)
 
     -- /lg son tout : chaque son du loup-garou, un toutes les 4 secondes.
     local function tout_jouer()
-        local fichiers = { "lg_cloche", "lg_coeur", "lg_gardien", "lg_hurlement", "lg_jour", "lg_loups",
+        local fichiers = { "lg_cloche", "lg_coeur", "lg_cupidon", "lg_gardien", "lg_hurlement", "lg_jour", "lg_loups",
             "lg_maire", "lg_mort", "lg_nuit", "lg_potion", "lg_role", "lg_tictac", "lg_victoire", "lg_vote",
             "lg_vote_contre_toi", "lg_voyante" }
         noter("son tout : " .. #fichiers .. " fichiers")
