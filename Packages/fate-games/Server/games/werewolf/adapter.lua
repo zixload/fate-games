@@ -4,8 +4,8 @@
 -- test. La logique du jeu n'est pas ici.
 --
 -- En attendant la cloche du decor : /lg entrer, /lg sortir, /lg bots N (dev).
--- Hors de cette version : canaux de voix, lumiere du jour et de la nuit, bras
--- tendus, corps au sol, ecriture du resultat en base (effets recus, ignores).
+-- Hors de cette version : lumiere du jour et de la nuit, bras tendus, corps au
+-- sol, ecriture du resultat en base (effets recus, ignores).
 
 return function(Log, Characters, Engine, Roles, Match, config)
     local A = {}
@@ -18,6 +18,54 @@ return function(Log, Characters, Engine, Roles, Match, config)
     local GAGNANTS = { village = "Le village gagne !", wolves = "Les loups-garous gagnent !",
         white_wolf = "Le loup blanc gagne seul !", lovers = "Les amoureux gagnent !",
         none = "Partie terminée sans vainqueur." }
+
+    ---------------------------------------------------------------- voix
+
+    -- La voix d'une partie passe par trois canaux globaux (doc Player :
+    -- SetVOIPGlobalChannelSetting, 1 a 63) ; la voix de proximite est coupee
+    -- pendant la partie. Un reglage par situation (effet voice_channel) :
+    --   sleep    la nuit, qui n'est pas loup : ni parler ni entendre
+    --   wolves   la nuit, les loups entre eux
+    --   village  le jour, tout le monde, a volume egal quelle que soit la distance
+    --   dead     les morts entre eux ; ils ecoutent les vivants sans leur parler
+    --   normal   hors partie : la proximite, comme partout sur la map
+    local CANAUX = config.canaux or { village = 10, wolves = 11, dead = 12 }
+    local N, E, D = VOIPSetting.None, VOIPSetting.ListenOnly, VOIPSetting.Both
+    local VOIX = {
+        sleep   = { locale = N, village = N, wolves = N, dead = N },
+        wolves  = { locale = N, village = N, wolves = D, dead = N },
+        village = { locale = N, village = D, wolves = N, dead = N },
+        dead    = { locale = N, village = E, wolves = E, dead = D },
+        normal  = { locale = D, village = N, wolves = N, dead = N },
+    }
+    local MESSAGES_VOIX = {
+        sleep  = "Tu dors : personne ne t'entend.",
+        wolves = "Seuls les loups t'entendent.",
+        dead   = "Seuls les morts t'entendent. Tu écoutes encore les vivants.",
+    }
+    local voix_actuelle = {}   -- id -> situation
+
+    local function regler_voix(id, situation)
+        if not id or id < 0 then return end   -- les bots n'ont pas de voix
+        local p
+        for _, pl in pairs(Player.GetPairs()) do
+            if pl:IsValid() and pl:GetID() == id then p = pl break end
+        end
+        local v = VOIX[situation]
+        if not (p and v) then return end
+        local ok, err = pcall(function()
+            p:SetVOIPLocalSetting(v.locale)
+            for canal, numero in pairs(CANAUX) do p:SetVOIPGlobalChannelSetting(numero, v[canal]) end
+            if config.volume then p:SetVOIPGlobalVolume(config.volume) end
+        end)
+        if not ok then Log.Warn("werewolf", "voix : " .. tostring(err)) return end
+        if voix_actuelle[id] ~= situation then
+            voix_actuelle[id] = situation
+            if MESSAGES_VOIX[situation] then
+                Events.CallRemote("ww:annonce", p, Reliability.Reliable, MESSAGES_VOIX[situation])
+            end
+        end
+    end
 
     local s = Engine.nouveau()
     local salon = { ordre = {}, pret = {}, createur = nil, max = 10, debat = 180,
@@ -143,6 +191,8 @@ return function(Log, Characters, Engine, Roles, Match, config)
         local id = player:GetID()
         if not membre(id) then return end
         if s.statut == "partie" then A.Appliquer(Engine.depart(s, id)) end
+        regler_voix(id, "normal")
+        voix_actuelle[id] = nil
         retirer(id)
         envoyer(id, "ww:fin")
         envoyer_salon()
@@ -291,6 +341,7 @@ return function(Log, Characters, Engine, Roles, Match, config)
         local c = personnage(e.player)
         if c and c:IsValid() then c:SetValue("ww_mort", true, true) end
     end
+    TRADUIRE.voice_channel = function(e) regler_voix(e.player, e.channel) end
     TRADUIRE.announce = function(e)
         local f = ANNONCES[e.key]
         if f then diffuser("ww:annonce", f(e.args)) end
@@ -301,6 +352,8 @@ return function(Log, Characters, Engine, Roles, Match, config)
         Log.Info("werewolf", "partie terminee : " .. tostring(e.winner))
         Timer.SetTimeout(function()
             diffuser("ww:fin")
+            for _, id in ipairs(salon.ordre) do regler_voix(id, "normal") end
+            voix_actuelle = {}
             for _, id in ipairs(salon.ordre) do
                 local c = personnage(id)
                 if c and c:IsValid() then c:SetValue("ww_mort", false, true) end
@@ -334,6 +387,7 @@ return function(Log, Characters, Engine, Roles, Match, config)
 
     function A.OnPlayerLeave(player)
         local id = player:GetID()
+        voix_actuelle[id] = nil
         if not membre(id) then return end
         if s.statut == "partie" then A.Appliquer(Engine.depart(s, id)) end
         retirer(id)

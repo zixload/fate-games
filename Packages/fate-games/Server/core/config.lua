@@ -73,6 +73,9 @@ return {
         -- mal (26/09).
         max_distance = 2500,
         volume = 2.0,   -- multiplicateur (1 = volume d'origine), trop bas a 1
+        -- Canaux globaux du loup-garou (1 a 63) : village le jour, loups la
+        -- nuit, morts (games/werewolf/adapter.lua).
+        canaux_loup_garou = { village = 10, wolves = 11, dead = 12 },
     },
 
     dev = {
