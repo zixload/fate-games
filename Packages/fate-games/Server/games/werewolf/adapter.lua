@@ -21,7 +21,10 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     local A = {}
     config = config or {}
     local TICK = config.tick or 0.25
-    local RAYON = config.rayon or 212     -- cercle des places (docs/WEREWOLF-ASSETS-IMPORT.md)
+    -- Cercle des places (cm) et echelle du tapis : double de l'implantation de
+    -- reference (212 cm, tapis de 5,5 m), trop serree en jeu (26/09).
+    local RAYON = config.rayon or 424
+    local ECHELLE_TAPIS = config.echelle_tapis or 2
 
     local NOMS_ROLES = { wolf = "Loup-Garou", white_wolf = "Loup Blanc", villager = "Villageois",
         seer = "Voyante", hunter = "Chasseur", guard = "Gardien", cupid = "Cupidon", witch = "Sorcière" }
@@ -187,8 +190,9 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         local c = decor.centre
         if not c then return end
         local ok, err = pcall(function()
-            decor.objets[#decor.objets + 1] = StaticMesh(Vector(c.x, c.y, c.sol), Rotator(0, c.yaw or 0, 0),
-                TAPIS, CollisionType.NoCollision)
+            local tapis = StaticMesh(Vector(c.x, c.y, c.sol), Rotator(0, c.yaw or 0, 0), TAPIS, CollisionType.NoCollision)
+            tapis:SetScale(Vector(ECHELLE_TAPIS, ECHELLE_TAPIS, 1))
+            decor.objets[#decor.objets + 1] = tapis
             local n = Roles.MAX_JOUEURS
             for i = 1, n do
                 local angle = (c.yaw or 0) + 360 * (i - 1) / n
