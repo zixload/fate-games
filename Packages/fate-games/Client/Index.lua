@@ -72,6 +72,12 @@ local ok_tags, err_tags = pcall(function()
 end)
 if not ok_tags then Console.Error("[etiquettes] chargement impossible : " .. tostring(err_tags)) end
 
+-- Mourir se sent : flash, secousse, camera qui bascule, voile.
+local ok_mort, err_mort = pcall(function()
+    Package.Require("liars_bar/mort.lua")(liars_journal, SharedConfig.liars_hud.mort)
+end)
+if not ok_mort then Console.Error("[mort] chargement impossible : " .. tostring(err_mort)) end
+
 -- Le revolver de celui qui doit tirer, en surbrillance chez tous.
 local ok_surb, err_surb = pcall(function()
     Package.Require("liars_bar/surbrillance.lua")(SharedConfig.liars_hud.surbrillance)

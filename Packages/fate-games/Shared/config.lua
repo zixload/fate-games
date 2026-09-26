@@ -91,6 +91,14 @@ return {
         -- Revolver de celui qui doit tirer (liars_bar/surbrillance.lua) :
         -- couleur laiton, intensite (x5 et plus : ca brille, doc Client), slot.
         surbrillance = { couleur = { r = 1.0, g = 0.72, b = 0.25 }, intensite = 3, index = 1 },
+        -- Coup fatal (liars_bar/mort.lua) : secousse (s, degres), bascule de la
+        -- camera vers la gauche (s, degres ; roulis negatif : penche a gauche),
+        -- voile noir tenu jusqu'a la fin de la partie (0 a 1).
+        mort = {
+            secousse = { duree = 0.45, amplitude = 7 },
+            bascule = { duree = 0.9, tangage = -22, lacet = -18, roulis = -28 },
+            voile = 0.35,
+        },
     },
 
     -- Sons de Liar's Bar (Client/liars_bar/sons.lua), fichiers de
