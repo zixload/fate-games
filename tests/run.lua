@@ -69,6 +69,7 @@ local suites = {
     "intents",
     "accounts",
     "boutique",
+    "duel_logic",
     "characters",
     "interactables",
     "liars_deck",

@@ -161,6 +161,56 @@ return function(H, Stubs)
         end)
     end)
 
+    H.describe("domain/boutique (mises)", function()
+        local A, B = { id = 7 }, { id = 8 }
+
+        local function deux_comptes(c, Boutique, solde_a, solde_b)
+            c.answer("FROM possessions", {})
+            c.answer("FROM equipement", {})
+            c.answer("FROM ledger", { { credits = solde_a, debits = 0, accueil = 1 } })
+            local ea; Boutique.Charger(A, function(e) ea = e end)
+            c.db.answers[#c.db.answers] = nil
+            c.answer("FROM ledger", { { credits = solde_b, debits = 0, accueil = 1 } })
+            local eb; Boutique.Charger(B, function(e) eb = e end)
+            return ea, eb
+        end
+
+        H.it("preleve la mise de chacun vers le sequestre", function()
+            local c = Stubs.reset()
+            local Boutique = build(c)
+            local ea, eb = deux_comptes(c, Boutique, 300, 200)
+            local ok
+            Boutique.Miser({ A, B }, 100, "duel:1", nil, function(r) ok = r end)
+            H.assert_true(ok, "mise acceptee")
+            H.assert_eq(ea.solde, 200, "A debite")
+            H.assert_eq(eb.solde, 100, "B debite")
+            H.assert_eq(ecrits(c, "INSERT INTO ledger"), 2, "deux mouvements")
+            H.assert_eq(c.db.executed[#c.db.executed].params[3], "sequestre:duel:1", "vers le sequestre")
+        end)
+
+        H.it("refuse sans rien prelever si un joueur est trop pauvre", function()
+            local c = Stubs.reset()
+            local Boutique = build(c)
+            local ea = deux_comptes(c, Boutique, 300, 20)
+            local ok, raison, fauches
+            Boutique.Miser({ A, B }, 50, "duel:2", nil, function(r, why, f) ok, raison, fauches = r, why, f end)
+            H.assert_false(ok, "refuse")
+            H.assert_eq(raison, "solde", "raison")
+            H.assert_eq(fauches[1].id, 8, "B signale")
+            H.assert_eq(ea.solde, 300, "A intact")
+            H.assert_eq(ecrits(c, "INSERT INTO ledger"), 0, "aucun mouvement")
+        end)
+
+        H.it("solde : cagnotte aux gagnants, reste au premier, bonus a tous", function()
+            local c = Stubs.reset()
+            local Boutique = build(c)
+            local ea, eb = deux_comptes(c, Boutique, 0, 0)
+            Boutique.Solder("duel:3", { A, B }, { A, B }, 101, 10, nil)
+            H.assert_eq(ea.solde, 51 + 10, "A : moitie + reste + bonus")
+            H.assert_eq(eb.solde, 50 + 10, "B : moitie + bonus")
+        end)
+    end)
+
     H.describe("Shared/catalogue", function()
         H.it("chaque perso du catalogue existe dans les apparences", function()
             local Appearances = Package.Require("Shared/appearances.lua")

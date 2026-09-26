@@ -40,6 +40,12 @@ local LiarsEngine = Package.Require("games/liars_bar/engine.lua")(
 
 local LiarsBots = Package.Require("games/liars_bar/bots.lua")(LiarsConfig)
 
+-- Duel : regles pures (logic.lua) et branchement au monde (adapter.lua).
+local DuelConfig = Package.Require("games/duel/data/config.lua")
+local DuelLogic  = Package.Require("games/duel/logic.lua")(DuelConfig)
+local DuelJeu    = Package.Require("games/duel/adapter.lua")(
+    Log, Characters, Boutique, Catalogue, DuelLogic, DuelConfig)
+
 local LiarsBar = Package.Require("games/liars_bar/adapter.lua")(
     Log, DB, Ids, Characters, Interactables, Intents,
     LiarsEngine, LiarsBots, Appearances, LiarsConfig, ServerConfig.spawn)
@@ -70,6 +76,21 @@ DB.EndStartup()
 Scheduler.Start()
 
 LiarsBar.Init()
+DuelJeu.Init()
+
+-- Poser l'arene du duel sous ses pieds : "/arene [rayon]", en mode dev.
+if ServerConfig.dev and ServerConfig.dev.liars_bots then
+    Chat.Subscribe("PlayerSubmit", function(message, player)
+        local texte = tostring(message)
+        if not texte:match("^/arene") then return end
+        local rayon = tonumber(texte:match("^/arene%s+(%d+)"))
+        local ligne, err = DuelJeu.PoserArene(player, rayon)
+        Chat.SendMessage(player, ligne and ("arene posee, a recopier dans games/duel/data/config.lua : " .. ligne)
+            or ("arene : " .. tostring(err)))
+        if ligne then Log.Info("duel", ligne) end
+        return false
+    end)
+end
 
 -- Bots de test : "/bots N" dans le chat, en mode dev seulement. Retourner
 -- false retient le message (doc Chat, PlayerSubmit).
@@ -352,6 +373,10 @@ Player.Subscribe("Destroy", function(player)
     local ok, err = pcall(LiarsBar.OnPlayerLeave, player)
     if not ok then
         Log.Error("liars", "OnPlayerLeave a leve : " .. tostring(err))
+    end
+    local ok_duel, err_duel = pcall(DuelJeu.OnPlayerLeave, player)
+    if not ok_duel then
+        Log.Error("duel", "OnPlayerLeave a leve : " .. tostring(err_duel))
     end
 
     local session = Characters.SessionByPlayer(player:GetID())

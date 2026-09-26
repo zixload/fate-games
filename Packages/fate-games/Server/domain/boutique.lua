@@ -81,6 +81,87 @@ return function(Log, DB, Ids, Catalogue, config)
         end)
     end
 
+    ------------------------------------------------------------ mises des modes
+    -- La mise d'une partie part dans "sequestre:<partie>" au lancement, puis
+    -- revient aux gagnants a la fin (docs/DUEL-ET-ARGENT.md).
+
+    local function sequestre(partie)
+        return "sequestre:" .. tostring(partie)
+    end
+
+    -- Vrai si chaque compte est charge et peut payer `montant`. Sinon, la liste
+    -- des comptes qui ne le peuvent pas.
+    function Boutique.PeuventMiser(accounts, montant)
+        local fauches = {}
+        for _, account in ipairs(accounts) do
+            local etat = etats[account.id]
+            if not etat or etat.solde < montant then fauches[#fauches + 1] = account end
+        end
+        return #fauches == 0, fauches
+    end
+
+    -- Preleve la mise de chacun. Si un prelevement echoue, ceux deja faits sont
+    -- rendus : tout ou rien. callback(ok, raison)
+    function Boutique.Miser(accounts, montant, partie, cid, callback)
+        if montant <= 0 then return callback(true) end
+        local ok, fauches = Boutique.PeuventMiser(accounts, montant)
+        if not ok then return callback(false, "solde", fauches) end
+
+        local faits = {}
+        local function suivant(i)
+            local account = accounts[i]
+            if not account then return callback(true) end
+            mouvement(compte(account), sequestre(partie), montant, "mise", cid, function(reussi)
+                if not reussi then
+                    local function rendre(j)
+                        local a = faits[j]
+                        if not a then return callback(false, "base") end
+                        mouvement(sequestre(partie), compte(a), montant, "mise_rendue", cid, function(rendu)
+                            if rendu and etats[a.id] then etats[a.id].solde = etats[a.id].solde + montant end
+                            rendre(j + 1)
+                        end)
+                    end
+                    return rendre(1)
+                end
+                if etats[account.id] then etats[account.id].solde = etats[account.id].solde - montant end
+                faits[#faits + 1] = account
+                suivant(i + 1)
+            end)
+        end
+        suivant(1)
+    end
+
+    -- Verse la cagnotte aux gagnants (le reste de la division au premier), puis
+    -- le bonus de participation a chacun. callback()
+    function Boutique.Solder(partie, participants, gagnants, cagnotte, bonus, cid, callback)
+        callback = callback or function() end
+        local versements = {}
+        if cagnotte > 0 and #gagnants > 0 then
+            local part = math.floor(cagnotte / #gagnants)
+            local reste = cagnotte - part * #gagnants
+            for i, account in ipairs(gagnants) do
+                versements[#versements + 1] = { de = sequestre(partie), a = account,
+                    montant = part + (i == 1 and reste or 0), raison = "gain" }
+            end
+        end
+        if bonus > 0 then
+            for _, account in ipairs(participants) do
+                versements[#versements + 1] = { de = "banque", a = account, montant = bonus, raison = "participation" }
+            end
+        end
+
+        local function suivant(i)
+            local v = versements[i]
+            if not v then return callback() end
+            if v.montant <= 0 then return suivant(i + 1) end
+            mouvement(v.de, compte(v.a), v.montant, v.raison, cid, function(ok)
+                if ok and etats[v.a.id] then etats[v.a.id].solde = etats[v.a.id].solde + v.montant end
+                suivant(i + 1)
+            end)
+        end
+        suivant(1)
+    end
+
     local function lire_possessions(account, etat, callback)
         DB.Select(
             "SELECT rayon, article FROM possessions WHERE account_id = :0",
