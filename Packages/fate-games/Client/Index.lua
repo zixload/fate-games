@@ -78,6 +78,7 @@ local ok_lg, err_lg = pcall(function()
     Package.Require("loup_garou/cartes.lua")(SharedConfig.loup_garou and SharedConfig.loup_garou.cartes)
     Package.Require("loup_garou/sons.lua")(SharedConfig.loup_garou and SharedConfig.loup_garou.sons)
     Package.Require("loup_garou/ciel.lua")()
+    Package.Require("loup_garou/morts.lua")()
 end)
 if not ok_lg then Console.Error("[loup-garou] chargement impossible : " .. tostring(err_lg)) end
 
