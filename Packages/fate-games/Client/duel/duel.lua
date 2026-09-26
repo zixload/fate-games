@@ -84,22 +84,45 @@ return function(SharedConfig)
         Timer.SetTimeout(function() if m:IsValid() then m:Destroy() end end, duree)
     end
 
+    -- Chaque trainee avance comme une balle, du canon au point touche, a
+    -- `vitesse` cm/s ; l'eclat apparait a l'arrivee. Deplacees a chaque image.
+    local balles_en_vol = {}
+
     local function trainee(depart, fin)
         if not (depart and fin) then return end
         pcall(function()
             local dx, dy, dz = fin.X - depart.X, fin.Y - depart.Y, fin.Z - depart.Z
             local n = math.sqrt(dx * dx + dy * dy + dz * dz)
             if n < 1 then return end
-            local ux, uy, uz = dx / n, dy / n, dz / n
-            local rot = Vector(dx, dy, dz):ToOrientationRotator()
             local longueur = math.min(n, tr.longueur or 140)
-            local ecart = math.min(tr.ecart or 60, math.max(0, n - longueur))
-            local c = ecart + longueur / 2
-            morceau(Vector(depart.X + ux * c, depart.Y + uy * c, depart.Z + uz * c), rot,
-                Vector(longueur / 100, tr.epaisseur or 0.006, tr.epaisseur or 0.006), tr.opacite or 0.45, tr.duree_ms or 45)
-            morceau(fin, rot, Vector(0.04, 0.04, 0.04), 0.7, 90)
+            local rot = Vector(dx, dy, dz):ToOrientationRotator()
+            local m = StaticMesh(depart, rot, "nanos-world::SM_Cube", CollisionType.NoCollision)
+            m:SetScale(Vector(longueur / 100, tr.epaisseur or 0.006, tr.epaisseur or 0.006))
+            m:SetCastShadow(false)
+            m:SetMaterial("nanos-world::M_Default_Translucent_Unlit")
+            m:SetMaterialColorParameter("Tint", Color(1.0, 0.88, 0.55))
+            m:SetMaterialScalarParameter("Opacity", tr.opacite or 0.45)
+            balles_en_vol[#balles_en_vol + 1] = { m = m, depart = depart, u = Vector(dx / n, dy / n, dz / n),
+                distance = n, longueur = longueur, parcouru = tr.ecart or 60, fin = fin, rot = rot }
         end)
     end
+
+    Client.Subscribe("Tick", function(delta)
+        for i = #balles_en_vol, 1, -1 do
+            local b = balles_en_vol[i]
+            b.parcouru = b.parcouru + (tr.vitesse or 30000) * delta
+            if b.parcouru >= b.distance or not b.m:IsValid() then
+                if b.m:IsValid() then b.m:Destroy() end
+                pcall(morceau, b.fin, b.rot, Vector(0.04, 0.04, 0.04), 0.7, 90)
+                table.remove(balles_en_vol, i)
+            else
+                -- La queue du trait ne recule jamais derriere le canon.
+                local tete = b.parcouru
+                local centre = math.max(b.longueur / 2, tete - b.longueur / 2)
+                b.m:SetLocation(b.depart + b.u * centre)
+            end
+        end
+    end)
 
     ------------------------------------------------------------ arme en premiere personne
 
@@ -149,8 +172,11 @@ return function(SharedConfig)
 
     Client.Subscribe("Tick", function(delta)
         local perso = mon_perso()
+        -- La valeur "duel" est posee par le serveur a chaque manche et retiree a
+        -- la fin du duel, exactement comme la camera premiere personne : l'arme
+        -- a l'ecran et la tete cachee la suivent, entre les manches comprises.
         local d = perso and perso:IsValid() and perso:GetValue("duel", nil)
-        local combat = type(d) == "table" and d.combat == true and en_combat()
+        local combat = type(d) == "table" and d.combat == true
         if not combat then
             if vue_arme then retirer_vue_arme(); masquer_soi(false) end
         else
