@@ -177,8 +177,11 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         maire  = { anim = "my-asset-pack::ANIM_WW_Seated_Mayor_Cheer", duree = 2.467 },
         mort   = { anim = "my-asset-pack::ANIM_WW_Seated_Death", duree = 2.0 },
     }
-    -- Brume animee autour du cercle, la nuit (Fab FogArea, docs/FOG-AREA-ADK.md).
-    local BRUME = D.brume == nil and "my-asset-pack::BP_FogArea" or D.brume
+    -- Brume autour du cercle, la nuit (Fab FogArea, docs/FOG-AREA-ADK.md) :
+    -- abandonnee le 26/09, le Blueprint cuit ne rend rien en jeu. Coupee par
+    -- defaut ; /lg brume (dev) la pose quand meme pour de futurs essais.
+    local BRUME_NUIT = D.brume_nuit == true
+    local BRUME = D.brume or "my-asset-pack::BP_FogArea
     -- Le Blueprint est une boite sur le cube de 1 m du moteur : a l'echelle
     -- du cercle (14 x 14 m, 3 m de haut), le centre a mi-hauteur.
     local ECHELLE_BRUME = D.echelle_brume or { xy = 14, z = 3 }
@@ -784,7 +787,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         end
         if e.id == "day_debate" or e.id == "dawn" then choix_jour = {} end
         if e.id ~= "night_witch" and not nuit then victime_nuit = nil end
-        brume_nuit(nuit ~= nil)
+        if BRUME_NUIT then brume_nuit(nuit ~= nil) end
         diffuser("ww:phase", e.id, e.duree)
         -- Qui dort, qui se reveille.
         for _, id in ipairs(salon.ordre) do
