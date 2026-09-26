@@ -132,6 +132,14 @@ return function(R, A, S, G)
         return { { kind = "equipe", id = id, arme = arme } }
     end
 
+    -- Mode invincible, pour les essais : les coups comptent, la sante ne baisse pas.
+    function Combat.invincible(w, id, oui)
+        local f = combattant(w, id)
+        if not f then return nil, "inconnu" end
+        f.invincible = oui == true
+        return {}
+    end
+
     function Combat.armure(w, id, armure)
         local f = combattant(w, id)
         if not (f and w.R.armures[armure]) then return nil, "armure_inconnue" end
@@ -220,7 +228,9 @@ return function(R, A, S, G)
             fx[#fx + 1] = { kind = "absorbe", id = f.id, montant = pris, reste = b.reste }
             if montant <= 0 then return end
         end
-        f.sante = math.max(0, f.sante - montant)
+        -- Invincible (essais) : le coup compte pour tout le reste (posture,
+        -- statuts, interruption), mais la sante ne baisse pas.
+        if not f.invincible then f.sante = math.max(0, f.sante - montant) end
         f.dernier_choc = w.t
         fx[#fx + 1] = { kind = "degats", cible = f.id, source = source, montant = montant, zone = zone,
             type = type_, sante = f.sante }
@@ -956,7 +966,7 @@ return function(R, A, S, G)
         return {
             sante = f.sante, sante_max = f.sante_max, endurance = f.endurance, endurance_max = f.endurance_max,
             posture = f.posture, posture_max = f.posture_max, mana = f.mana, mana_max = f.mana_max,
-            etat = f.etat, arme = f.arme, armure = f.armure, munitions = f.munitions,
+            etat = f.etat, arme = f.arme, armure = f.armure, munitions = f.munitions, invincible = f.invincible or nil,
             chargeur = arme and arme.chargeur, recharge = f.recharge_fin and (f.recharge_fin - w.t) or nil,
             garde = f.garde and f.garde.dir or nil, action = f.action and (f.action.phase or f.action.kind) or nil,
             statuts = statuts, recharges = recharges, vitesse = vitesse(w, f),

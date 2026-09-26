@@ -94,7 +94,7 @@ function etat(e, arme) {
   const post = e.posture / e.posture_max;
   document.querySelector("#posture .plein").style.width = `${post * 100}%`;
   $("posture").classList.toggle("danger", post > 0.7);
-  $("nom-arme").textContent = NOMS[e.arme || arme] || "";
+  $("nom-arme").textContent = (NOMS[e.arme || arme] || "") + (e.invincible ? " · invincible" : "");
   $("munitions").innerHTML = e.chargeur ? `${e.munitions}<small> / ${e.chargeur}</small>${e.recharge ? " <small>recharge…</small>" : ""}` : "";
   $("statuts").innerHTML = (e.statuts || []).map((s) => {
     const [nom, genre] = STATUTS[s.nom] || [s.nom, ""];

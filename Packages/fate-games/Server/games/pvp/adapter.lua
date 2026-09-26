@@ -11,7 +11,7 @@
 --
 -- Mode d'essai (dev) : /pvp pour entrer ou sortir, /pvp arme <id>,
 -- /pvp armure <id>, /pvp bot [arme] [niveau], /pvp bots (les retirer),
--- /pvp aterre (a terre au lieu de mourir), /pvp soin.
+-- /pvp aterre (a terre au lieu de mourir), /pvp invincible, /pvp soin.
 
 return function(Log, Characters, Combat, Armes, config)
     config = config or {}
@@ -30,6 +30,8 @@ return function(Log, Characters, Combat, Armes, config)
     local function vec(v) return { x = v.X, y = v.Y, z = v.Z } end
     local function V(t) return Vector(t.x, t.y, t.z) end
     local function dire(player, texte) if player then Chat.SendMessage(player, texte) end end
+
+    local function CombatEtat(cid) return w.combattants[cid] end
 
     local function participant_de(player)
         local cid = player and par_joueur[player:GetID()]
@@ -355,12 +357,16 @@ return function(Log, Characters, Combat, Armes, config)
                 elseif quoi == "aterre" then
                     w.R.a_terre.actif = not w.R.a_terre.actif
                     dire(player, "A terre : " .. (w.R.a_terre.actif and "oui" or "non"))
+                elseif quoi == "invincible" and p then
+                    local f = CombatEtat(p.id)
+                    Combat.invincible(w, p.id, not (f and f.invincible))
+                    dire(player, "Invincible : " .. ((CombatEtat(p.id) or {}).invincible and "oui" or "non"))
                 elseif quoi == "soin" and p then
                     Combat.reinitialiser(w, p.id)
                     p.perso:SetHealth(p.perso:GetMaxHealth())
                     dire(player, "Remis a neuf.")
                 else
-                    dire(player, "/pvp | /pvp arme <id> | /pvp armure <id> | /pvp bot [arme] [facile|normal|difficile] | /pvp bots | /pvp aterre | /pvp soin")
+                    dire(player, "/pvp | /pvp arme <id> | /pvp armure <id> | /pvp bot [arme] [facile|normal|difficile] | /pvp bots | /pvp aterre | /pvp invincible | /pvp soin")
                 end
                 return false
             end)

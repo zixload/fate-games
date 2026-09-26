@@ -180,6 +180,7 @@ Le système tourne en parallèle du duel, qu'il ne touche pas. Serveur redémarr
 | `/pvp bot [arme] [niveau]` | un bot devant soi (facile, normal, difficile) |
 | `/pvp bots` | retirer les bots |
 | `/pvp aterre` | à terre au lieu de mourir (RP) |
+| `/pvp invincible` | les coups comptent (chiffres, posture, statuts) mais la santé ne baisse plus |
 | `/pvp soin` | se remettre à neuf |
 | `/pvp inverser` | inverser le geste vertical de garde |
 
