@@ -104,6 +104,10 @@ return {
         fondu_entree = 4, fondu_sortie = 3,
     },
 
+    -- Petites marches (Client/marche.lua) : hauteur la plus haute montee sans
+    -- sauter (cm), poussee vers l'avant (cm/s), delai entre deux (s).
+    marche = { hauteur_max = 45, poussee = 140, delai = 0.35 },
+
     -- Roue d'emotes (Client/emotes.lua, Server/domain/emotes.lua). touche ouvre
     -- la roue, puis 1, 2 ou 3 : noms de la doc Input en QWERTY, en AZERTY (le
     -- caractere tape) et au pave numerique. anim vide : l'emplacement attend

@@ -39,6 +39,12 @@ Package.Require("course.lua")
 -- Espace pour quitter sa chaise hors partie.
 Package.Require("se_lever.lua")
 
+-- Monter les petites marches sans sauter.
+local ok_marche, err_marche = pcall(function()
+    Package.Require("marche.lua")(SharedConfig.marche)
+end)
+if not ok_marche then Console.Error("[marche] chargement impossible : " .. tostring(err_marche)) end
+
 -- Roue d'emotes : T, puis 1, 2 ou 3.
 local ok_emotes, err_emotes = pcall(function()
     Package.Require("emotes.lua")(SharedConfig.emotes)
