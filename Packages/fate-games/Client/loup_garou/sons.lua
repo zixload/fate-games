@@ -154,6 +154,20 @@ return function(config)
     -- /lg son <nom> [3d] [volume] : jouer un son a la main et afficher dans le
     -- chat ce que le moteur en dit (duree lue, en train de jouer ou non).
     -- 3d : pose le son a la camera au lieu d'un son 2D.
+    -- Le journal du client n'est ecrit qu'a la fermeture (et se perd parfois) :
+    -- le diagnostic va aussi dans Packages/.transient/diag_sons.txt, lisible
+    -- pendant la partie.
+    local journal = nil
+    local function noter(texte)
+        Chat.AddMessage(texte)
+        Console.Log("[loup-garou sons] " .. texte)
+        pcall(function()
+            journal = journal or File("diag_sons.txt", true)
+            journal:Write(os.date("%H:%M:%S") .. " " .. texte .. "\n")
+            journal:Flush()
+        end)
+    end
+
     local function diagnostiquer(nom, en3d, volume)
         local ok, son = pcall(function()
             if en3d then
@@ -163,22 +177,40 @@ return function(config)
             end
             return Sound(Vector(), DOSSIER .. nom .. ".ogg", true, false, SoundType.SFX, volume, 1)
         end)
-        if not ok then return Chat.AddMessage("son " .. nom .. " : erreur " .. tostring(son)) end
+        if not ok then return noter("son " .. nom .. " : erreur " .. tostring(son)) end
         local function etat_son(quand)
-            if not son:IsValid() then return Chat.AddMessage("son " .. nom .. " " .. quand .. " : detruit") end
-            local texte = "son " .. nom .. (en3d and " 3d" or " 2d") .. " vol " .. volume .. " " .. quand
-                .. " : duree " .. tostring(son:GetDuration()) .. " joue " .. tostring(son:IsPlaying())
-            Chat.AddMessage(texte)
-            Console.Log("[loup-garou sons] " .. texte)
+            if not son:IsValid() then return noter("son " .. nom .. " " .. quand .. " : detruit") end
+            noter("son " .. nom .. (en3d and " 3d" or " 2d") .. " vol " .. volume .. " " .. quand
+                .. " : duree " .. tostring(son:GetDuration()) .. " joue " .. tostring(son:IsPlaying()))
         end
         etat_son("0 ms")
         Timer.SetTimeout(function() etat_son("500 ms") end, 500)
         Timer.SetTimeout(function() if son:IsValid() then son:Destroy() end end, 15000)
     end
 
+    -- /lg son tout : chaque fichier du dossier, un toutes les 4 secondes.
+    local function tout_jouer()
+        local fichiers = {}
+        pcall(function()
+            for _, f in ipairs(File.GetFiles("../fate-games/Client/Sounds/loup_garou/", ".ogg") or {}) do
+                local nom = tostring(f):match("([^/\\]+)%.ogg$")
+                if nom then fichiers[#fichiers + 1] = nom end
+            end
+        end)
+        table.sort(fichiers)
+        noter("son tout : " .. #fichiers .. " fichiers")
+        for i, nom in ipairs(fichiers) do
+            Timer.SetTimeout(function() diagnostiquer(nom, false, VOLUMES.sons) end, (i - 1) * 4000)
+        end
+    end
+
     Chat.Subscribe("PlayerSubmit", function(message)
         local nom, reste = tostring(message):match("^/lg son%s+(%S+)%s*(.*)$")
         if not nom then return end
+        if nom == "tout" then
+            tout_jouer()
+            return false
+        end
         local en3d = reste:find("3d") ~= nil
         local volume = tonumber(reste:match("([%d%.]+)%s*$")) or VOLUMES.sons
         diagnostiquer(nom, en3d, volume)
