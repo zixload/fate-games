@@ -72,9 +72,11 @@ return function(config, Journal, send_intent)
         -- sert alors a prendre son revolver (interaction).
         if journal.designated ~= nil then return end
 
-        -- E : accuse le joueur precedent si on le regarde (nametags.lua tient
-        -- journal.vise_menteur), sinon pose les cartes choisies.
-        if key_name == keys.play and journal.vise_menteur then
+        -- E : pose les cartes choisies. Sans carte choisie, accuse le joueur
+        -- precedent si on le regarde (nametags.lua tient journal.vise_menteur).
+        -- Garde-fou : avec une carte choisie, E ne peut jamais accuser, meme
+        -- en regardant le joueur precedent ; l'invite "Menteur !" disparait.
+        if key_name == keys.play and journal.vise_menteur and #journal:Selection() == 0 then
             send_intent("liars_challenge", {})
             return false
         elseif key_name == keys.play then

@@ -95,6 +95,8 @@ return function(journal, config)
     -- de poser. Rend sa chaise.
     local function accusable()
         if not journal:IsMyTurn() or journal.designated ~= nil then return nil end
+        -- Des cartes choisies : E posera, l'accusation n'est pas proposee.
+        if #journal:Selection() > 0 then return nil end
         local derniere = journal.pile[#journal.pile]
         if not derniere or derniere.chair == journal.my_chair then return nil end
         return derniere.chair
@@ -216,7 +218,9 @@ return function(journal, config)
     local function aide()
         if not journal:IsMyTurn() or journal.designated ~= nil or #journal.hand == 0 then return "" end
         local texte = ("molette : parcourir · clic : choisir · [%s] poser"):format(touches.play or "E")
-        if accusable() then
+        if #journal:Selection() > 0 then
+            texte = texte .. " · retire tes cartes pour accuser"
+        elseif accusable() then
             texte = texte .. " · regarde le joueur précédent + [" .. (touches.play or "E") .. "] : menteur"
         end
         return texte

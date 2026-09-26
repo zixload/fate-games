@@ -26,6 +26,15 @@ return function(config, Cartes, journal, disposition)
     -- echelle de la carte (1 en main, table.echelle sur la table).
     local plates = config.plates and config.plates.actif and config.plates or nil
 
+    -- Contour des cartes choisies : slot 2 (le 0 est celui de l'invite
+    -- d'interaction), blanc, epaisseur en pixels (doc Client.SetOutlineColor).
+    local CONTOUR = 2
+    pcall(function()
+        local o = config.contour_choisie or {}
+        local k = o.intensite or 2
+        Client.SetOutlineColor(Color(k, k, k), CONTOUR, o.epaisseur or 3)
+    end)
+
     local function vers_centre(modele, r, e)
         -- Les cartes plates ont leur centre a l'origine.
         if plates then return Vector(0, 0, 0) end
@@ -386,6 +395,13 @@ return function(config, Cartes, journal, disposition)
         detruire(ma_main.objets)
         ma_main.objets, ma_main.cartes = eventail(perso, os_de(perso), modeles, levees)
         ma_main.levees, ma_main.modeles = levees, modeles
+        -- Les cartes choisies, cernees de blanc (le contour passe aux plaques
+        -- accrochees, doc Actor:SetOutlineEnabled).
+        for i, c in ipairs(ma_main.cartes) do
+            if (levees[i] or 0) >= config.fan.levee and c:IsValid() then
+                pcall(function() c:SetOutlineEnabled(true, CONTOUR) end)
+            end
+        end
         ma_main.cle = cle
         if nouvelle then faire_venir(ma_main.cartes, modeles) end
     end
