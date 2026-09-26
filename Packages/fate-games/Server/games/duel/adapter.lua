@@ -19,6 +19,9 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     local spectateurs = {}       -- player_id -> { arene, cible }
     local dehors = {}            -- player_id -> derniere position hors de toute arene
     local choix_arme = {}        -- player_id -> arme choisie pour le duel
+    -- Bots de test (/botduel) : identifiants negatifs, jamais ceux d'un joueur.
+    local bots = {}              -- id -> { corps, arene, tir, pas }
+    local prochain_bot = -1000
 
     local function maintenant() return Server.GetTime() end
 
@@ -30,8 +33,17 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     end
 
     local function personnage(id)
+        local b = bots[id]
+        if b then return b.corps and b.corps:IsValid() and b.corps or nil end
         local s = Characters.SessionByPlayer(id)
         return s and s.character and s.character:IsValid() and s.character or nil
+    end
+
+    local function avec_bot(A)
+        for id in pairs(A.d.joueurs) do
+            if bots[id] then return true end
+        end
+        return false
     end
 
     local function actif(A)
@@ -270,6 +282,12 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             arene_de[id], tir[id], comptes[id], choix_arme[id] = nil, nil, nil, nil
         end
         arreter_spectateurs(A)
+        for id, b in pairs(bots) do
+            if b.arene == A then
+                if b.corps and b.corps:IsValid() then b.corps:Destroy() end
+                bots[id] = nil
+            end
+        end
         A.d = Duel.Nouveau()
         diffuser(A)
     end
@@ -312,8 +330,11 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
                 if j.camp == gagnant then gagnants[#gagnants + 1] = account end
             end
         end
-        local cagnotte = A.d.mise * Duel.Effectif(A.d)
-        Boutique.Solder(partie, participants, gagnants, cagnotte, config.bonus_participation, nil, function()
+        local payes = 0
+        for id in pairs(A.d.joueurs) do if comptes[id] then payes = payes + 1 end end
+        local cagnotte = A.d.mise * payes
+        local bonus = avec_bot(A) and 0 or config.bonus_participation
+        Boutique.Solder(partie, participants, gagnants, cagnotte, bonus, nil, function()
             Log.Info("duel", ("partie %s : camp %d gagne %d"):format(partie, gagnant, cagnotte))
         end)
         annoncer(A, "duel:fin", gagnant, cagnotte)
@@ -334,6 +355,8 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     end
 
     local function lancer(A)
+        -- Une partie avec un bot ne rapporte rien : pas de mise, pas de bonus.
+        if avec_bot(A) then A.d.mise = 0 end
         local liste = {}
         for _, id in ipairs(A.d.ordre) do
             local s = Characters.SessionByPlayer(id)
@@ -412,8 +435,14 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             end
         end
         for A in pairs(changees) do
-            diffuser(A)
-            verifier_depart(A)
+            local humain = false
+            for id in pairs(A.d.joueurs) do if not bots[id] then humain = true end end
+            if not humain and A.d.phase == "attente" then
+                nettoyer(A)
+            else
+                diffuser(A)
+                verifier_depart(A)
+            end
         end
     end
 
@@ -492,6 +521,82 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         end, config.recharge_ms)
     end
 
+    ---------------------------------------------------------------- bots de test
+
+    -- Un bot vise un adversaire vivant, se decale de temps en temps et tire
+    -- avec une chance de toucher (config.bot). Meme degats qu'un joueur.
+    local function penser_bot(id, b)
+        local A = b.arene
+        local d = A.d
+        local j = d.joueurs[id]
+        local corps = personnage(id)
+        if d.phase ~= "combat" or not (j and j.vivant and corps) then return end
+        local cible, cc = nil, nil
+        for autre, ja in pairs(d.joueurs) do
+            if ja.camp ~= j.camp and ja.vivant then
+                local c2 = personnage(autre)
+                if c2 then cible, cc = autre, c2 break end
+            end
+        end
+        if not cible then return end
+        local a, v = corps:GetLocation(), cc:GetLocation()
+        local cap = math.deg(math.atan(v.Y - a.Y, v.X - a.X))
+        corps:SetRotation(Rotator(0, cap, 0))
+
+        local t = maintenant()
+        local r = config.bot
+        if t >= b.pas then
+            b.pas = t + r.pas_ms
+            local cote = (math.random() < 0.5 and -1 or 1) * r.pas
+            local ang = math.rad(cap + 90)
+            local depart = depart_de(A, id)
+            pcall(function()
+                corps:MoveTo(Vector(depart.X + math.cos(ang) * cote, depart.Y + math.sin(ang) * cote, depart.Z), 30)
+            end)
+        end
+        if t < b.tir then return end
+        b.tir = t + math.random(r.tir_min_ms, r.tir_max_ms)
+
+        local touche = math.random() < r.precision
+        local arme = armes[id]
+        local de = (arme and arme:IsValid()) and arme:GetLocation() or (a + Vector(0, 0, 60))
+        local vers = v + Vector(0, 0, 40)
+        if not touche then vers = vers + Vector(math.random(-120, 120), math.random(-120, 120), math.random(-40, 80)) end
+        for _, p in pairs(Player.GetPairs()) do
+            Events.CallRemote("duel:coup", p, Reliability.Unreliable, de, vers)
+        end
+        if touche then
+            pcall(function() cc:ApplyDamage(config.degats, "", DamageType.Shot, v - a, nil) end)
+            if cc:GetHealth() <= 0 then
+                retirer_arme(cible)
+                suite(A, Duel.Mort(d, cible))
+            end
+        end
+    end
+
+    -- Ajoute un bot, pret, a l'arene ou attend le joueur. nil, raison sinon.
+    function Adapter.AjouterBot(player)
+        local A = arene_de[player:GetID()]
+        if not A then return nil, "entre d'abord dans l'arene" end
+        if A.d.phase ~= "attente" then return nil, "duel deja lance" end
+        local id = prochain_bot
+        prochain_bot = prochain_bot - 1
+        if not Duel.Entrer(A.d, id) then return nil, "arene complete" end
+        local pos, rot = depart_de(A, id)
+        local corps = Characters.CorpsDebout(pos.X, pos.Y, pos.Z, rot.Yaw, "ronchon")
+        if not corps then
+            Duel.Quitter(A.d, id)
+            return nil, "pas de corps Creative (dev.creative_character desactive)"
+        end
+        bots[id] = { corps = corps, arene = A, tir = 0, pas = 0 }
+        noms[id] = "Bot " .. tostring(-id - 999)
+        arene_de[id] = A
+        Duel.Pret(A.d, id, true)
+        diffuser(A)
+        verifier_depart(A)
+        return noms[id]
+    end
+
     ---------------------------------------------------------------- spectateurs
 
     -- F : suivre le combattant suivant de l'arene la plus proche ; G : revenir.
@@ -542,6 +647,10 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         Timer.SetInterval(function()
             local ok, err = pcall(surveiller)
             if not ok then Log.Warn("duel", "surveillance : " .. tostring(err)) end
+            for id, b in pairs(bots) do
+                local ok_bot, err_bot = pcall(penser_bot, id, b)
+                if not ok_bot then Log.Warn("duel", "bot : " .. tostring(err_bot)) end
+            end
         end, 250)
 
         Events.SubscribeRemote("duel:mise", function(player, mise)

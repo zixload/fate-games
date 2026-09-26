@@ -402,6 +402,15 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
         return true
     end
 
+    -- Un corps Creative debout, sans joueur : bots de test (duel).
+    function Characters.CorpsDebout(x, y, z, yaw, look_id)
+        local essai = essai_actif()
+        if not essai then return nil end
+        local c = creer_essai({ x = x, y = y, z = z, yaw = yaw }, essai)
+        if look_id then habiller(c, look_id) end
+        return c
+    end
+
     -- Places du vestiaire : index -> player_id. La plus petite libre.
     local places = {}
 

@@ -91,6 +91,14 @@ if ServerConfig.dev and ServerConfig.dev.liars_bots then
         if ligne then Log.Info("duel", ligne) end
         return false
     end)
+
+    -- Un adversaire de test pour jouer seul : "/botduel", debout dans l'arene.
+    Chat.Subscribe("PlayerSubmit", function(message, player)
+        if not tostring(message):match("^/botduel") then return end
+        local nom, err = DuelJeu.AjouterBot(player)
+        Chat.SendMessage(player, nom and (nom .. " rejoint le duel, pret. R pour lancer.") or ("botduel : " .. tostring(err)))
+        return false
+    end)
 end
 
 -- Bots de test : "/bots N" dans le chat, en mode dev seulement. Retourner

@@ -28,6 +28,9 @@ return {
     -- Rayon autour de l'arene ou l'on peut regarder le duel.
     rayon_spectateurs = 2500,
 
+    -- Bot de test (/botduel, mode dev) : cadence de tir et chance de toucher.
+    bot = { tir_min_ms = 900, tir_max_ms = 1500, precision = 0.35, pas_ms = 2500, pas = 220 },
+
     -- Camera du combat : premiere personne, yeux a cette hauteur (cm, depuis le
     -- bas du personnage), un peu en avant du visage. Valeurs validees en jeu
     -- pour la vue premiere personne de l'atelier, le 19/09.
