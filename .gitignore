@@ -43,3 +43,6 @@ art/animations/
 Packages/fate-games/Client/Sounds/
 # Sauvegardes automatiques de Blender
 *.blend1
+
+# Visuels du serveur : fond tire d une capture du jeu (assets Fab), hors depot
+art/affiche/

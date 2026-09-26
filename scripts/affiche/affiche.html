@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Fate's Games</title>
+<!--
+  Visuel du serveur (page nanos world, site). Fond : une capture du jeu
+  (art/affiche/fond.png, hors depot), floutee. Rendu en PNG 1920 x 1080 :
+  msedge --headless=new --screenshot=... --window-size=1920,1080 affiche.html
+-->
+<style>
+@font-face { font-family: "Lilita One"; src: url("../../Packages/fate-games/Client/vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --laiton: #d9b56a; --laiton-fonce: #8a6d3b; --ombre: #070a0b; }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #151a1c; font-family: "Lilita One", sans-serif; }
+
+#fond { position: absolute; inset: -40px; background: url("../../art/affiche/fond.png") center / cover;
+    filter: blur(11px) saturate(1.1) brightness(.78); }
+#voile { position: absolute; inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 48%, rgba(21, 26, 28, .05), rgba(21, 26, 28, .72) 100%); }
+
+#scene { position: absolute; inset: 0; display: grid; place-items: center; }
+#bloc { position: relative; display: flex; flex-direction: column; align-items: center; gap: 34px; transform: rotate(-2.5deg); margin-top: -20px; }
+
+#titre { display: block; overflow: visible; }
+#titre text { font-family: "Lilita One"; font-size: 210px; paint-order: stroke fill; stroke-linejoin: round; }
+
+#modes { display: flex; gap: 26px; transform: rotate(1.5deg); }
+.sk { position: relative; isolation: isolate; }
+.sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+.sk-svg .ombre { fill: var(--ombre); opacity: .8; }
+.sk-svg .fond { fill: var(--papier); }
+.sk-svg .trait { fill: none; stroke: var(--encre); stroke-width: 4px; stroke-linejoin: round; }
+.sk-svg .trait2 { fill: none; stroke: var(--encre); stroke-width: 1.8px; opacity: .4; }
+.mode { display: flex; align-items: center; gap: 14px; padding: 14px 28px 14px 18px; font-size: 44px; color: var(--encre); }
+.mode img { height: 58px; }
+
+/* Nos cartes en eventail, derriere le titre, a gauche et a droite. */
+.carte { position: absolute; z-index: -1; width: 190px; filter: drop-shadow(9px 11px 0 rgba(7, 10, 11, .75)); }
+#bloc { isolation: isolate; }
+</style>
+</head>
+<body>
+<div id="fond"></div>
+<div id="voile"></div>
+<div id="scene">
+  <div id="bloc">
+    <img class="carte" src="../../art/cartes/roi.png" style="left: -300px; top: -40px; transform: rotate(-26deg);" alt="">
+    <img class="carte" src="../../art/cartes/dame.png" style="left: -215px; top: -80px; transform: rotate(-11deg);" alt="">
+    <img class="carte" src="../../art/cartes/joker.png" style="right: -250px; top: -50px; transform: rotate(15deg);" alt="">
+    <svg id="titre" width="1180" height="250" viewBox="0 0 1180 250" aria-label="Fate's Games">
+      <g font-family="Lilita One" font-size="210" text-anchor="middle">
+        <text x="602" y="210" fill="#070a0b" stroke="#070a0b" stroke-width="30">Fate’s Games</text>
+        <text x="590" y="196" fill="#efe6d2" stroke="#1c2123" stroke-width="30">Fate’s Games</text>
+      </g>
+    </svg>
+    <div id="modes">
+      <div class="mode sk" data-graine="31" data-rayon="16"><img src="../../Packages/fate-games/Client/liars_bar/hud/barillet_1.png" alt="">Liar's Bar</div>
+      <div class="mode sk" data-graine="37" data-rayon="16"><svg width="46" height="46" viewBox="0 0 46 46" aria-hidden="true"><circle cx="23" cy="23" r="15" fill="none" stroke="#1c2123" stroke-width="4"/><circle cx="23" cy="23" r="4" fill="#b8332d"/><path d="M23 2v10M23 34v10M2 23h10M34 23h10" stroke="#1c2123" stroke-width="4" stroke-linecap="round"/></svg>Duels 1v1 et 2v2</div>
+    </div>
+  </div>
+</div>
+<script src="../../Packages/fate-games/Client/ui/esquisse.js"></script>
+<script>
+document.fonts.load('200px "Lilita One"').then(() => requestAnimationFrame(habiller));
+</script>
+</body>
+</html>
