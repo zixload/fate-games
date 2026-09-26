@@ -5,7 +5,7 @@
 --
 -- Comme au Liar's Bar : E sur un zabuton pour s'asseoir et rejoindre le salon,
 -- Espace pour se lever et le quitter (hors partie). En dev : /lg entrer (la
--- premiere place libre), /lg sortir, /lg bots N, /lg centre.
+-- premiere place libre), /lg sortir, /lg bots N, /lg centre, /lg passer.
 -- Hors de cette version : bras tendus (effet recu, ignore).
 --
 -- Le resultat d'une partie terminee s'ecrit en base (werewolf_matches et
@@ -706,6 +706,15 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         envoyer_salon()
     end
 
+    -- /lg passer (dev) : la phase en cours se termine tout de suite, pour
+    -- tester sans attendre le debat et les votes.
+    function A.Passer(player)
+        if s.statut ~= "partie" then return dire(player, "Aucune partie en cours.") end
+        local phase = Engine.phase(s)
+        A.Appliquer(Engine.avancer(s, math.max(s.reste, 0)))
+        Log.Info("werewolf", ("phase %s passee par %s"):format(tostring(phase), player and player:GetName() or "?"))
+    end
+
     function A.Init()
         local ok, c = pcall(lire_centre)
         decor.centre = ok and c or nil
@@ -733,6 +742,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             if mots[2] == "entrer" then A.Rejoindre(player)
             elseif mots[2] == "sortir" then A.Quitter(player)
             elseif mots[2] == "bots" and config.bots then A.AjouterBots(player, mots[3])
+            elseif mots[2] == "passer" and config.bots then A.Passer(player)
             else return end
             return false
         end)
