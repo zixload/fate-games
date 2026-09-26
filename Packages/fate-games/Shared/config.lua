@@ -143,11 +143,9 @@ return {
         },
 
         fan = {
-            -- Reglees en jeu le 26/09 sur les quatre chaises (/fan demo) : pos
-            -- -37 1 -12 avant que le pivot des cartes soit compense ; converti ici
-            -- pour garder la carte du milieu au meme endroit (a verifier en jeu).
-            pos        = { x = -17.3, y = -21.6, z = 7.0 },   -- carte du milieu, depuis l'os de la main
-            rot        = { p = -10, y = 140, r = 26 },
+            -- Reglees en jeu le 26/09 sur les quatre chaises (/fan demo).
+            pos        = { x = 3.7, y = -17.6, z = 9.0 },   -- carte du milieu, depuis l'os de la main
+            rot        = { p = 32, y = 140, r = 26 },
             carte      = { p = 0, y = 0, r = 0 },   -- carte, dans sa fente
             axe        = "y",   -- la face est traversee par Y (epaisseur 0,6 sur 142 x 254)
             coin       = -2.2,  -- pivot pres du bord gauche (demi-largeur d'une carte : 2,5)
