@@ -40,4 +40,6 @@ return {
     -- Quand tous ceux qui votent ont vote (loups, village, maire), la phase
     -- ne s'arrete pas d'un coup : il reste ces secondes pour changer d'avis.
     confirmation = 10,
+    -- Apres la vision de la voyante, secondes avant la suite (la carte s'affiche).
+    vision = 5,
 }

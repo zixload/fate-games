@@ -307,8 +307,15 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
             if not ((s.potion_vie and s.victime_loups) or s.potion_mort) then terminer(s, fx) end
         elseif id == "night_seer" then
             if role ~= "seer" or cible == acteur then return nil, "interdit" end
+            if s.sonde == s.nuit then return nil, "deja_choisi" end
+            s.sonde = s.nuit
             fx[#fx + 1] = Effects.reveal(acteur, cible, Match.role(m, cible))
-            terminer(s, fx)
+            -- Le temps de voir la carte et d'y reflechir avant l'aube.
+            local d = Phases.vision or 5
+            if s.reste > d then
+                s.reste = d
+                fx[#fx + 1] = Effects.chrono(d, acteur)
+            end
         elseif id == "night_cupid" then
             if role ~= "cupid" then return nil, "interdit" end
             for _, deja in ipairs(s.lies) do

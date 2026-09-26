@@ -327,6 +327,22 @@ return function(H)
             H.assert_eq(Voting.votants(s.vote_jour), 1, "le vote du debat compte toujours")
         end)
 
+        H.it("apres la vision, la voyante a quelques secondes avant l'aube", function()
+            local s = partie(6, { seer = 1 })
+            local voyante = porteur(s, "seer")
+            local loup = Match.loups_vivants(s.match)[1]
+            Engine.designer(s, loup, villageois(s, voyante))
+            jusqua(s, "night_seer")
+            H.assert_true(Engine.designer(s, voyante, loup) ~= nil, "vision")
+            H.assert_eq(Engine.phase(s), "night_seer", "pas d'aube tout de suite")
+            local _, raison = Engine.designer(s, voyante, villageois(s, voyante))
+            H.assert_eq(raison, "deja_choisi", "une seule vision par nuit")
+            Engine.avancer(s, 4)
+            H.assert_eq(Engine.phase(s), "night_seer", "encore la nuit a 4 s")
+            Engine.avancer(s, 2)
+            H.assert_true(Engine.phase(s) ~= "night_seer", "la suite apres 5 s")
+        end)
+
         H.it("revoter la meme personne retire son vote", function()
             local s = partie(5)
             local loup = Match.loups_vivants(s.match)[1]
