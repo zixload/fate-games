@@ -46,7 +46,7 @@ shoulder = at("LeftArm")
 # A restrained reach toward the table, without dragging the whole body into
 # it. Keep a generous clearance for the
 # fingers and attached cards, which extend below the wrist in game.
-table = wrist + Vector((-0.13, -0.38, 0.20))
+table = wrist + Vector((-0.13, -0.38, 0.25))
 reach = wrist.lerp(table, 0.58) + Vector((0, 0, 0.055))
 pole_location = shoulder + Vector((0.30, 0.07, -0.18))
 
