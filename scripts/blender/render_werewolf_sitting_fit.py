@@ -16,7 +16,13 @@ name = {"idle": "ANIM_WW_Sitting_Idle",
         "lazy": "ANIM_WW_Sitting_Idle_Lazy",
         "dazed": "ANIM_WW_Sitting_Dazed",
         "vote": "ANIM_WW_Seated_Vote",
-        "sleep": "ANIM_WW_Seated_Sleep"}[short]
+        "sleep": "ANIM_WW_Seated_Sleep",
+        "glance": "ANIM_WW_Sitting_Idle_Glance",
+        "shift": "ANIM_WW_Sitting_Idle_Shift",
+        "mayor": "ANIM_WW_Seated_Mayor_Cheer",
+        "death": "ANIM_WW_Seated_Death",
+        "dead": "ANIM_WW_Seated_Dead_Idle"}[short]
+label = os.environ.get("WW_LABEL", short)
 offset = float(os.environ.get("WW_Z_OFFSET", "0.11"))
 bpy.ops.wm.open_mainfile(filepath=str(OUT / (name + ".blend")))
 scene = bpy.context.scene
@@ -118,7 +124,7 @@ for view, loc in (("front", (0,-2.8,1.12)),
                   ("profile", (2.8,0,1.12))):
     camera.location = loc
     camera.rotation_euler = (Vector((0,-.10,.70))-camera.location).to_track_quat("-Z","Y").to_euler()
-    scene.render.filepath = str(OUT / f"fit_{short}_{view}.png")
+    scene.render.filepath = str(OUT / f"fit_{label}_{view}.png")
     bpy.ops.render.render(write_still=True)
     print("WW_FIT", short, view, "Z_OFFSET_M", offset,
           "hips", tuple(round(v,3) for v in

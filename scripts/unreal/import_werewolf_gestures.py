@@ -14,7 +14,15 @@ SOURCE = ROOT / "art/werewolf"
 DEST = "/Game/MyAssetPack/Creative_Characters_FREE/Animations"
 SKELETON_PATH = ("/Game/MyAssetPack/Creative_Characters_FREE/"
                  "Skeleton_Meshes/SKEL_Animations_Skeleton")
-ANIMATIONS = ("ANIM_WW_Seated_Vote", "ANIM_WW_Seated_Sleep")
+ANIMATIONS = (
+    "ANIM_WW_Seated_Vote",
+    "ANIM_WW_Seated_Sleep",
+    "ANIM_WW_Sitting_Idle_Glance",
+    "ANIM_WW_Sitting_Idle_Shift",
+    "ANIM_WW_Seated_Mayor_Cheer",
+    "ANIM_WW_Seated_Death",
+    "ANIM_WW_Seated_Dead_Idle",
+)
 LIB = unreal.EditorAssetLibrary
 TOOLS = unreal.AssetToolsHelpers.get_asset_tools()
 

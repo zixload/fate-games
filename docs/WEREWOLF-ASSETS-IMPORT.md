@@ -88,7 +88,30 @@ Dans la console Python de **l'éditeur ADK déjà ouvert**, importer uniquement 
 exec(open(r"C:\Users\ingam\OneDrive\Documents\fate-games\scripts\unreal\import_werewolf_gestures.py", encoding="utf-8").read())
 ```
 
-Attendre `WW_GESTURES_IMPORT_COMPLETE 2`, enregistrer, puis cuire `my-asset-pack`. Ce script ne relance pas l'import des textures ou des meshes. Le branchement aux événements de vote et de nuit est à faire dans le code du mode Loup-Garou.
+Attendre `WW_GESTURES_IMPORT_COMPLETE 7`, enregistrer, puis cuire `my-asset-pack`. Ce script ne relance pas l'import des textures ou des meshes. Le branchement aux événements du jeu est à faire dans le code du mode Loup-Garou.
+
+### Variantes assises, mort et maire
+
+Le script `scripts/blender/create_werewolf_seated_extras.py` crée cinq clips supplémentaires depuis les animations assises déjà ajustées. Les fichiers `.blend`, `.fbx` et captures restent dans `art/werewolf/`, ignoré par Git.
+
+| Asset | Usage | Durée | Boucle | Z du pivot |
+| --- | --- | ---: | --- | ---: |
+| `my-asset-pack::ANIM_WW_Sitting_Idle_Glance` | Idle normal, petit regard circulaire | 10,867 s | Oui | 11,0 cm |
+| `my-asset-pack::ANIM_WW_Sitting_Idle_Shift` | Idle avachi, léger changement d'appui | 10,267 s | Oui | 12,8 cm |
+| `my-asset-pack::ANIM_WW_Seated_Mayor_Cheer` | Poing droit levé pour fêter l'élection | 2,467 s | Non | 11,0 cm |
+| `my-asset-pack::ANIM_WW_Seated_Death` | Sursaut, chute théâtrale, retrait de 10 cm | 2,700 s | Non | 11,6 cm |
+| `my-asset-pack::ANIM_WW_Seated_Dead_Idle` | Pose morte, reculée, jusqu'à la fin de la partie | 8,333 s | Oui | 11,6 cm |
+
+Pour régénérer les FBX :
+
+```powershell
+$blenderExe = 'C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe'
+& $blenderExe -b -t 4 --python scripts/blender/create_werewolf_seated_extras.py
+```
+
+Le choix actuel de l'idle dans `Server/games/werewolf/adapter.lua` alterne selon le numéro du coussin. Pour obtenir l'aléatoire demandé, tirer une animation parmi les deux clips à **11,0 cm** (`Sitting_Idle`, `Sitting_Idle_Glance`) ou parmi les deux à **12,8 cm** (`Sitting_Idle_Lazy`, `Sitting_Idle_Shift`). Choisir une fois par prise de place, puis conserver ce choix jusqu'au changement de phase ; éviter de relancer le clip à chaque tick. Les deux nouveaux idles partagent exactement la pose d'assise et les contacts de leur source.
+
+À la mort, jouer `Seated_Death` une seule fois dans `DefaultSlot`, puis `Seated_Dead_Idle` en boucle. La dernière image du premier clip correspond à la première du second (écart de position mesuré inférieur à 0,001 cm). Le déplacement de 10 cm vers l'arrière est animé dans le bassin : la racine du personnage ne bouge pas et le joueur reste associé au même coussin. À l'élection du maire, jouer `Seated_Mayor_Cheer` une fois puis reprendre l'idle choisi. Les clips de vote et de maire partent de l'idle normal : si le joueur est dans l'idle avachi, le repasser temporairement à 11,0 cm pour ces gestes. Les captures Blender sont `fit_mayor_{front,profile}.png`, `fit_death_{shock,slump}_{front,profile}.png` et `fit_dead_{front,profile}.png`.
 
 ## Licences et crédits
 
