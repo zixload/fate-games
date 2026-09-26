@@ -157,7 +157,6 @@ return function(journal, config)
         return texte
     end
 
-    local photo = Package.Require("photo.lua")
 
     local function rafraichir()
         journal.vise_menteur = nil
@@ -188,8 +187,7 @@ return function(journal, config)
         page:CallEvent("barillet:maj", {
             width = screen_size.X, height = screen_size.Y, markers = markers,
             tas = carton_du_tas(camera, forward, screen_size),
-            -- Mode capture (F1) : pas de consignes a l'ecran.
-            aide = photo.cache and "" or aide(),
+            aide = aide(),
         })
     end
 

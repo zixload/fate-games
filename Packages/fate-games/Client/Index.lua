@@ -31,7 +31,7 @@ Package.Require("posture.lua")
 Package.Require("vue_assise.lua")
 Package.Require("regard_assis.lua")
 
--- F1 : cacher les logs en haut a gauche, pour les captures d'ecran.
+-- F1 : montrer ou cacher les logs en haut a gauche (caches par defaut).
 Package.Require("photo.lua")
 
 -- Marcher par defaut, Maj pour courir.

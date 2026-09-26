@@ -1,9 +1,9 @@
--- Mode capture : F1 cache les logs de Liar's Bar en haut a gauche (l'etat de
--- la table et le journal), pour des captures d'ecran propres. F1 les ramene.
+-- Logs de Liar's Bar en haut a gauche (l'etat de la table et le journal) :
+-- caches par defaut depuis le 26/09, F1 les montre ou les recache.
 -- Package.Require garde le resultat en cache : liars_bar/hud.lua lit la meme
 -- table.
 
-local etat = { cache = false }
+local etat = { cache = true }
 
 Input.Subscribe("KeyPress", function(touche)
     if touche ~= "F1" then return end
