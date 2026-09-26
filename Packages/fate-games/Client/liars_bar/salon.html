@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Salon</title>
+<style>
+@font-face { font-family: "Lilita One"; src: url("../vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --laiton: #d9b56a; --laiton-fonce: #8a6d3b; --ombre: #070a0b; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent;
+    font-family: "Lilita One", sans-serif; color: var(--encre); user-select: none; pointer-events: none; }
+body.apercu-navigateur { background: radial-gradient(circle at 50% 30%, #6b5a45, #221b14); }
+.cache { display: none !important; }
+
+.sk { position: relative; isolation: isolate; }
+.sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+.sk-svg .ombre { fill: var(--ombre); }
+.sk-svg .fond { fill: var(--papier); }
+.sk-svg .trait { fill: none; stroke: var(--encre); stroke-width: 3.5px; stroke-linejoin: round; }
+.sk-svg .trait2 { fill: none; stroke: var(--encre); stroke-width: 1.5px; opacity: .4; }
+
+.touche { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; box-sizing: border-box;
+    border: 2.5px solid var(--encre); border-bottom-width: 5px; border-radius: 8px; background: #f6eedb; font-size: 17px; line-height: 1; }
+
+/* Meme panneau que l'attente du duel, a gauche. */
+#panneau { position: absolute; left: 40px; top: 50%; transform: translateY(-50%) rotate(-1deg);
+    width: 290px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+#panneau .ligne { display: flex; align-items: center; gap: 10px; font-size: 24px; }
+#compte { font-size: 16px; color: var(--laiton-fonce); }
+#places { display: flex; flex-direction: column; gap: 6px; }
+.place { display: flex; align-items: center; gap: 8px; font-size: 17px; padding: 5px 9px; border-radius: 8px;
+    background: rgba(28, 33, 35, .07); min-height: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.place .n { width: 18px; opacity: .5; font-size: 14px; }
+.place.vide { opacity: .45; }
+.place.pret { background: var(--laiton); }
+.place.moi { outline: 2px solid var(--encre); }
+.place svg { flex: none; }
+#note { font-size: 14px; color: var(--laiton-fonce); }
+#aide { display: flex; flex-wrap: wrap; gap: 10px 14px; font-size: 15px; align-items: center; }
+#aide span { display: inline-flex; gap: 5px; align-items: center; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true" style="position: absolute">
+<symbol id="pile" viewBox="0 0 48 48">
+  <path d="M20 32.5a12 4.6 0 0 0 24 0v4.2a12 4.6 0 0 1-24 0z" fill="#8a6d3b" stroke="#1c2123" stroke-width="2.4"/><ellipse cx="32" cy="32.5" rx="12" ry="4.6" fill="#d9b56a" stroke="#1c2123" stroke-width="2.4"/>
+  <circle cx="18.5" cy="25.5" r="13.5" fill="#8a6d3b" stroke="#1c2123" stroke-width="2.6"/>
+  <circle cx="16" cy="24" r="13.5" fill="#e3c173" stroke="#1c2123" stroke-width="2.8"/>
+  <path d="M16 17.2l2 4.4 4.7.4-3.6 3.1 1.1 4.6-4.2-2.5-4.2 2.5 1.1-4.6-3.6-3.1 4.7-.4z" fill="#a8843f" stroke="#1c2123" stroke-width="1.6" stroke-linejoin="round"/>
+</symbol>
+<symbol id="coche" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#1c2123" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="chaise" viewBox="0 0 24 24"><path d="M7 3v18M7 12h10v9M7 12V3M17 12V9" fill="none" stroke="#1c2123" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div id="panneau" class="sk cache" data-graine="61" data-rayon="16">
+  <div class="ligne"><span>Liar's Bar</span><span style="flex: 1"></span><svg width="30" height="30" aria-hidden="true"><use href="#pile"/></svg><span id="mise"></span></div>
+  <div id="compte"></div>
+  <div id="places"></div>
+  <div id="note" class="cache"></div>
+  <div id="aide"></div>
+</div>
+
+<script src="../ui/esquisse.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const nettoyer = (s) => String(s).replace(/[<>&]/g, "");
+
+function dessiner(e, moi) {
+  $("panneau").classList.toggle("cache", !e);
+  if (!e) return;
+  $("mise").textContent = e.mise;
+  const assis = e.places.filter((p) => !p.vide);
+  const prets = assis.filter((p) => p.pret).length;
+  $("compte").textContent = assis.length < e.minimum
+    ? `En attente de joueurs : ${assis.length}/${e.minimum} minimum`
+    : `${prets}/${assis.length} prêts`;
+  $("places").innerHTML = e.places.map((p) => {
+    if (p.vide) return `<div class="place vide"><span class="n">${p.chair}</span>…</div>`;
+    const coche = p.pret ? '<svg width="16" height="16" aria-hidden="true"><use href="#coche"/></svg>' : "";
+    return `<div class="place${p.pret ? " pret" : ""}${p.chair === moi ? " moi" : ""}"><span class="n">${p.chair}</span>${coche}${nettoyer(p.nom)}</div>`;
+  }).join("");
+  $("note").classList.toggle("cache", !e.avec_bots);
+  $("note").textContent = "Table avec bots : rien en jeu";
+  const createur = e.createur === moi && !e.avec_bots;
+  $("aide").innerHTML =
+    '<span><span class="touche">R</span><svg width="18" height="18" aria-hidden="true"><use href="#coche"/></svg></span>' +
+    (createur ? '<span><span class="touche">←</span><span class="touche">→</span><svg width="22" height="22" aria-hidden="true"><use href="#pile"/></svg></span>' : "") +
+    '<span><span class="touche">Espace</span><svg width="18" height="18" aria-hidden="true"><use href="#chaise"/></svg></span>';
+  requestAnimationFrame(habiller);
+}
+
+if (typeof Events !== "undefined") {
+  Events.Subscribe("salon:maj", (e, moi) => dessiner(e, moi));
+  Events.Call("pret");
+} else {
+  document.body.classList.add("apercu-navigateur");
+  dessiner({ mise: 100, minimum: 3, createur: 2, avec_bots: false, places: [
+    { chair: 1, vide: true }, { chair: 2, nom: "Zix", pret: true }, { chair: 3, nom: "Ana", pret: false }, { chair: 4, nom: "Ben", pret: true },
+  ] }, 2);
+}
+</script>
+</body>
+</html>

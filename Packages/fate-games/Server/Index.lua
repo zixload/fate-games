@@ -50,6 +50,7 @@ local DuelJeu    = Package.Require("games/duel/adapter.lua")(
 local LiarsBar = Package.Require("games/liars_bar/adapter.lua")(
     Log, DB, Ids, Characters, Interactables, Intents,
     LiarsEngine, LiarsBots, Appearances, LiarsConfig, ServerConfig.spawn)
+LiarsBar.SetBoutique(Boutique)
 
 -- Les chaines de log restent en ASCII : la console Windows les reaffiche selon sa page
 -- de codes locale, et tout caractere accentue y ressort en "?".

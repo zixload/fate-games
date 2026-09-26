@@ -13,6 +13,12 @@ return {
     min_players = 3,
     max_seats   = 4,
 
+    -- Salon (salon.lua) : mises proposees au premier humain assis, 0 = pour
+    -- l'honneur ; bonus verse par la banque a chaque joueur en fin de partie.
+    -- Une table avec un bot ne rapporte rien (docs/DUEL-ET-ARGENT.md).
+    paliers = { 0, 50, 100, 250 },
+    bonus_participation = 10,
+
     -- chambres du barillet ; une seule balle, position tiree au hasard
     chambers = 6,
 

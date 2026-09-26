@@ -65,6 +65,13 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     -- le chemin inverse pour tout ce qui sort.
     local state          = nil   -- etat du moteur, nil hors partie
     local seated         = {}    -- { { player, chair, character_id, seat } }
+    -- Salon d'avant-partie (salon.lua) et argent en jeu (domain/boutique.lua,
+    -- injecte par Adapter.SetBoutique) : la mise de la partie en cours.
+    local Salon          = Package.Require("games/liars_bar/salon.lua")(config)
+    local salon          = Salon.New()
+    local Boutique       = nil
+    local mise_en_cours  = nil   -- { partie, mise, comptes = chaise -> compte, avec_bots }
+    local numero_partie  = 0
     local player_by_seat = {}
     local seat_by_player = {}
     local chair_of       = {}    -- place moteur -> chaise, le temps d'une partie
@@ -463,6 +470,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         end
         state, started_at = nil, nil
         player_by_seat, seat_by_player, chair_of, seated = {}, {}, {}, {}
+        salon = Salon.New()
     end
 
     ---------------------------------------------------------------- traducteurs
@@ -634,6 +642,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             releve.chair_of[seat] = c
         end
         local chaise_gagnante = e.winner ~= nil and releve.chair_of[e.winner] or nil
+        local ok_solde, err_solde = pcall(solder_partie, chaise_gagnante)
+        if not ok_solde then Log.Error("liars", "solde de la partie : " .. tostring(err_solde)) end
         local a_relever = {}
         for _, entry in ipairs(seated) do a_relever[#a_relever + 1] = entry.player end
 
@@ -645,6 +655,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             local ok, err = pcall(relever_personnage, p)
             if not ok then
                 Log.Error("liars", "relever un joueur a echoue : " .. tostring(err))
+            end
+            if not p.bot then
+                pcall(Events.CallRemote, "liars:salon", p, Reliability.Reliable, nil)
             end
         end
 
@@ -928,6 +941,107 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         return true
     end
 
+    ---------------------------------------------------------------- salon
+
+    -- Les assis vus par le salon, dans l'ordre d'arrivee.
+    local function assis_salon()
+        local out = {}
+        for i, e in ipairs(seated) do
+            out[i] = { chair = e.chair, nom = e.name, bot = e.bot or nil }
+        end
+        return out
+    end
+
+    -- Le panneau part aux humains assis, hors partie ; celui qui se leve
+    -- recoit un salon vide et son panneau se ferme.
+    local function diffuser_salon(parti)
+        if parti and not parti.bot then
+            pcall(Events.CallRemote, "liars:salon", parti, Reliability.Reliable, nil)
+        end
+        if state then return end
+        local a = assis_salon()
+        Salon.Accorder(salon, a)
+        local vue = Salon.Vue(salon, a)
+        for _, e in ipairs(seated) do
+            if not e.bot then
+                pcall(Events.CallRemote, "liars:salon", e.player, Reliability.Reliable, vue)
+            end
+        end
+    end
+
+    -- Tous prets : on preleve la mise de chaque humain (tout ou rien), puis on
+    -- lance. Une table avec un bot ne met rien en jeu.
+    local function lancer_salon()
+        local a = assis_salon()
+        Salon.Accorder(salon, a)
+        if state or mise_en_cours or not Salon.ToutPret(salon, a) then return end
+
+        local avec_bots = Salon.AvecBots(a)
+        local mise = (avec_bots or not Boutique) and 0 or salon.mise
+        local comptes, liste, noms, premier = {}, {}, {}, nil
+        for _, e in ipairs(seated) do
+            if not e.bot then
+                premier = premier or e.player
+                local s = Characters.SessionByPlayer(e.player:GetID())
+                if s and s.account then
+                    comptes[e.chair] = s.account
+                    liste[#liste + 1] = s.account
+                    noms[s.account] = e.name
+                end
+            end
+        end
+        numero_partie = numero_partie + 1
+        local partie = ("liars:%d:%d"):format(os.time(), numero_partie)
+        mise_en_cours = { partie = partie, mise = mise, comptes = comptes, avec_bots = avec_bots }
+
+        -- Rien ne part : chacun redevient "pas pret" et apprend pourquoi.
+        local function annuler(raison, contexte)
+            mise_en_cours = nil
+            salon.pret = {}
+            for _, e in ipairs(seated) do refuser(e.player, raison, contexte) end
+            diffuser_salon()
+        end
+
+        local function partir()
+            local ok, raison, contexte = Adapter.Begin(premier)
+            if ok then return end
+            -- La mise prelevee revient a chacun, a parts egales.
+            if mise > 0 and Boutique then
+                Boutique.Solder(partie, {}, liste, mise * #liste, 0)
+            end
+            annuler(raison, contexte)
+        end
+
+        if mise <= 0 then return partir() end
+        Boutique.Miser(liste, mise, partie, nil, function(ok, raison, fauches)
+            if ok then return partir() end
+            local qui = {}
+            for _, account in ipairs(fauches or {}) do qui[#qui + 1] = noms[account] or "?" end
+            annuler(raison == "solde" and "solde_insuffisant" or "mise_impossible",
+                { noms = table.concat(qui, ", ") })
+        end)
+    end
+
+    -- Fin de partie : la cagnotte au vainqueur, le bonus a chacun.
+    local function solder_partie(chaise_gagnante)
+        local m = mise_en_cours
+        mise_en_cours = nil
+        if not (m and Boutique) then return end
+        local participants, gagnants = {}, {}
+        for chair, account in pairs(m.comptes) do
+            participants[#participants + 1] = account
+            if chair == chaise_gagnante then gagnants[1] = account end
+        end
+        -- Un bot vainqueur ne gagne rien : chacun reprend sa mise.
+        if #gagnants == 0 then gagnants = participants end
+        local cagnotte = m.mise * #participants
+        local bonus = m.avec_bots and 0 or config.bonus_participation
+        Boutique.Solder(m.partie, participants, gagnants, cagnotte, bonus, nil, function()
+            Log.Info("liars", ("partie %s : cagnotte %d a la chaise %s")
+                :format(m.partie, cagnotte, tostring(chaise_gagnante)))
+        end)
+    end
+
     ---------------------------------------------------------------- assise
 
     -- Hors partie : chair_n est une chaise, et les tables sont indexees par chaise.
@@ -965,6 +1079,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         Log.Info("liars", ("chaise %d occupee (%d assis)"):format(chair_n, #seated), cid)
         asseoir_personnage(player, chair_n)
         marquer_chaise(seated[#seated], chair_n)
+        diffuser_salon()
         return true
     end
 
@@ -989,6 +1104,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         Log.Info("liars", ("chaise %d liberee (%d assis)"):format(chair_n, #seated), cid)
         relever_personnage(player)
         marquer_chaise({ player = player }, 0)
+        diffuser_salon(player)
         return true
     end
 
@@ -1080,7 +1196,14 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         end
 
         Log.Info("liars", ("%d bot(s) a la table"):format(assis))
+        diffuser_salon()
         return true, assis
+    end
+
+    -- L'argent des mises (domain/boutique.lua). Sans elle, on joue pour
+    -- l'honneur.
+    function Adapter.SetBoutique(b)
+        Boutique = b
     end
 
     function Adapter.Begin(player, cid)
@@ -1372,10 +1495,14 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
                     if own_chair ~= gun_chair then
                         return refuser(player, "pas_ton_revolver")
                     end
+                    -- Hors partie, son revolver sert a se dire pret (comme R).
                     if not state then
-                        local ok, raison, contexte = Adapter.Begin(player, cid)
-                        if not ok then refuser(player, raison, contexte) end
-                        return
+                        if mise_en_cours then return end
+                        local a = assis_salon()
+                        Salon.Accorder(salon, a)
+                        Salon.Pret(salon, a, own_chair, not salon.pret[own_chair])
+                        diffuser_salon()
+                        return lancer_salon()
                     end
                     local ok, raison = Adapter.PrepareShot(seat)
                     if not ok then refuser(player, raison) end
@@ -1387,6 +1514,28 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         -- viennent gratuitement. Elles ne revalident PAS la distance — seule
         -- l'intention interact du registre le fait. Ce qui fait foi ici, c'est
         -- d'etre inscrit a une place de la partie en cours.
+        -- Salon : R (pret) et fleches (mise, createur seulement), depuis
+        -- Client/liars_bar/salon.lua.
+        Events.SubscribeRemote("liars:pret", function(player, oui)
+            if state or mise_en_cours then return end
+            local chair = seat_by_player[player:GetID()]
+            if not chair then return end
+            local a = assis_salon()
+            Salon.Accorder(salon, a)
+            if Salon.Pret(salon, a, chair, oui == true) then
+                diffuser_salon()
+                lancer_salon()
+            end
+        end)
+        Events.SubscribeRemote("liars:mise", function(player, mise)
+            if state or mise_en_cours then return end
+            local chair = seat_by_player[player:GetID()]
+            if not chair then return end
+            local a = assis_salon()
+            Salon.Accorder(salon, a)
+            if Salon.ChoisirMise(salon, a, chair, tonumber(mise)) then diffuser_salon() end
+        end)
+
         Intents.Register("liars_play", {
             validate = function(player, payload)
                 if not state then return false, "aucune_partie" end
@@ -1496,6 +1645,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
         send("all", "liars:unseated", seat)
         Log.Info("liars", ("chaise %d liberee, joueur parti avant le debut"):format(seat))
+        diffuser_salon()
     end
 
     return Adapter

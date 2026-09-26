@@ -25,6 +25,8 @@ return function(config)
         aucune_partie        = "aucune partie en cours",
         charge_invalide      = "demande invalide",
         demarrage_impossible = "la partie n'a pas pu démarrer",
+        solde_insuffisant    = "pas assez d'argent pour la mise",
+        mise_impossible      = "la mise n'a pas pu être prélevée",
     }
 
     function Journal.RankName(r)
@@ -70,6 +72,8 @@ return function(config)
             local texte = RAISONS[code] or tostring(code)
             if code == "pas_assez_de_joueurs" and type(contexte) == "table" then
                 texte = ("%s (%s/%s)"):format(texte, tostring(contexte.assis), tostring(contexte.minimum))
+            elseif code == "solde_insuffisant" and type(contexte) == "table" and contexte.noms then
+                texte = ("%s : %s"):format(texte, tostring(contexte.noms))
             end
             ligne("Refusé : " .. texte, "refus")
         end

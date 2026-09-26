@@ -60,6 +60,12 @@ local ok_tags, err_tags = pcall(function()
 end)
 if not ok_tags then Console.Error("[etiquettes] chargement impossible : " .. tostring(err_tags)) end
 
+-- Salon d'avant-partie : pret, mise, qui est assis.
+local ok_salon, err_salon = pcall(function()
+    Package.Require("liars_bar/salon.lua")()
+end)
+if not ok_salon then Console.Error("[salon] chargement impossible : " .. tostring(err_salon)) end
+
 local ok_sons, err_sons = pcall(function()
     Package.Require("liars_bar/sons.lua")(Package.Require("Shared/liars_table.lua"), SharedConfig.liars_sons)
 end)
