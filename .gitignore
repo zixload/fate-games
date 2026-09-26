@@ -39,6 +39,7 @@ Packages/fate-games/Client/vestiaire/img/
 
 # Sources sous licence Fab (personnage Creative, Nagant) : hors du depot public.
 art/animations/
+art/werewolf/
 # Sons d origine inconnue (gunshot, dryfire) : a verifier avant publication.
 Packages/fate-games/Client/Sounds/
 # Sauvegardes automatiques de Blender

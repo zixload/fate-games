@@ -1,0 +1,73 @@
+# Tapis, zabutons et animations assises du Loup-Garou
+
+Ces assets remplacent le tapis `SM_WW_Rug` et les coussins `SM_WW_Cushion_*` du kit Blender précédent. Le script d'import n'édite pas la map ni le code Lua du Loup-Garou. Les sources sous licence, les FBX préparés, les fichiers Blender et les captures restent dans `art/werewolf/`, ignoré par Git.
+
+## Préparer les sources
+
+Sources attendues dans `C:\Users\ingam\Downloads` :
+
+- `zabuton_7col_v22_2608_en.zip` : variante **Aged** des sept couleurs, géométrie, texture de base et normale d'origine ;
+- `carpet.zip` : géométrie, base color, normale et roughness d'origine ;
+- `Sitting Idle.fbx`, `Sitting Idle lazy.fbx` et `Sitting Dazed.fbx` : mouvements Mixamo.
+
+Dans le dépôt, exécuter avec Blender de Steam :
+
+```powershell
+$blenderExe = 'C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe'
+& $blenderExe -b -t 4 --python scripts/blender/inspect_werewolf_sources.py
+& $blenderExe -b -t 4 --python scripts/blender/prepare_werewolf_external_assets.py
+& $blenderExe -b -t 4 --python scripts/blender/retarget_werewolf_sitting.py
+& $blenderExe -b -t 4 --python scripts/blender/measure_werewolf_sitting_fit.py
+```
+
+Le retarget prend comme référence le même rig Creative à 43 os que `ANIM_Seated_Card_Play`. L'ajustement des pieds est activé par défaut ; `WW_APPLY_FIT=0` sert uniquement à comparer la pose source. Les trois clips sont sans root motion et bouclent sur leur pose initiale.
+
+## Import dans l'ADK
+
+Dans **l'éditeur ADK déjà ouvert**, sélectionner `Python` dans le menu à gauche du champ de commande, puis coller :
+
+```python
+exec(open(r"C:\Users\ingam\OneDrive\Documents\fate-games\scripts\unreal\import_werewolf_assets.py", encoding="utf-8").read())
+```
+
+Le script importe et enregistre 8 meshes et 3 animations, crée leurs matériaux à partir des vraies textures, active la collision simple et vérifie les dimensions et le squelette. Il ne place rien dans la map. Ensuite enregistrer les assets et cuire `my-asset-pack` dans l'ADK. Attendre `WW_IMPORT_COMPLETE` dans l'Output Log avant de lancer le cook ; une exception signifie que l'import est incomplet.
+
+Références à utiliser :
+
+| Catégorie | Asset |
+| --- | --- |
+| Tapis | `my-asset-pack::SM_WW_Carpet` |
+| Zabutons | `my-asset-pack::SM_WW_Zabuton_Blue`, `my-asset-pack::SM_WW_Zabuton_Brown`, `my-asset-pack::SM_WW_Zabuton_Green`, `my-asset-pack::SM_WW_Zabuton_Purple`, `my-asset-pack::SM_WW_Zabuton_Red`, `my-asset-pack::SM_WW_Zabuton_White`, `my-asset-pack::SM_WW_Zabuton_Yellow` |
+| Animations | `my-asset-pack::ANIM_WW_Sitting_Idle`, `my-asset-pack::ANIM_WW_Sitting_Idle_Lazy`, `my-asset-pack::ANIM_WW_Sitting_Dazed` |
+
+## Implantation et ajustement
+
+Le tapis fait **550 cm de diamètre** et **0,8 cm d'épaisseur**. Centrer les zabutons sur un rayon de **212 cm** : `X = centre_X + 212 cos(angle)`, `Y = centre_Y + 212 sin(angle)`. Chaque assise fait **55 × 60 cm** hors cordages, et environ **66 × 71 cm** avec eux. Le pivot du tapis et des zabutons est au centre, au ras du sol. Poser les zabutons sur la face supérieure du tapis, donc leur origine à `Z_tapis + 0,8 cm`.
+
+La surface textile du zabuton est à **13,141 cm au-dessus de son pivot** ; le nœud central dépasse jusqu'à **13,416 cm**. Une fois sur le tapis, la surface textile se trouve à **13,941 cm** au-dessus du sol sous le tapis.
+
+Offsets du **pivot du personnage Creative à échelle 0,8**, mesurés depuis le sol sous le tapis :
+
+| Pose | Z pivot personnage | Écart avec le dessus textile du zabuton | Durée de boucle |
+| --- | ---: | ---: | ---: |
+| Idle | 11,0 cm | −2,94 cm | 10,867 s |
+| Idle Lazy | 12,8 cm | −1,14 cm | 10,267 s |
+| Dazed | 11,6 cm | −2,34 cm | 8,333 s |
+
+La légère pénétration du pivot est normale : c'est le bassin du rig qui touche la surface, pas l'origine du personnage. Ces offsets proviennent des captures et mesures Blender ; les vêtements du personnage en jeu peuvent nécessiter un petit ajustement visuel. Les six captures de face et profil sont `art/werewolf/fit_{idle,lazy,dazed}_{front,profile}.png`. Aucun niveau de test séparé n'est nécessaire.
+
+Pour la lecture en boucle, utiliser le slot du personnage Creative :
+
+```lua
+character:PlayAnimation("my-asset-pack::ANIM_WW_Sitting_Idle", "DefaultSlot", true, 0.15, 0.15, 1.0, true)
+```
+
+Remplacer le nom pour les deux variantes. Le troisième argument active la boucle ; les deux temps de fondu sont en secondes, puis vient la vitesse de lecture. Garder la position du personnage fixe pendant la lecture. L'intégration Lua reste à faire dans le travail du mode Loup-Garou.
+
+## Licences et crédits
+
+- **Zabuton** : Hato Wahara, [fiche Fab](https://www.fab.com/listings/c1fb1c0f-20de-4766-b267-2a959765be64). Le README inclus autorise l'usage commercial, la modification et l'usage en jeu, et interdit la redistribution des fichiers originaux ou modifiés et la revendication de propriété. Les sources restent hors du dépôt public. Vérifier les conditions de distribution du pack cuit avant toute publication aux joueurs.
+- **Carpet** : demidrew, [modèle Sketchfab](https://sketchfab.com/3d-models/carpet-66e06c1857814fd2a60e3ecfdba36ae0), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Créditer l'auteur, le lien source et la licence dans les crédits du jeu ; signaler le redimensionnement du tapis à 5,5 m. La licence autorise l'usage en jeu et la redistribution avec attribution.
+- **Animations Mixamo** : FBX fournis localement par le projet ; conserver les fichiers source hors Git et vérifier leurs conditions de licence avant distribution.
+
+Ne commiter que les scripts et ce document : ni ZIP, ni textures, ni FBX, ni `.blend`, ni `.uasset`, ni captures contenant les assets sous licence.
