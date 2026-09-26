@@ -39,6 +39,7 @@ body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); 
 #role .sk { padding: 10px 16px; font-size: 25px; display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
 #role small { font-size: 16px; color: var(--laiton-fonce); }
 #role small:empty { display: none; }
+#role small { white-space: pre-line; line-height: 1.25; }
 
 /* Message transitoire, en bas au centre : blanc avec ombre. */
 #message { position: absolute; left: 0; right: 0; bottom: 42px; text-align: center; font-size: 24px; color: #fff;
@@ -81,6 +82,22 @@ body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); 
 .place.vide { opacity: .45; }
 #salon .aide { display: flex; flex-wrap: wrap; gap: 10px 14px; font-size: 15px; align-items: center; }
 #salon .aide span { display: inline-flex; gap: 6px; align-items: center; }
+
+/* Vision de la voyante : la carte monte du bas, se retourne, redescend. */
+#vision { position: absolute; inset: 0; display: grid; place-items: center; }
+#vision .scene { display: flex; flex-direction: column; align-items: center; gap: 18px;
+    transform: translateY(110vh) rotate(9deg); }
+#vision.monte .scene { transform: translateY(0) rotate(-2deg); transition: transform .75s cubic-bezier(.2, .9, .25, 1.12); }
+#vision.part .scene { transform: translateY(110vh) rotate(-11deg); transition: transform .6s cubic-bezier(.6, -.25, .8, .4); }
+#vcarte { width: 240px; height: 361px; perspective: 1200px; }
+#vcarte .interieur { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transform: rotateY(180deg); }
+#vcarte.tourne .interieur { transform: rotateY(0deg); transition: transform .8s cubic-bezier(.2, .8, .2, 1.1); }
+#vcarte img { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden;
+    filter: drop-shadow(9px 11px 0 rgba(7, 10, 11, .7)); }
+#vcarte img.dos { transform: rotateY(180deg); }
+#vtitre { font-size: 44px; color: var(--papier); -webkit-text-stroke: 8px var(--encre); paint-order: stroke fill;
+    text-shadow: 6px 7px 0 var(--ombre); opacity: 0; transition: opacity .3s; }
+#vcarte.tourne + #vtitre { opacity: 1; transition-delay: .5s; }
 
 /* Annonce (aube, execution, chasseur...) : au milieu de l'ecran. */
 #annonce { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%) rotate(-1.5deg); max-width: 72%; text-align: center;
@@ -141,6 +158,13 @@ body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); 
     <div id="carte"><div class="interieur"><img id="carte-face" alt=""><img class="dos" src="img/dos_nuit.png" alt=""></div></div>
     <div id="titre-role"></div>
     <div id="allies"></div>
+  </div>
+</div>
+
+<div id="vision" class="cache">
+  <div class="scene">
+    <div id="vcarte"><div class="interieur"><img id="vcarte-face" alt=""><img class="dos" src="img/dos_nuit.png" alt=""></div></div>
+    <div id="vtitre"></div>
   </div>
 </div>
 
@@ -261,6 +285,25 @@ function salon(v) {
   retracer();
 }
 
+// ---------------------------------------------------------------- vision
+let etapesVision = [];
+function vision(v) {
+  etapesVision.forEach(clearTimeout);
+  const boite = $("vision"), carte = $("vcarte");
+  boite.classList.remove("monte", "part");
+  carte.classList.remove("tourne");
+  $("vcarte-face").src = `img/${v.image}.png`;
+  $("vtitre").textContent = nettoyer(v.titre);
+  montrer("vision", true);
+  void boite.offsetWidth;
+  etapesVision = [
+    setTimeout(() => boite.classList.add("monte"), 30),
+    setTimeout(() => carte.classList.add("tourne"), 800),
+    setTimeout(() => boite.classList.add("part"), 4200),
+    setTimeout(() => { montrer("vision", false); boite.classList.remove("monte", "part"); carte.classList.remove("tourne"); }, 4900),
+  ];
+}
+
 // ---------------------------------------------------------------- annonce
 let finAnnonce = null;
 function annonce(texte, secondes) {
@@ -322,6 +365,7 @@ if (typeof Events !== "undefined") {
   Events.Subscribe("lg:salon", salon);
   Events.Subscribe("lg:cacher", tout_cacher);
   Events.Subscribe("lg:annonce", annonce);
+  Events.Subscribe("lg:vision", vision);
   Events.Subscribe("lg:elimine", elimine);
   Events.Subscribe("lg:resultat", resultat);
   Events.Call("pret");
@@ -334,6 +378,9 @@ if (typeof Events !== "undefined") {
         { nom: "Loup Blanc", image: "loup_blanc", valeur: "0" }, { nom: "Voyante", image: "voyante", valeur: "1" },
         { nom: "Chasseur", image: "chasseur", valeur: "1" }, { nom: "Gardien", image: "gardien", valeur: "0" },
         { nom: "Cupidon", image: "cupidon", valeur: "0" }, { nom: "Débat", valeur: "3:00" }] });
+  } else if (location.hash === "#vision") {
+    rappel({ image: "voyante", nom: "Voyante", petit: "Pixel est Loup-Garou\nNino est Villageois" });
+    vision({ image: "loup", titre: "Pixel est Loup-Garou" });
   } else if (location.hash === "#resultat") {
     resultat({ gagne: true, titre: "Le village gagne !", nom_role: "Voyante", gain: 42, mise: 50, moi: 1,
       joueurs: [{ nom: "Toi", role: "seer", nom_role: "Voyante", vivant: true, gagne: true, gain: 42 },

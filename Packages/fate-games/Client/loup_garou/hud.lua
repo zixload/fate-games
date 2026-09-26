@@ -96,7 +96,7 @@ return function(config, Interaction)
     local function neuf()
         return { role = nil, allies = {}, phase = nil, votes = {}, choix = {}, mort = false, salon = nil,
             vise = nil, amoureux = nil, maire = nil, etait_maire = false, victime = nil,
-            potions = { vie = true, mort = true }, ligne = 1, demo = false, voile = 0 }
+            potions = { vie = true, mort = true }, ligne = 1, demo = false, voile = 0, petit = nil, visions = {} }
     end
     local etat = neuf()
     local chat_ouvert = false
@@ -284,14 +284,26 @@ return function(config, Interaction)
         appeler("lg:message", ("Tout le monde a voté : %d secondes pour changer d'avis."):format(reste), 4)
     end
 
+    -- Le rappel du role, en bas a gauche : une ligne d'etat (potions, maire...)
+    -- puis toutes les visions de la voyante, qui s'accumulent.
     local function rappel(petit)
+        if petit ~= nil then etat.petit = petit end
+        local lignes = {}
+        if etat.petit and etat.petit ~= "" then lignes[#lignes + 1] = etat.petit end
+        for _, v in ipairs(etat.visions) do lignes[#lignes + 1] = v end
         local moi = etat.role and ROLES[etat.role]
-        if moi then appeler("lg:rappel", { image = moi.image, nom = moi.nom, petit = petit }) end
+        if moi then appeler("lg:rappel", { image = moi.image, nom = moi.nom, petit = table.concat(lignes, "\n") }) end
     end
 
+    -- La voyante : la carte du joueur sonde monte au milieu de l'ecran et se
+    -- retourne, puis la ligne rejoint les autres visions du rappel.
     function H.vision(nom, role)
         local r = ROLES[role_id(role) or ""]
-        if r then rappel(("%s est %s"):format(tostring(nom), r.nom)) end
+        if not r then return end
+        local texte = ("%s est %s"):format(tostring(nom), r.nom)
+        appeler("lg:vision", { image = r.image, titre = texte })
+        etat.visions[#etat.visions + 1] = texte
+        rappel(nil)
     end
 
     function H.amoureux(id, nom)
@@ -410,20 +422,21 @@ return function(config, Interaction)
             Vector2D(0, 0), Vector2D(1, 1), Color.WHITE, BlendMode.AlphaBlend, 0, Vector2D(0.5, 0.5))
     end
 
-    -- Celui qu'on vise s'allume (a la place de l'invite papier) : or pour
-    -- designer, vert pour sauver, violet pour empoisonner (doc Actor, doc Client).
-    local SURBRILLANCE = 2
-    local COULEURS = { defaut = Color(3, 2.2, 0.6), lg_sauver = Color(0.6, 3, 0.8), lg_empoisonner = Color(2.2, 0.6, 3) }
+    -- Celui qu'on vise prend un contour fin (a la place de l'invite papier) :
+    -- or pour designer, vert pour sauver, violet pour empoisonner. Slot 1 :
+    -- le 2 sert aux cartes du Liar's Bar (doc Actor, doc Client).
+    local CONTOUR, EPAISSEUR = 1, 1.5
+    local COULEURS = { defaut = Color(1.1, 0.85, 0.35), lg_sauver = Color(0.45, 1.1, 0.55), lg_empoisonner = Color(0.85, 0.45, 1.1) }
     local allume, allume_couleur = nil, nil
     local function surligner(ch, invite)
         local couleur = ch and (COULEURS[invite] or COULEURS.defaut) or nil
         if ch == allume and couleur == allume_couleur then return end
-        if allume and allume:IsValid() then pcall(function() allume:SetHighlightEnabled(false, SURBRILLANCE) end) end
+        if allume and allume:IsValid() then pcall(function() allume:SetOutlineEnabled(false, CONTOUR) end) end
         allume, allume_couleur = nil, nil
         if not ch then return end
         pcall(function()
-            Client.SetHighlightColor(couleur, SURBRILLANCE, HighlightMode.Always)
-            ch:SetHighlightEnabled(true, SURBRILLANCE)
+            Client.SetOutlineColor(couleur, CONTOUR, EPAISSEUR)
+            ch:SetOutlineEnabled(true, CONTOUR)
         end)
         allume, allume_couleur = ch, couleur
     end
@@ -509,7 +522,9 @@ return function(config, Interaction)
             end
             local choix = etat.choix[id]
             if choix then
-                local h = Pseudo.Dessiner(c, "> " .. choix.nom, e.x, y - 4 * e.s, 0.8 * e.s, ROUGE)
+                local cible = choix.id == mon_id and "(Moi)" or choix.nom
+                -- Au-dessus du votant : pour qui il vote ("vote > Nino").
+                local h = Pseudo.Dessiner(c, "vote > " .. cible, e.x, y - 4 * e.s, 0.8 * e.s, ROUGE)
                 y = y - h - 10 * e.s
             end
             ::suivant::
