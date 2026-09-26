@@ -616,7 +616,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             -- (-sin, cos) est la gauche du personnage dans le plan XY.
             local lateral = (target.x - origin.x) * -math.sin(yaw)
                 + (target.y - origin.y) * math.cos(yaw)
-            local side = lateral > 40 and "left" or lateral < -40 and "right" or "center"
+            -- En jeu les clips importes Left/Right pointent du cote oppose :
+            -- on inverse ici leur choix sans modifier les assets deja cuits.
+            local side = lateral > 40 and "right" or lateral < -40 and "left" or "center"
             local ok, err = pcall(function()
                 character:PlayAnimation(ANIMATIONS.accuse[side], "DefaultSlot", false,
                     0.08, 0.15, 1.0, true)
