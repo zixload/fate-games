@@ -96,6 +96,16 @@ return function()
 
     Events.SubscribeRemote("pvp:etat", function(e)
         if type(e) ~= "table" then return end
+        -- Armes a feu : c'est l'arme native qui tient le vrai chargeur.
+        if famille() == "tir" then
+            pcall(function()
+                local moi = perso_de(mon_id)
+                local w = moi and moi:GetPicked()
+                if w and w:IsValid() and w.GetAmmoClip then
+                    e.munitions, e.chargeur = w:GetAmmoClip(), w:GetClipCapacity()
+                end
+            end)
+        end
         hud("etat", e, arme)
     end)
 
