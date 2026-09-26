@@ -75,6 +75,7 @@ return function(H, Stubs)
         local function nouveau_joueur(id)
             local j = Stubs.player(id)
             function j:IsValid() return true end
+            function j:GetPing() return 60 end
             return j
         end
         local joueur = nouveau_joueur(1)

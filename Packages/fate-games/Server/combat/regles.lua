@@ -37,7 +37,8 @@ R.combattant = {
 }
 
 R.defense = {
-    parade = 0.18,                 -- garde posee au plus tant de temps avant l'impact
+    parade = 0.25,                 -- garde posee au plus tant de temps avant l'impact
+    latence_max = 0.15,            -- delai accorde au defenseur pour que sa garde arrive (son ping)
     garde_demi_angle = 70,         -- l'attaquant doit etre devant, a moins de tant de degres
     bouclier_demi_angle = 85,
     esquive_invulnerable = 0.25,

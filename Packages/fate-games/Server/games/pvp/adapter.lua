@@ -274,6 +274,11 @@ return function(Log, Characters, Combat, Armes, config)
             if c and c:IsValid() then
                 local rot = p.player and c:GetControlRotation() or c:GetRotation()
                 Combat.placer(w, cid, vec(c:GetLocation()), rot.Yaw, rot.Pitch)
+                -- Son ping : un coup contre lui attend que sa garde arrive.
+                if p.player then
+                    local ok, ping = pcall(function() return p.player:GetPing() end)
+                    if ok and type(ping) == "number" then Combat.latence(w, cid, ping / 1000) end
+                end
             else
                 P[cid] = nil
                 Combat.retirer(w, cid)

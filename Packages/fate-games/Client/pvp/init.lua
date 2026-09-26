@@ -8,7 +8,7 @@
 --   clic molette ou F    attaque lourde
 --   clic droit (tenu)    garde ; un geste de souris la change de cote (la camera
 --                        reste fixe tant qu'on tient)
---   Q                    feinte (pendant l'armement)
+--   R                    feinte (pendant l'armement)
 --   V                    bousculade (ne blesse pas, traverse la garde)
 --   Alt gauche           esquive (direction : Z Q S D ou W A S D tenues)
 -- Arc : clic gauche tenu pour bander, relache pour tirer.
@@ -43,6 +43,12 @@ return function()
     local en_garde, bande = false, false
     local mouvements = {}
     local attaques, gardes, a_terre, camps = {}, {}, {}, {}
+    local etats = {}            -- id -> { statut -> fin }
+    local ouvertes = {}         -- id -> fin : garde ouverte par une bousculade
+    local ETATS = { { "expose", "Exposé", Color(1, 0.6, 0.2) }, { "etourdi", "Étourdi", Color(1, 0.85, 0.3) },
+        { "vulnerable", "Vulnérable", Color(1, 0.35, 0.3) }, { "ralenti", "Ralenti", Color(0.6, 0.8, 1) },
+        { "saignement", "Saigne", Color(0.9, 0.2, 0.2) }, { "brulure", "Brûle", Color(1, 0.5, 0.1) },
+        { "barriere", "Barrière", Color(0.6, 1, 0.7) } }
     local nombres, traits, projectiles = {}, {}, {}
     local touche_jusqua = 0
 
@@ -192,7 +198,9 @@ return function()
                 if e.id == mon_id then hud("refus", "Parade !") end
             elseif k == "bouscule" then
                 if c then son("nanos-world::A_Punch_Cue", c:GetLocation(), 1, 0.7) end
-                if e.id == mon_id then hud("refus", "Bousculé !") end
+                if e.garde then ouvertes[e.id] = t + 1.2 end
+                if e.id == mon_id then hud("refus", e.garde and "Garde ouverte !" or "Bousculé !") end
+                if e.source == mon_id and e.garde then hud("refus", "Garde ouverte : frappe !") end
             elseif k == "bloque" then
                 if c then
                     son("nanos-world::A_MetalHeavy_Impact_MS", c:GetLocation(), 0.8, 1)
@@ -200,6 +208,11 @@ return function()
                 end
             elseif k == "garde" then
                 gardes[e.id] = e.dir
+            elseif k == "statut" then
+                etats[e.id] = etats[e.id] or {}
+                etats[e.id][e.statut] = t + (e.duree or 1)
+            elseif k == "statut_fin" then
+                if etats[e.id] then etats[e.id][e.statut] = nil end
             elseif k == "degats" then
                 local cible = perso_de(e.cible)
                 if cible then
@@ -238,6 +251,7 @@ return function()
 
     -- La direction vient du geste de souris des 150 dernieres millisecondes.
     local SEUIL = 14
+    local LENT = 0.012          -- degres par pixel en garde (tres lent)
     Input.Subscribe("MouseMove", function(dx, dy)
         if not actif or famille() ~= "melee" then return end
         local t = maintenant()
@@ -256,10 +270,18 @@ return function()
                 if en_garde then envoyer("pvp:garde", d) end
             end
         end
-        -- En garde, la souris ne fait que choisir le cote : la camera reste fixe
-        -- (la recaler sur l'ennemi a chaque image la faisait partir dans tous
-        -- les sens). On relache le clic droit pour regarder ailleurs.
-        if en_garde then return false end
+        -- En garde, la souris choisit surtout le cote : la camera ne tourne que
+        -- tres lentement (la recaler sur l'ennemi la faisait partir dans tous
+        -- les sens).
+        if en_garde then
+            local p = Client.GetLocalPlayer()
+            if p then
+                local r = p:GetCameraRotation()
+                local pitch = math.max(-60, math.min(60, r.Pitch - (dy or 0) * LENT))
+                p:SetCameraRotation(Rotator(pitch, r.Yaw + (dx or 0) * LENT, 0))
+            end
+            return false
+        end
     end)
 
     local function ennemi_proche(portee, cone)
@@ -342,11 +364,8 @@ return function()
         if not actif or chat_ouvert then return end
         local fam = famille()
         if touche == "F" and fam == "melee" then envoyer("pvp:attaque", "lourde", direction) return false end
-        if touche == "Q" and fam == "melee" and not Input.IsKeyDown("LeftAlt") then
-            -- Q sert aussi a gauche sur un clavier AZERTY : feinte seulement si
-            -- une attaque est en cours chez soi.
-            if attaques[mon_id] then envoyer("pvp:feinte") return false end
-        end
+        -- R : a la meme place sur tous les claviers, libre au corps a corps.
+        if touche == "R" and fam == "melee" then envoyer("pvp:feinte") return false end
         if touche == "LeftAlt" then envoyer("pvp:esquive", direction_esquive()) return false end
         if touche == "V" and fam == "melee" then envoyer("pvp:bousculer") return false end
         if SORTS[touche] then
@@ -438,6 +457,28 @@ return function()
                 end
             end
         end
+        -- Les etats des autres combattants (expose, etourdi...) et la garde
+        -- ouverte par une bousculade, au-dessus de leur tete.
+        for id, liste in pairs(etats) do
+            local ch = id ~= mon_id and perso_de(id)
+            if ch then
+                local e = Viewport.ProjectWorldToScreen(ch:GetLocation() + Vector(0, 0, 150))
+                if e and e.X > 0 and e.X < largeur and e.Y > 0 and e.Y < hauteur then
+                    local y = e.Y
+                    if (ouvertes[id] or 0) > t then
+                        y = y - Pseudo.Dessiner(c, "Garde ouverte !", e.X, y, 1, ROUGE) - 4
+                    end
+                    for _, def in ipairs(ETATS) do
+                        local fin = liste[def[1]]
+                        if fin and fin > t then
+                            y = y - Pseudo.Dessiner(c, ("%s %.1f"):format(def[2], fin - t), e.X, y, 0.8,
+                                { couleur = def[3] }) - 3
+                        end
+                    end
+                end
+            end
+        end
+
         -- Sa propre garde, autour du viseur.
         local cx, cy = largeur / 2, hauteur / 2
         if en_garde then

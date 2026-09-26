@@ -132,6 +132,13 @@ return function(R, A, S, G)
         return { { kind = "equipe", id = id, arme = arme } }
     end
 
+    -- Le ping d'un joueur (s) : un coup contre lui est tranche d'autant plus
+    -- tard (borne), le temps que sa garde, posee a temps chez lui, arrive.
+    function Combat.latence(w, id, secondes)
+        local f = combattant(w, id)
+        if f then f.latence = math.max(0, math.min(tonumber(secondes) or 0, w.R.defense.latence_max)) end
+    end
+
     -- Mode invincible, pour les essais : les coups comptent, la sante ne baisse pas.
     function Combat.invincible(w, id, oui)
         local f = combattant(w, id)
@@ -460,6 +467,7 @@ return function(R, A, S, G)
         for _, d in pairs(w.combattants) do
             if not a.action then return end
             if d ~= a and en_vie(d) and not a.action.touches[d.id] and ennemis(w, a, d)
+                and w.t >= a.action.fin_armement + (d.latence or 0)
                 and math.abs(d.pos.z - a.pos.z) < s.demi_hauteur * 1.6
                 and G.distance_plane(a.pos, d.pos) >= (arme.portee_min or 0)
                 and G.dans_arc(a.pos, a.yaw, d.pos, arme.portee, arme.demi_angle, s.rayon) then
@@ -872,13 +880,18 @@ return function(R, A, S, G)
         if a and a.kind == "attaque" then
             if a.phase == "armement" and t >= a.fin_armement then
                 a.phase = "frappe"
+                -- La frappe attend le defenseur le plus en retard (son ping).
+                a.attente = 0
+                for _, d in pairs(w.combattants) do
+                    if d ~= f and ennemis(w, f, d) then a.attente = math.max(a.attente, d.latence or 0) end
+                end
                 fx[#fx + 1] = { kind = "frappe", id = f.id }
             end
             if a.phase == "frappe" then
                 frapper(w, f, fx)
-                if f.action == a and t >= a.fin_frappe then a.phase = "recuperation" end
+                if f.action == a and t >= a.fin_frappe + (a.attente or 0) then a.phase = "recuperation" end
             end
-            if f.action == a and t >= a.fin then f.action = nil end
+            if f.action == a and t >= a.fin + (a.attente or 0) then f.action = nil end
         elseif a and a.kind == "sort" and t >= a.fin then
             f.action = nil
             lancer_sort(w, f, a, fx)

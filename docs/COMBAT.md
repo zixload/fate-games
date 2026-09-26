@@ -67,7 +67,8 @@ Défenses :
 - **Garde** : on tient le clic droit, orientée dans une direction. Un coup venant de cette
   direction et de face est bloqué : pas de dégâts (sauf la part qui traverse la garde), de
   l'endurance et de la posture en moins. Un bouclier bloque toutes les directions de face.
-- **Parade** : poser la garde dans la bonne direction dans les 180 ms avant l'impact. Le coup est
+- **Parade** : poser la garde dans la bonne direction dans les 250 ms avant l'impact (contre un
+  joueur qui a du ping, le coup est tranché jusqu'à 150 ms plus tard, le temps que sa garde arrive). Le coup est
   annulé, l'attaquant perd beaucoup de posture et reste exposé. Récompense la lecture.
 - **Esquive** : un pas vif, invulnérable pendant 250 ms, coûte de l'endurance, courte récupération.
 - **Feinte** : annuler son armement avant la frappe, contre de l'endurance. Punit les parades
@@ -190,8 +191,8 @@ Commandes en combat :
 | --- | --- | --- | --- |
 | clic gauche | attaque légère | tenir pour bander, relâcher | tir (natif) |
 | clic molette ou F | attaque lourde | | |
-| clic droit tenu | garde ; la souris choisit le côté (la caméra reste fixe tant qu'on tient) | | visée (native) |
-| Q | feinte pendant l'armement | | |
+| clic droit tenu | garde ; la souris choisit le côté (la caméra ne tourne que très lentement) | | visée (native) |
+| R | feinte pendant l'armement | | recharger (natif) |
 | V | bousculade (traverse la garde, sans dégâts) | | |
 | Alt gauche | esquive (direction : touches tenues) | esquive | esquive |
 | & é " ' ( - è (AZERTY) ou 1 à 7 (QWERTY) | sorts : trait de feu, onde de choc, éclair, gel, soin, barrière, bond | | |
