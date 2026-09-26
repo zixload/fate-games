@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Cartes</title>
+<!--
+  Faces des cartes de Liar's Bar, dans le style des HUD (papier, encre,
+  laiton, contours a main levee). Une carte par page : cartes.html?carte=roi
+  (roi, dame, as, joker, dos) ; sans parametre, la planche d'apercu.
+  PNG : scripts/cartes/rendre.ps1 (Edge sans interface).
+-->
+<style>
+@font-face { font-family: "Lilita One"; src: url("../../Packages/fate-games/Client/vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --laiton: #d9b56a; --laiton-fonce: #8a6d3b; }
+html, body { margin: 0; background: transparent; }
+body.planche { background: #2c3b2f; display: flex; flex-wrap: wrap; gap: 50px; padding: 50px; align-items: center; justify-content: center; min-height: 100vh; box-sizing: border-box; }
+body.planche svg.carte { width: 357px; height: 537px; filter: drop-shadow(8px 10px 0 rgba(7, 10, 11, .55)); }
+body.seule svg.carte { display: block; width: 357px; height: 537px; }
+</style>
+</head>
+<body>
+<script src="../../Packages/fate-games/Client/ui/esquisse.js"></script>
+<script>
+const W = 357, H = 537;
+const ENCRE = "#1c2123", PAPIER = "#efe6d2", LAITON = "#d9b56a", LAITON_FONCE = "#8a6d3b";
+const SAUGE = "#9fbcb4", SAUGE_FONCE = "#5d7d76";
+const ARDOISE = "#9db0c6", ARDOISE_FONCE = "#5b728c";
+
+// Trait d'encre en deux passages, comme les contours des HUD : le trait
+// plein, puis un second plus fin, decale, a moitie efface.
+function encre(d, { fill = "none", w = 6, extra = "" } = {}) {
+  return `<path d="${d}" fill="${fill}" stroke="${ENCRE}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round" ${extra}/>`
+    + `<path d="${d}" fill="none" stroke="${ENCRE}" stroke-width="${Math.max(1.5, w * 0.3)}" opacity=".35" transform="translate(2 1.4)" stroke-linejoin="round" stroke-linecap="round"/>`;
+}
+
+// Hachures d'ombre, a la main : des traits paralleles un peu irreguliers,
+// decoupes par le chemin donne.
+let clipN = 0, clipPrefixe = "";
+function hachures(d, x0, y0, x1, y1, pas = 11) {
+  const id = clipPrefixe + "h" + (++clipN);
+  let lignes = "";
+  for (let x = x0 - (y1 - y0); x < x1; x += pas) {
+    const j = (Math.sin(x * 1.7) * 1.5).toFixed(1);
+    lignes += `<path d="M${x} ${y1 + 4}L${x + (y1 - y0) + +j} ${y0 - 4}" stroke="${ENCRE}" stroke-width="2.2" opacity=".55" stroke-linecap="round"/>`;
+  }
+  return `<clipPath id="${id}"><path d="${d}"/></clipPath><g clip-path="url(#${id})">${lignes}</g>`;
+}
+
+const SYMBOLES = {
+  // Couronne a trois pointes, laiton, bandeau serti.
+  roi: () => {
+    const c = "M88 300 L78 190 L128 238 L178 160 L228 238 L278 190 L268 300 Z";
+    const b = "M84 300 Q178 318 272 300 L276 338 Q178 358 80 338 Z";
+    return encre(c, { fill: LAITON })
+      + hachures("M178 160 L228 238 L278 190 L268 300 L178 300 Z", 178, 160, 280, 300)
+      + encre(b, { fill: LAITON_FONCE })
+      + [78, 178, 278].map((x, i) => encre(`M${x} ${[182, 150, 182][i]}m-13 0a13 13 0 1 0 26 0a13 13 0 1 0 -26 0`, { fill: PAPIER, w: 5 })).join("")
+      + [118, 178, 238].map((x) => encre(`M${x} ${x === 178 ? 322 : 318}m-10 0l10 -10l10 10l-10 10z`, { fill: PAPIER, w: 4 })).join("");
+  },
+  // Diademe arrondi, pierre centrale, perles : la Dame.
+  dame: () => {
+    const c = "M92 312 Q84 250 108 214 Q140 250 150 232 Q162 176 178 150 Q194 176 206 232 Q216 250 248 214 Q272 250 264 312 Z";
+    const b = "M88 312 Q178 330 268 312 L270 340 Q178 360 86 340 Z";
+    return encre(c, { fill: SAUGE })
+      + hachures("M178 150 Q194 176 206 232 Q216 250 248 214 Q272 250 264 312 L178 312 Z", 178, 150, 270, 312)
+      + encre(b, { fill: SAUGE_FONCE })
+      + encre("M178 236m-24 0a24 30 0 1 0 48 0a24 30 0 1 0 -48 0", { fill: LAITON, w: 5 })
+      + encre("M170 222 Q176 214 184 218", { w: 3 })
+      + [108, 178, 248].map((x, i) => encre(`M${x} ${[206, 140, 206][i]}m-10 0a10 10 0 1 0 20 0a10 10 0 1 0 -20 0`, { fill: PAPIER, w: 4 })).join("")
+      + [110, 144, 212, 246].map((x) => encre(`M${x} 326m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0`, { fill: PAPIER, w: 3 })).join("");
+  },
+  // Un grand pique, bleu ardoise : l'As.
+  as: () => {
+    const pique = "M178 132 C150 178 88 214 88 268 C88 306 118 326 146 322 C160 320 170 312 174 300 "
+      + "C172 322 160 338 140 346 L216 346 C196 338 184 322 182 300 C186 312 196 320 210 322 "
+      + "C238 326 268 306 268 268 C268 214 206 178 178 132 Z";
+    return encre(pique, { fill: ARDOISE })
+      + hachures("M178 132 C206 178 268 214 268 268 C268 306 238 326 210 322 C196 320 186 312 182 300 L178 300 Z", 178, 132, 270, 330)
+      + encre("M140 346 L216 346", { w: 6 })
+      + encre("M128 262 C124 236 144 212 160 200", { w: 3.5 });
+  },
+  // Bonnet de bouffon a trois pointes et grelots, dans les trois couleurs
+  // des autres cartes : le Joker les remplace toutes.
+  joker: () => {
+    const g = "M96 300 C92 250 70 218 58 196 C96 200 130 230 150 268 Z";
+    const m = "M140 300 C136 236 160 176 178 140 C196 176 220 236 216 300 Z";
+    const d = "M260 300 C264 250 286 218 298 196 C260 200 226 230 206 268 Z";
+    const b = "M86 300 Q178 318 270 300 L274 340 Q178 360 82 340 Z";
+    return encre(g, { fill: SAUGE })
+      + encre(d, { fill: ARDOISE })
+      + hachures("M298 196 C260 200 226 230 206 268 L260 300 C264 250 286 218 298 196 Z", 206, 196, 300, 300)
+      + encre(m, { fill: LAITON })
+      + hachures("M178 140 C196 176 220 236 216 300 L178 300 Z", 178, 140, 220, 300)
+      + encre(b, { fill: LAITON_FONCE })
+      + [[58, 192], [178, 132], [298, 192]].map(([x, y]) => encre(`M${x} ${y}m-14 0a14 14 0 1 0 28 0a14 14 0 1 0 -28 0`, { fill: LAITON, w: 5 })
+        + encre(`M${x - 6} ${y + 2}L${x + 6} ${y + 2}`, { w: 3 })).join("")
+      + [118, 178, 238].map((x) => encre(`M${x} 322m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0`, { fill: PAPIER, w: 4 })).join("");
+  },
+};
+
+const CARTES = {
+  roi:   { lettre: "R", nom: "Roi",   symbole: SYMBOLES.roi,   graine: 5 },
+  dame:  { lettre: "D", nom: "Dame",  symbole: SYMBOLES.dame,  graine: 9 },
+  as:    { lettre: "A", nom: "As",    symbole: SYMBOLES.as,    graine: 13 },
+  joker: { lettre: "J", nom: "Joker", symbole: SYMBOLES.joker, graine: 17 },
+};
+
+// Le dos : encre pleine, cadre laiton trace a la main, un barillet de
+// revolver au centre (la table de Liar's Bar), symetrique pour se lire dans
+// les deux sens. Sombre, pour que les faces se detachent a cote.
+function dos() {
+  clipN = 0; clipPrefixe = "dos";
+  const cadre = contourTrace(W - 44, H - 44, 22, 21, 1.3);
+  const cadre2 = contourTrace(W - 44, H - 44, 22, 26, 1.8);
+  const interieur = contourTrace(W - 84, H - 84, 16, 23, 1.1);
+  const cx = W / 2, cy = H / 2;
+  let chambres = "";
+  for (let i = 0; i < 6; i++) {
+    const a = (i * 60 - 90) * Math.PI / 180;
+    const x = cx + Math.cos(a) * 52, y = cy + Math.sin(a) * 52;
+    chambres += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="17" fill="${ENCRE}" stroke="${LAITON}" stroke-width="4"/>`;
+  }
+  let losanges = "";
+  for (let y = 72; y < H - 60; y += 34) {
+    for (let x = 72 + ((y / 34) % 2) * 17; x < W - 60; x += 34) {
+      if (Math.hypot(x - cx, y - cy) < 118) continue;
+      losanges += `<path d="M${x} ${y - 7}l7 7l-7 7l-7 -7z" fill="none" stroke="${LAITON}" stroke-width="2" opacity=".45"/>`;
+    }
+  }
+  return `<svg class="carte" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">`
+    + `<rect width="${W}" height="${H}" fill="${ENCRE}"/>`
+    + losanges
+    + `<g transform="translate(22 22)"><path d="${cadre}" fill="none" stroke="${LAITON}" stroke-width="6" stroke-linejoin="round"/>`
+    + `<path d="${cadre2}" fill="none" stroke="${LAITON}" stroke-width="2" opacity=".4" transform="translate(2 1.5)"/></g>`
+    + `<g transform="translate(42 42)"><path d="${interieur}" fill="none" stroke="${LAITON}" stroke-width="2.5" opacity=".7"/></g>`
+    + `<circle cx="${cx}" cy="${cy}" r="96" fill="${LAITON_FONCE}" stroke="${LAITON}" stroke-width="6"/>`
+    + `<circle cx="${cx + 2}" cy="${cy + 1.5}" r="96" fill="none" stroke="${LAITON}" stroke-width="2" opacity=".4"/>`
+    + `<circle cx="${cx}" cy="${cy}" r="80" fill="${LAITON}" stroke="${ENCRE}" stroke-width="4"/>`
+    + chambres
+    + `<circle cx="${cx}" cy="${cy}" r="11" fill="${LAITON_FONCE}" stroke="${ENCRE}" stroke-width="4"/>`
+    + `</svg>`;
+}
+
+function coin(lettre, x, y, rot) {
+  return `<g transform="translate(${x} ${y}) rotate(${rot})">`
+    + `<text x="0" y="0" font-family="Lilita One" font-size="70" text-anchor="middle" fill="${ENCRE}">${lettre}</text></g>`;
+}
+
+function carte(nom) {
+  const c = CARTES[nom];
+  clipN = 0; clipPrefixe = nom;
+  // Cadre interieur trace a main levee (meme generateur que les HUD).
+  const cadre = contourTrace(W - 44, H - 44, 22, c.graine, 1.3);
+  const cadre2 = contourTrace(W - 44, H - 44, 22, c.graine + 5, 1.8);
+  return `<svg class="carte" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">`
+    + `<rect width="${W}" height="${H}" fill="${PAPIER}"/>`
+    + `<g transform="translate(22 22)"><path d="${cadre}" fill="none" stroke="${ENCRE}" stroke-width="6" stroke-linejoin="round"/>`
+    + `<path d="${cadre2}" fill="none" stroke="${ENCRE}" stroke-width="2" opacity=".35" transform="translate(2 1.5)"/></g>`
+    + coin(c.lettre, 66, 104, 0) + coin(c.lettre, W - 66, H - 104, 180)
+    + `<g transform="translate(0 -6)">${c.symbole()}</g>`
+    + `<text x="${W / 2}" y="428" font-family="Lilita One" font-size="54" text-anchor="middle" fill="${ENCRE}">${c.nom}</text>`
+    + `<path d="M120 446 Q178 456 236 444" fill="none" stroke="${ENCRE}" stroke-width="4" stroke-linecap="round"/>`
+    + `</svg>`;
+}
+
+document.fonts.load('70px "Lilita One"').then(() => {
+  const q = new URLSearchParams(location.search).get("carte");
+  if (q && (CARTES[q] || q === "dos")) {
+    document.body.className = "seule";
+    document.body.insertAdjacentHTML("beforeend", q === "dos" ? dos() : carte(q));
+  } else {
+    document.body.className = "planche";
+    document.body.insertAdjacentHTML("beforeend", Object.keys(CARTES).map(carte).join("") + dos());
+  }
+});
+</script>
+</body>
+</html>
