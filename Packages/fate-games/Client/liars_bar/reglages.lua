@@ -69,6 +69,29 @@ return function(config, Rendu)
                 Rendu.Reconstruire()
             end
             Chat.AddMessage("/fan os " .. tostring(config.bone_simple))
+            -- Diagnostic : ou sont les os des mains sur un personnage assis
+            -- (un bot de la demo, sinon soi). Un os introuvable fait accrocher
+            -- les cartes a l'origine du personnage, pres des pieds.
+            local cible = nil
+            for _, c in pairs(CharacterSimple.GetPairs()) do
+                if c:IsValid() and c:GetValue("liars_chair", 0) > 0 then cible = c break end
+            end
+            local player = Client.GetLocalPlayer()
+            cible = cible or (player and player:GetControlledCharacter())
+            if cible then
+                local o = cible:GetLocation()
+                for _, os_nom in ipairs({ "LeftHand", "RightHand", "LeftHandProp", "RightHandProp", "Head" }) do
+                    local ok, tr = pcall(function() return cible:GetSocketTransform(os_nom) end)
+                    local l = ok and tr and tr.Location
+                    if l and l.X then
+                        local dx, dy, dz = l.X - o.X, l.Y - o.Y, l.Z - o.Z
+                        Chat.AddMessage(("  %s : %.0f cm du centre (hauteur %+.0f)"):format(
+                            os_nom, math.sqrt(dx * dx + dy * dy + dz * dz), dz))
+                    else
+                        Chat.AddMessage("  " .. os_nom .. " : introuvable")
+                    end
+                end
+            end
         elseif VECTEURS[cle] and mots[3] and not tonumber(mots[3]) then
             -- Reglage relatif : /fan pos x -1, /fan rot ya 5.
             local d = VECTEURS[cle]
