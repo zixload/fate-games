@@ -1,10 +1,15 @@
--- Superposition de Liar's Bar, rendue par WebUI pour des contours nets :
+-- Superposition de Liar's Bar :
 --   - un petit barillet au-dessus de chaque joueur (aucun pseudo ni chance
 --     chiffree) ; le sien, en haut de l'ecran, quand on leve la tete ;
 --   - au-dessus du joueur precedent, a mon tour, quand je le regarde :
 --     l'invite "Menteur !" (E l'accuse, hud.lua lit journal.vise_menteur) ;
 --   - au-dessus du tas : la derniere pose (+2), la carte de table, le total ;
 --   - les consignes, en bas, a mon tour.
+-- Ce qui suit la camera est dessine par le Canvas natif, dans la meme image
+-- que la camera : une page WebUI se peint a part et trainait une image ou
+-- deux derriere les mouvements de souris. Les dessins sont des PNG dans le
+-- style croquis (scripts/hud/sprites.html, rendus par scripts/hud/rendre.sh).
+-- Seules les consignes, fixes a l'ecran, restent dans la page WebUI.
 -- Les positions suivent l'os de la tete : le centre de la capsule assise
 -- n'est pas un repere fiable pour placer un HUD.
 
@@ -19,6 +24,8 @@ return function(journal, config)
     local cone_menteur = math.cos(math.rad(reglage.cone_menteur or 12))
     local tangage_barillet = reglage.tangage_barillet or 14
     local touches = reglage.keys or {}
+    local IMG = "package://fate-games/Client/liars_bar/hud/"
+    local RANGS = { king = "roi", queen = "dame", ace = "as", joker = "joker" }
 
     local page = WebUI("liars-barillet", "file://liars_bar/barillet.html",
         WidgetVisibility.VisibleNotHitTestable, true, true)
@@ -62,15 +69,15 @@ return function(journal, config)
 
     -- Point du monde vers l'ecran, ou nil s'il est derriere, trop pres, trop
     -- loin ou hors du cadre.
-    local function projeter(point, camera, forward, screen_size)
+    local function projeter(point, camera, forward, largeur, hauteur)
         local dx, dy, dz = point.X - camera.X, point.Y - camera.Y, point.Z - camera.Z
         local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
         if distance < 80 or distance > PORTEE then return end
         if dx * forward.X + dy * forward.Y + dz * forward.Z <= 0 then return end
         local projected = Viewport.ProjectWorldToScreen(point)
         if not projected or type(projected.X) ~= "number" or type(projected.Y) ~= "number" then return end
-        if projected.X < 35 or projected.X > screen_size.X - 35
-            or projected.Y < 70 or projected.Y > screen_size.Y - 35 then return end
+        if projected.X < 35 or projected.X > largeur - 35
+            or projected.Y < 70 or projected.Y > hauteur - 35 then return end
         return projected, distance
     end
 
@@ -91,62 +98,111 @@ return function(journal, config)
         return derniere.chair
     end
 
-    local function ajouter(markers, character, chair, camera, forward, screen_size, precedent)
-        local fired = character:GetValue("liars_fired", nil)
-        if type(fired) ~= "number" or character:GetValue("liars_alive", false) ~= true then return end
-        local point, tete = position_tete(character)
-        local projected, distance = projeter(point, camera, forward, screen_size)
-        if not projected then return end
-        local menteur = precedent == chair and vise(tete, camera, forward)
-        if menteur then journal.vise_menteur = chair end
-        markers[#markers + 1] = {
-            id = character:GetID(),
-            x = projected.X,
-            y = projected.Y,
-            fired = math.max(0, math.min(CHAMBRES, math.floor(fired))),
-            active = (tireur or journal.turn) == chair,
-            menteur = menteur,
-            scale = math.max(0.80, math.min(1, 700 / distance)),
-        }
-    end
-
     local function angle(degres)
         return (degres + 180) % 360 - 180
     end
 
+    ---------------------------------------------------------------- dessin
+
+    -- Un sprite centre en (x, y). l, h : sa taille a l'echelle 1 (celle de la
+    -- fenetre de rendu ; le PNG est rendu au double pour rester net).
+    local function sprite(c, nom, x, y, l, h, s)
+        local w, hh = l * s, h * s
+        c:DrawTexture(IMG .. nom .. ".png", Vector2D(x - w / 2, y - hh / 2), Vector2D(w, hh),
+            Vector2D(0, 0), Vector2D(1, 1), Color.WHITE, BlendMode.AlphaBlend, 0, Vector2D(0.5, 0.5))
+    end
+
+    -- Barillet pose sur le point (x, y) : son bas y touche, comme avant.
+    -- Fleche rouge dessous pour qui joue ou tire, invite "Menteur !" dessus.
+    local function barillet(c, x, y, fired, actif, menteur, s)
+        local n = math.max(0, math.min(CHAMBRES, math.floor(fired)))
+        sprite(c, "barillet_" .. n, x, y - 24 * s, 64, 64, s)
+        if actif then sprite(c, "fleche", x, y + 12 * s, 28, 24, s) end
+        if menteur then sprite(c, "menteur", x, y - 48 * s - 6 * s - 25 * s, 186, 66, s) end
+    end
+
+    local function les_autres(c, camera, forward, largeur, hauteur, mon_id)
+        local precedent = accusable()
+        for _, class in ipairs({ CharacterSimple, Character }) do
+            for _, character in pairs(class.GetAll()) do
+                if character:IsValid() and character:GetID() ~= mon_id then
+                    local chair = character:GetValue("liars_chair", 0)
+                    local fired = character:GetValue("liars_fired", nil)
+                    if type(chair) == "number" and chair > 0 and type(fired) == "number"
+                        and character:GetValue("liars_alive", false) == true then
+                        local point, tete = position_tete(character)
+                        local p, distance = projeter(point, camera, forward, largeur, hauteur)
+                        if p then
+                            local menteur = precedent == chair and vise(tete, camera, forward)
+                            if menteur then journal.vise_menteur = chair end
+                            barillet(c, p.X, p.Y, fired, (tireur or journal.turn) == chair, menteur,
+                                math.max(0.80, math.min(1, 700 / distance)))
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     -- Le sien, en haut au centre, quand on leve les yeux.
-    local function le_mien(markers, character, rotation, screen_size)
+    local function le_mien(c, character, rotation, largeur, hauteur)
         if not character or character:GetValue("liars_chair", 0) == 0 then return end
         local fired = character:GetValue("liars_fired", nil)
         if type(fired) ~= "number" or character:GetValue("liars_alive", false) ~= true then return end
         if angle(rotation.Pitch) < tangage_barillet then return end
-        markers[#markers + 1] = {
-            id = "moi",
-            x = screen_size.X / 2,
-            y = screen_size.Y * 0.2,
-            fired = math.max(0, math.min(CHAMBRES, math.floor(fired))),
-            active = (tireur or journal.turn) == journal.my_chair,
-            scale = 1.15,
-        }
+        barillet(c, largeur / 2, hauteur * 0.2, fired, (tireur or journal.turn) == journal.my_chair, false, 1.15)
     end
 
-    local function carton_du_tas(camera, forward, screen_size)
+    -- Le carton au-dessus du tas : +N, la carte de table, le total.
+    local function carton(c, camera, forward, largeur, hauteur)
         local lieu = journal.lieu_tas
-        if not (lieu and journal.table_rank) then return nil end
-        local projected, distance = projeter(Vector(lieu.X, lieu.Y, lieu.Z + 26), camera, forward, screen_size)
-        if not projected then return nil end
+        if not (lieu and journal.table_rank) then return end
+        local p, distance = projeter(Vector(lieu.X, lieu.Y, lieu.Z + 26), camera, forward, largeur, hauteur)
+        if not p then return end
+        local s = math.max(0.80, math.min(1, 500 / distance))
         local total = 0
         for _, pose in ipairs(journal.pile) do total = total + pose.count end
         local derniere = journal.pile[#journal.pile]
-        return {
-            x = projected.X, y = projected.Y,
-            plus = derniere and derniere.count or 0,
-            rang = journal.table_rank,
-            total = total,
-            poses = #journal.pile,
-            scale = math.max(0.80, math.min(1, 500 / distance)),
-        }
+        local haut = p.Y - 76 * s          -- haut du papier, dont le bas touche le point
+        sprite(c, "carton", p.X, p.Y - 38 * s, 132, 98, s)
+        local rang = RANGS[journal.table_rank]
+        if derniere and derniere.count >= 1 and derniere.count <= 3 then
+            sprite(c, "plus_" .. derniere.count, p.X, haut + 21 * s, 60, 34, s)
+            if rang then sprite(c, "table_" .. rang, p.X, haut + 46 * s, 110, 22, s) end
+            if total >= 1 and total <= 20 then sprite(c, "tas_" .. total, p.X, haut + 63 * s, 90, 16, s) end
+        else
+            if rang then sprite(c, "table_" .. rang, p.X, haut + 32 * s, 110, 22, s) end
+            if total >= 1 and total <= 20 then sprite(c, "tas_" .. total, p.X, haut + 52 * s, 90, 16, s) end
+        end
     end
+
+    local function dessiner(c, largeur, hauteur)
+        journal.vise_menteur = nil
+        local player = Client.GetLocalPlayer()
+        if not player then return end
+        local mon_perso = player:GetControlledCharacter()
+        local camera = player:GetCameraLocation()
+        local rotation = player:GetCameraRotation()
+        if not (camera and rotation) then return end
+        local forward = rotation:GetForwardVector()
+        carton(c, camera, forward, largeur, hauteur)
+        les_autres(c, camera, forward, largeur, hauteur, mon_perso and mon_perso:GetID())
+        le_mien(c, mon_perso, rotation, largeur, hauteur)
+    end
+
+    -- Taux 0 : redessine a chaque image (doc Canvas:SetAutoRepaintRate).
+    local canvas = Canvas(true, Color.TRANSPARENT, 0, true, true)
+    canvas:Subscribe("Update", function(self, largeur, hauteur)
+        local ok, err = pcall(dessiner, self, largeur, hauteur)
+        if not ok and not erreur_signalee then
+            Console.Error("[barillet HUD] " .. tostring(err))
+            erreur_signalee = true
+        elseif ok then
+            erreur_signalee = false
+        end
+    end)
+
+    ---------------------------------------------------------------- consignes
 
     local function aide()
         if not journal:IsMyTurn() or journal.designated ~= nil or #journal.hand == 0 then return "" end
@@ -157,49 +213,15 @@ return function(journal, config)
         return texte
     end
 
-
-    local function rafraichir()
-        journal.vise_menteur = nil
+    -- Les consignes ne bougent pas avec la camera : la page ne recoit que
+    -- leurs changements.
+    local derniere_aide = nil
+    Timer.SetInterval(function()
         if not pret then return end
-        local player = Client.GetLocalPlayer()
-        if not player then return end
-        local my_character = player:GetControlledCharacter()
-        local my_id = my_character and my_character:GetID()
-        local camera = player:GetCameraLocation()
-        local rotation = player:GetCameraRotation()
-        local screen_size = Viewport.GetViewportSize()
-        if not (camera and rotation and screen_size) then return end
-
-        local forward = rotation:GetForwardVector()
-        local precedent = accusable()
-        local markers = {}
-        for _, class in ipairs({ CharacterSimple, Character }) do
-            for _, character in pairs(class.GetAll()) do
-                if character:IsValid() and character:GetID() ~= my_id then
-                    local chair = character:GetValue("liars_chair", 0)
-                    if type(chair) == "number" and chair > 0 then
-                        ajouter(markers, character, chair, camera, forward, screen_size, precedent)
-                    end
-                end
-            end
-        end
-        le_mien(markers, my_character, rotation, screen_size)
-        page:CallEvent("barillet:maj", {
-            width = screen_size.X, height = screen_size.Y, markers = markers,
-            tas = carton_du_tas(camera, forward, screen_size),
-            aide = aide(),
-        })
-    end
-
-    -- La projection doit suivre la camera a chaque image. Un timer de 66 ms
-    -- donnait un retard visible pendant les mouvements de souris.
-    Client.Subscribe("Tick", function()
-        local ok, err = pcall(rafraichir)
-        if not ok and not erreur_signalee then
-            Console.Error("[barillet HUD] " .. tostring(err))
-            erreur_signalee = true
-        elseif ok then
-            erreur_signalee = false
-        end
-    end)
+        local ok, texte = pcall(aide)
+        texte = ok and texte or ""
+        if texte == derniere_aide then return end
+        derniere_aide = texte
+        page:CallEvent("barillet:maj", { width = 1, height = 1, markers = {}, aide = texte })
+    end, 150)
 end

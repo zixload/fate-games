@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Sprites HUD</title>
+<!--
+  Sprites du HUD de Liar's Bar au-dessus des tetes, dessines ici dans le
+  style croquis puis rendus en PNG (scripts/hud/rendre.sh) : le Canvas natif
+  les pose a l'ecran dans la meme image que la camera, sans le retard d'une
+  page WebUI. Un sprite par page : sprites.html?s=<nom>&... (voir SPRITES).
+-->
+<style>
+@font-face { font-family: "Lilita One"; src: url("../../Packages/fate-games/Client/vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --ombre: #070a0b; }
+html, body { margin: 0; background: transparent; overflow: hidden; }
+#boite { position: absolute; left: 0; top: 0; display: grid; place-items: center; }
+.sk { position: relative; isolation: isolate; }
+.sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+.sk-svg .ombre { fill: var(--ombre); opacity: .55; }
+.sk-svg .fond { fill: var(--papier); }
+.sk-svg .trait { fill: none; stroke: var(--encre); stroke-width: 3px; stroke-linejoin: round; }
+.sk-svg .trait2 { fill: none; stroke: var(--encre); stroke-width: 1.4px; opacity: .4; }
+
+.barrel { position: relative; width: 48px; height: 48px; box-sizing: border-box; border: 2px solid #c5a774; border-radius: 50%;
+    background: rgba(19, 25, 27, .88); box-shadow: 0 2px 9px rgba(0, 0, 0, .65), inset 0 0 0 2px rgba(241, 222, 179, .12); }
+.barrel::after { content: ""; position: absolute; width: 6px; height: 6px; left: 19px; top: 19px; border-radius: 50%; background: #8e7859; }
+.chamber { position: absolute; width: 8px; height: 8px; box-sizing: border-box; border-radius: 50%; background: #e8dec8; box-shadow: 0 0 0 1px rgba(0, 0, 0, .5); }
+.chamber.spent { background: #e83d37; box-shadow: 0 0 5px rgba(232, 61, 55, .7); }
+.chamber:nth-child(1) { left: 18px; top: 5px; } .chamber:nth-child(2) { left: 30px; top: 11px; }
+.chamber:nth-child(3) { left: 30px; top: 27px; } .chamber:nth-child(4) { left: 18px; top: 33px; }
+.chamber:nth-child(5) { left: 6px; top: 27px; } .chamber:nth-child(6) { left: 6px; top: 11px; }
+.arrow { width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent;
+    border-top: 13px solid #f03b35; filter: drop-shadow(0 1px 4px rgba(240, 59, 53, .75)); }
+
+.liar { display: flex; align-items: center; gap: 6px; padding: 6px 12px 6px 8px; font: 18px "Lilita One", sans-serif; color: var(--encre); white-space: nowrap; }
+.liar svg.nez { width: 38px; height: 30px; overflow: visible; }
+.liar svg.nez path { fill: none; stroke: var(--encre); stroke-width: 2.4px; stroke-linecap: round; stroke-linejoin: round; }
+.touche { display: inline-block; min-width: 20px; padding: 2px 5px; text-align: center; box-sizing: border-box;
+    border: 2px solid var(--encre); border-bottom-width: 4px; border-radius: 6px; background: #f6eedb; font-size: 15px; line-height: 1; }
+
+.carton { width: 110px; height: 76px; }
+.texte { font-family: "Lilita One", sans-serif; color: var(--encre); line-height: 1; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="boite"></div>
+<script src="../../Packages/fate-games/Client/ui/esquisse.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+const boite = document.getElementById("boite");
+const NEZ = '<svg class="nez" viewBox="0 0 38 30" aria-hidden="true">'
+  + '<path d="M13 3c-6 1-10 6-10 12s4 11 10 12c2 0 3-1 4-2"/><path d="M13 11c1 0 2 1 2 2"/>'
+  + '<path d="M16 16c6-1 13-2 20-2"/><path d="M16 19c6 0 12-1 19-3"/><path d="M9 22c2 1 4 1 6 0"/></svg>';
+
+// Chaque sprite : taille de la fenetre (px, a l'echelle 1) et contenu.
+const SPRITES = {
+  barillet: () => {
+    const n = Number(q.get("n") || 0);
+    let h = '<div class="barrel">';
+    for (let i = 0; i < 6; i++) h += `<i class="chamber${i < n ? " spent" : ""}"></i>`;
+    return [64, 64, h + "</div>"];
+  },
+  fleche: () => [28, 24, '<div class="arrow"></div>'],
+  menteur: () => [186, 66, `<div class="liar sk" data-graine="11" data-rayon="14">${NEZ}<span class="touche">E</span><span>Menteur !</span></div>`],
+  carton: () => [132, 98, '<div class="carton sk" data-graine="23" data-rayon="12"></div>'],
+  texte: () => {
+    const t = q.get("t") || "", taille = Number(q.get("taille") || 17), l = Number(q.get("l") || 110), h = Number(q.get("h") || 24);
+    const op = q.get("pale") ? "opacity:.7;" : "";
+    return [l, h, `<div class="texte" style="font-size:${taille}px;${op}">${t.replace(/[<>&]/g, "")}</div>`];
+  },
+};
+
+document.fonts.load('18px "Lilita One"').then(() => {
+  const [w, h, html] = (SPRITES[q.get("s")] || SPRITES.fleche)();
+  boite.style.width = w + "px"; boite.style.height = h + "px";
+  boite.innerHTML = html;
+  habiller();
+});
+</script>
+</body>
+</html>
