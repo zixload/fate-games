@@ -9,11 +9,17 @@
         #cue { position: fixed; left: 50%; top: 55%; transform: translate(-50%, 8px) scale(.95);
             opacity: 0; transition: opacity .13s ease, transform .13s ease; pointer-events: none; }
         #cue.visible { opacity: 1; transform: translate(-50%, 0) scale(1); }
-        #cue.armed .badge { border-color: #e83d37; box-shadow: 0 2px 9px rgba(0, 0, 0, .65), 0 0 11px rgba(232, 61, 55, .5); }
-        .badge { display: grid; place-items: center; width: 56px; height: 56px;
-            border: 2px solid #c5a774; border-radius: 50%; background: rgba(19, 25, 27, .91);
-            box-shadow: 0 2px 9px rgba(0, 0, 0, .65), inset 0 0 0 2px rgba(241, 222, 179, .1); }
-        .icon { width: 31px; height: 31px; fill: none; stroke: #e8dec8; stroke-width: 2.2;
+        /* Rond trace a main levee (Client/ui/esquisse.js), comme le reste des HUD. */
+        :root { --encre: #1c2123; --papier: #efe6d2; --ombre: #070a0b; }
+        .badge { display: grid; place-items: center; width: 56px; height: 56px; }
+        .sk { position: relative; isolation: isolate; }
+        .sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+        .sk-svg .ombre { fill: var(--ombre); opacity: .6; }
+        .sk-svg .fond { fill: var(--papier); }
+        .sk-svg .trait { fill: none; stroke: var(--bord, var(--encre)); stroke-width: 3px; stroke-linejoin: round; }
+        .sk-svg .trait2 { fill: none; stroke: var(--bord, var(--encre)); stroke-width: 1.4px; opacity: .4; }
+        #cue.armed .badge { --bord: #b8332d; }
+        .icon { width: 31px; height: 31px; fill: none; stroke: var(--encre); stroke-width: 2.4;
             stroke-linecap: round; stroke-linejoin: round; display: none; }
         #cue[data-kind="seat"] .seat,
         #cue[data-kind="revolver"] .revolver,
@@ -28,8 +34,9 @@
     </style>
 </head>
 <body>
-    <div id="cue" aria-hidden="true"><div class="badge"></div></div>
+    <div id="cue" aria-hidden="true"><div class="badge sk" data-graine="37" data-rayon="999"></div></div>
     <div id="gallery" aria-hidden="true"></div>
+    <script src="../ui/esquisse.js"></script>
     <script>
         const icons = {
             seat: '<svg class="icon seat" viewBox="0 0 32 32"><path d="M9 5v12h15V5M9 10h15M7 18h19v5H7zM9 23v5m15-5v5"/></svg>',
@@ -44,13 +51,15 @@
             cue.classList.toggle('armed', !!armed);
         }
         document.querySelector('#cue .badge').innerHTML = Object.values(icons).join('');
+        habiller();
         if (typeof Events !== 'undefined') {
             Events.Subscribe('interaction:focus', apply);
             Events.Call('pret');
         } else {
             document.body.classList.add('preview');
             document.getElementById('gallery').innerHTML = ['seat', 'revolver', 'pickup']
-                .map(kind => `<div class="badge">${icons[kind]}</div>`).join('');
+                .map((kind, i) => `<div class="badge sk" data-graine="${37 + i}" data-rayon="999">${icons[kind]}</div>`).join('');
+            habiller();
         }
     </script>
 </body>
