@@ -311,9 +311,11 @@ function sorciere(v) {
   if (!v) { montrer("sorciere", false); return; }
   const T = (k) => `<span class="touche">${k}</span>`;
   const victime = v.victime ? nettoyer(v.victime) : null;
-  $("sorciere").innerHTML = `<div class="titre">${victime ? `Les loups ont choisi <b>${victime}</b>` : "Les loups n'ont choisi personne"}</div>`
+  const titre = !victime ? "Les loups n'ont choisi personne"
+    : v.moi ? "Les loups <b>t'ont choisi</b> !" : `Les loups ont choisi <b>${victime}</b>`;
+  $("sorciere").innerHTML = `<div class="titre">${titre}</div>`
     + `<div class="choix${v.vie && victime ? "" : " use"}">${T("1")}<span><span class="vie">Potion de vie</span>`
-    + `<small>${victime ? `sauver ${victime}` : "personne à sauver"}</small></span></div>`
+    + `<small>${!victime ? "personne à sauver" : v.moi ? "te sauver" : `sauver ${victime}`}</small></span></div>`
     + `<div class="choix${v.mort ? "" : " use"}${v.arme ? " arme" : ""}">${T("2")}<span><span class="mort">Potion de mort</span>`
     + `<small>${v.arme ? `vise un joueur puis ${T("E")}` : "puis vise un joueur"}</small></span></div>`
     + `<div class="choix">${T("3")}<span>Ne rien faire<small>garder ses potions</small></span></div>`;

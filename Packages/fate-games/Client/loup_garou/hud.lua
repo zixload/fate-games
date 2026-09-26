@@ -262,7 +262,10 @@ return function(config, Interaction)
     -- Le panneau de la sorciere (hud.html) : victime, potions, poison prepare.
     local function panneau_sorciere()
         if etat.phase ~= "night_witch" or etat.role ~= "witch" or etat.mort then return appeler("lg:sorciere", nil) end
-        appeler("lg:sorciere", { victime = etat.nom_victime, vie = etat.potions.vie, mort = etat.potions.mort,
+        local p = Client.GetLocalPlayer()
+        local perso = p and p:GetControlledCharacter()
+        local moi = etat.victime ~= nil and perso ~= nil and etat.victime == perso:GetID()
+        appeler("lg:sorciere", { victime = etat.nom_victime, moi = moi, vie = etat.potions.vie, mort = etat.potions.mort,
             arme = etat.poison })
     end
 
@@ -341,6 +344,11 @@ return function(config, Interaction)
     -- La sorciere : la victime des loups (griffes au-dessus d'elle) et ses potions.
     function H.victime(id, nom)
         etat.victime, etat.nom_victime = id, nom and tostring(nom) or nil
+        if id and id == mon_personnage_id() then
+            appeler("lg:annonce", "Les loups t'ont choisi !", 4)
+        elseif nom then
+            appeler("lg:annonce", ("Les loups ont choisi %s"):format(tostring(nom)), 4)
+        end
         panneau_sorciere()
     end
 
@@ -533,10 +541,16 @@ return function(config, Interaction)
                 sprite(c, "lg_crane", e.x, y - 24 * e.s, 56, 56, e.s)
                 goto suivant
             end
+            local victime = etat.victime == id and etat.phase == "night_witch"
             local n = etat.votes[id]
             if n and n > 0 then
                 sprite(c, ("voix_%d%s"):format(math.min(12, n), n == max and "_tete" or ""), e.x, y - 14 * e.s, 96, 56, e.s)
                 y = y - 40 * e.s
+            end
+            -- La sorciere doit savoir qui les loups ont choisi.
+            if victime then
+                local h = Pseudo.Dessiner(c, "Victime des loups", e.x, y - 4 * e.s, 0.85 * e.s, ROUGE)
+                y = y - h - 6 * e.s
             end
             -- Ceux qui votent contre lui, juste au-dessus de son compteur.
             for _, nom in ipairs(votants_de(id, mon_id, noms)) do
@@ -548,7 +562,7 @@ return function(config, Interaction)
             if etat.allies[id] then marques[#marques + 1] = { "lg_allie", 62, 62 } end
             if etat.amoureux == id then marques[#marques + 1] = { "lg_coeur", 56, 52 } end
             if etat.maire == id then marques[#marques + 1] = { "lg_maire", 56, 60 } end
-            if etat.victime == id and etat.phase == "night_witch" then marques[#marques + 1] = { "lg_victime", 56, 52 } end
+            if victime then marques[#marques + 1] = { "lg_victime", 56, 52 } end
             if #marques > 0 then
                 local pas = 56 * e.s
                 local x0 = e.x - pas * (#marques - 1) / 2

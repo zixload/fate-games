@@ -7,7 +7,7 @@ compléter quand elle n'est pas connue : elle sert aux crédits du jeu.
 
 | Fichier en jeu | Fichier d'origine | Source et licence |
 | --- | --- | --- |
-| `lg_jour.ogg` | `village.mp3` | à compléter |
+| `lg_jour` | `freesound_community-dagestan-urakhi-village-morning-ambience-xy-stereo-24960.mp3` (5 premières minutes) | Pixabay (freesound community), licence Pixabay |
 | `lg_nuit.ogg` | `night (2).mp3` | à compléter (Pixabay ?) |
 | `lg_hurlement.ogg` | `mixkit-wolf-howling-1775.wav` | Mixkit, licence Mixkit |
 | `lg_loups.ogg` | `wolf.mp3` | à compléter |
