@@ -182,6 +182,10 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     -- Le Blueprint est une boite sur le cube de 1 m du moteur : a l'echelle
     -- du cercle (14 x 14 m, 3 m de haut), le centre a mi-hauteur.
     local ECHELLE_BRUME = D.echelle_brume or { xy = 14, z = 3 }
+    -- "centre" : une boite sur tout le cercle ; "anneau" : des boites tout
+    -- autour, derriere les joueurs (on voit la brume sans etre dedans).
+    local MODE_BRUME = D.mode_brume or "anneau"
+    local ANNEAU = D.anneau_brume or { n = 8, rayon = 800, xy = 6, z = 3 }
     local TAPIS = D.tapis or "my-asset-pack::SM_WW_Carpet"
     local EPAISSEUR_TAPIS = D.epaisseur_tapis or 0.8
     local AJUSTEMENT = D.ajustement_z or 0      -- retouche en jeu si les vetements depassent
@@ -344,23 +348,36 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     end
 
     -- La brume de la nuit : posee par le serveur, vue de tous autour du cercle.
-    local brume = nil
+    local brume = nil   -- liste des Blueprints poses
+    local function poser_boite(x, y, sol, xy, z)
+        local bp = Blueprint(Vector(x, y, sol + z * 50), Rotator(0, 0, 0), BRUME, CollisionType.NoCollision)
+        bp:SetScale(Vector(xy, xy, z))
+        return bp
+    end
     local function brume_nuit(oui)
         if oui and not brume and decor.centre and BRUME ~= "" then
-            local c, e = decor.centre, ECHELLE_BRUME
-            local ok, b = pcall(function()
-                local bp = Blueprint(Vector(c.x, c.y, c.sol + e.z * 50), Rotator(0, 0, 0), BRUME, CollisionType.NoCollision)
-                bp:SetScale(Vector(e.xy, e.xy, e.z))
-                return bp
+            local c = decor.centre
+            local ok, liste = pcall(function()
+                local out = {}
+                if MODE_BRUME == "anneau" then
+                    for i = 1, ANNEAU.n do
+                        local a = 2 * math.pi * (i - 1) / ANNEAU.n
+                        out[#out + 1] = poser_boite(c.x + ANNEAU.rayon * math.cos(a), c.y + ANNEAU.rayon * math.sin(a),
+                            c.sol, ANNEAU.xy, ANNEAU.z)
+                    end
+                else
+                    out[1] = poser_boite(c.x, c.y, c.sol, ECHELLE_BRUME.xy, ECHELLE_BRUME.z)
+                end
+                return out
             end)
-            if ok and b then
-                brume = b
+            if ok then
+                brume = liste
             else
-                Log.Warn("werewolf", "brume indisponible (" .. tostring(BRUME) .. ") : " .. tostring(b))
-                return false, tostring(b)
+                Log.Warn("werewolf", "brume indisponible (" .. tostring(BRUME) .. ") : " .. tostring(liste))
+                return false, tostring(liste)
             end
         elseif not oui and brume then
-            if brume:IsValid() then brume:Destroy() end
+            for _, b in ipairs(brume) do if b:IsValid() then b:Destroy() end end
             brume = nil
         end
         return true
@@ -1039,19 +1056,30 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
 
     -- /lg brume [largeur m] [hauteur m] (dev) : allume ou eteint la brume a la
     -- main, a la taille voulue, avec le resultat dans le chat.
-    function A.Brume(player, largeur, hauteur)
+    -- /lg brume anneau [rayon m] [largeur m] : des boites autour du cercle.
+    -- /lg brume centre [largeur m] [hauteur m] : une boite au centre.
+    function A.Brume(player, a, b, c)
         if not decor.centre then return dire(player, "Le cercle n'est pas pose : /lg centre d'abord.") end
-        largeur, hauteur = tonumber(largeur), tonumber(hauteur)
-        if largeur or hauteur then
-            ECHELLE_BRUME = { xy = largeur or ECHELLE_BRUME.xy, z = hauteur or ECHELLE_BRUME.z }
+        if a == "anneau" then
+            MODE_BRUME = "anneau"
+            ANNEAU = { n = ANNEAU.n, rayon = tonumber(b) and tonumber(b) * 100 or ANNEAU.rayon,
+                xy = tonumber(c) or ANNEAU.xy, z = ANNEAU.z }
+            brume_nuit(false)
+        elseif a == "centre" then
+            MODE_BRUME = "centre"
+            ECHELLE_BRUME = { xy = tonumber(b) or ECHELLE_BRUME.xy, z = tonumber(c) or ECHELLE_BRUME.z }
             brume_nuit(false)
         elseif brume then
             brume_nuit(false)
             return dire(player, "Brume eteinte.")
         end
         local ok, err = brume_nuit(true)
-        dire(player, ok and ("Brume allumee : %d x %d m, %d m de haut."):format(ECHELLE_BRUME.xy, ECHELLE_BRUME.xy, ECHELLE_BRUME.z)
-            or ("Brume impossible : " .. tostring(err)))
+        if not ok then return dire(player, "Brume impossible : " .. tostring(err)) end
+        if MODE_BRUME == "anneau" then
+            dire(player, ("Brume allumee : %d boites de %d m a %d m du centre."):format(ANNEAU.n, ANNEAU.xy, ANNEAU.rayon // 100))
+        else
+            dire(player, ("Brume allumee au centre : %d x %d m, %d m de haut."):format(ECHELLE_BRUME.xy, ECHELLE_BRUME.xy, ECHELLE_BRUME.z))
+        end
     end
 
     -- /lg passer (dev) : la phase en cours se termine tout de suite, pour
@@ -1092,7 +1120,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             elseif mots[2] == "sortir" then A.Quitter(player)
             elseif mots[2] == "bots" and config.bots then A.AjouterBots(player, mots[3])
             elseif mots[2] == "passer" and config.bots then A.Passer(player)
-            elseif mots[2] == "brume" and config.bots then A.Brume(player, mots[3], mots[4])
+            elseif mots[2] == "brume" and config.bots then A.Brume(player, mots[3], mots[4], mots[5])
             else return end
             return false
         end)
