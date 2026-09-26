@@ -27,6 +27,8 @@ nouveau cook a lancer.
    immédiatement sur le mannequin figé. Reporter les valeurs retenues dans
    `Server/games/liars_bar/data/config.lua` pour les garder après redémarrage.
    `/posebot regard 30 0` permet aussi de vérifier le mouvement de tête.
+   Prise retenue le 26/09 : `6.2 -3 -3 | 142.1 35.6 202.8`. Elle est enregistrée
+   dans la configuration ; vérifier encore le canon contre la tempe en jeu.
 3. Retirer le mannequin, s'asseoir, puis lancer une partie avec `/bots 3`.
    Lorsqu'on est désigné : E sur son revolver, attendre le cercle rouge, puis
    clic gauche. Avant ce clic, le barillet ne doit pas avancer. La pose reste

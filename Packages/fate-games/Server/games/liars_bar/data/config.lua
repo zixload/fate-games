@@ -33,7 +33,7 @@ return {
     -- rien de secret dans ces coordonnees.
     layout = Package.Require("Shared/liars_table.lua"),
 
-    -- Decalage initial du Nagant par rapport a RightHandProp. /posebot fige
-    -- un mannequin hors partie et /prise permet d'affiner ces six valeurs.
-    revolver_prise = { x = -1.8, y = 3.0, z = -9.0, p = 57.1, ya = -24.4, r = 160.8 },
+    -- Prise reglee avec /posebot le 26/09/2026. /prise permet de l'affiner
+    -- en direct ; verifier encore l'alignement du canon avec la tempe.
+    revolver_prise = { x = 6.2, y = -3.0, z = -3.0, p = 142.1, ya = 35.6, r = 202.8 },
 }
