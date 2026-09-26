@@ -26,14 +26,11 @@ return function(config, Cartes, journal, disposition)
     -- echelle de la carte (1 en main, table.echelle sur la table).
     local plates = config.plates and config.plates.actif and config.plates or nil
 
-    -- Contour des cartes choisies : slot 2 (le 0 est celui de l'invite
-    -- d'interaction), blanc, epaisseur en pixels (doc Client.SetOutlineColor).
+    -- Contour des cartes choisies, pour les anciens modeles 3D : slot 2 (le 0
+    -- est celui de l'invite d'interaction). Les cartes plates ont une vraie
+    -- bordure blanche (bordure_blanche) : le contour ne prenait pas sur elles.
     local CONTOUR = 2
-    pcall(function()
-        local o = config.contour_choisie or {}
-        local k = o.intensite or 2
-        Client.SetOutlineColor(Color(k, k, k), CONTOUR, o.epaisseur or 3)
-    end)
+    pcall(function() Client.SetOutlineColor(Color(2, 2, 2), CONTOUR, 3) end)
 
     local function vers_centre(modele, r, e)
         -- Les cartes plates ont leur centre a l'origine.
@@ -100,14 +97,14 @@ return function(config, Cartes, journal, disposition)
         return DESSINS[valeur] or "dos"
     end
 
-    local function plaque(parent, image, r, l)
+    local function plaque(parent, image, r, l, materiau)
         local pl = StaticMesh(Vector(), Rotator(), "nanos-world::SM_Plane", CollisionType.NoCollision)
         sans_collision(pl)
         pl:AttachTo(parent, AttachmentRule.SnapToTarget, "", 0)
         pl:SetRelativeRotation(r)
         if l then pl:SetRelativeLocation(l) end
         local ok, err = pcall(function()
-            pl:SetMaterial(plates.materiau)
+            pl:SetMaterial(materiau or plates.materiau)
             pl:SetMaterialTextureParameter("Texture", plates.images .. image .. ".png")
         end)
         if not ok then Console.Error("[cartes plates] " .. tostring(err)) end
@@ -143,6 +140,24 @@ return function(config, Cartes, journal, disposition)
         dos:SetScale(taille)
         plaques[c] = { face, dos }
         return c
+    end
+
+    -- Bordure blanche d'une carte choisie : un plan blanc sans eclairage, un
+    -- peu plus grand que la carte, glisse entre la face et le dos. On en voit
+    -- le liseré tout autour, des deux cotes.
+    local function bordure_blanche(c)
+        if not (plates and plaques[c]) then
+            pcall(function() c:SetOutlineEnabled(true, CONTOUR) end)
+            return
+        end
+        local b = config.contour_choisie or {}
+        local marge = b.marge or 0.35
+        local r_face = rot(plates.rot)
+        local entre = r_face:RotateVector(Vector(0, 0, 1)) * -0.025
+        local pl = plaque(c, "blanc", r_face, entre, b.materiau or "nanos-world::M_Default_Masked_Unlit")
+        pl:SetScale(Vector((plates.largeur + 2 * marge) / 100, (plates.hauteur + 2 * marge) / 100, 1))
+        local liste = plaques[c]
+        liste[#liste + 1] = pl
     end
 
     -- Taille d'une carte : e = 1 en main, table.echelle sur la table.
@@ -395,11 +410,11 @@ return function(config, Cartes, journal, disposition)
         detruire(ma_main.objets)
         ma_main.objets, ma_main.cartes = eventail(perso, os_de(perso), modeles, levees)
         ma_main.levees, ma_main.modeles = levees, modeles
-        -- Les cartes choisies, cernees de blanc (le contour passe aux plaques
-        -- accrochees, doc Actor:SetOutlineEnabled).
+        -- Les cartes choisies, cernees de blanc.
         for i, c in ipairs(ma_main.cartes) do
             if (levees[i] or 0) >= config.fan.levee and c:IsValid() then
-                pcall(function() c:SetOutlineEnabled(true, CONTOUR) end)
+                local ok, err = pcall(bordure_blanche, c)
+                if not ok then Console.Error("[cartes] bordure : " .. tostring(err)) end
             end
         end
         ma_main.cle = cle

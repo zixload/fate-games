@@ -174,9 +174,9 @@ return {
         -- Cartes 3D dans les mains, rallumees le 26/09 sur l'os de la main.
         en_main = true,
 
-        -- Contour blanc des cartes choisies en main (rendu.lua) : intensite
-        -- (au-dela de 1, ca brille) et epaisseur en pixels.
-        contour_choisie = { intensite = 2, epaisseur = 3 },
+        -- Bordure blanche des cartes choisies en main (rendu.lua) : largeur du
+        -- liseré autour de la carte (cm) et materiau (sans eclairage : blanc pur).
+        contour_choisie = { marge = 0.35, materiau = "nanos-world::M_Default_Masked_Unlit" },
 
         -- Cartes plates : nos dessins (scripts/cartes/cartes.html, copies dans
         -- Client/liars_bar/cartes/) sur deux SM_Plane dos a dos, a la place des
