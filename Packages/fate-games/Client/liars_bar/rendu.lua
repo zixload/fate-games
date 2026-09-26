@@ -120,9 +120,13 @@ return function(config, Cartes, journal, disposition)
         c:SetVisibility(false)
         local recto, verso = dessin(modele), "dos"
         if plates.retourner then recto, verso = verso, recto end
+        -- Les deux plaques pendent du support, chacune a sa taille : accrochee
+        -- a la face, la plaque dos gardait sa taille du monde (un plan de 1 m).
+        local taille = Vector(plates.largeur / 100, plates.hauteur / 100, 1)
         local face = plaque(c, recto, rot(plates.rot))
-        face:SetScale(Vector(plates.largeur / 100, plates.hauteur / 100, 1))
-        local dos = plaque(face, verso, rot(plates.rot_dos), Vector(0, 0, -0.03))
+        face:SetScale(taille)
+        local dos = plaque(c, verso, rot(plates.rot_dos), Vector(0, -0.03, 0))
+        dos:SetScale(taille)
         plaques[c] = { face, dos }
         return c
     end

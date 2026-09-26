@@ -25,7 +25,7 @@
 --   /fan <nombre> n        ecart, rayon, taille, levee, curseur, profondeur,
 --                          epaisseur, dispersion, echelle, ecart_revelation
 --   /fan plaque face p y r cartes plates : plaque face dans la carte,
---   /fan plaque dos p y r    plaque dos dans la face,
+--   /fan plaque dos p y r    plaque dos dans la carte,
 --   /fan plaque taille l h   largeur et hauteur (cm),
 --   /fan plaque retourner    echange face et dos
 

@@ -157,17 +157,18 @@ return {
 
         -- Cartes plates : nos dessins (scripts/cartes/cartes.html, copies dans
         -- Client/liars_bar/cartes/) sur deux SM_Plane dos a dos, a la place des
-        -- modeles du jeu de 52. rot : la plaque face dans le repere de la carte
-        -- (face traversee par Y, hauteur Z) ; rot_dos : la plaque dos dans celui
-        -- de la face. A verifier en jeu : /fan plaque face|dos p y r, /fan
-        -- plaque retourner (echange les cotes), /fan plaque taille l h.
+        -- modeles du jeu de 52. rot, rot_dos : les plaques face et dos dans le
+        -- repere de la carte (face traversee par Y, hauteur Z). Reglees en jeu
+        -- le 26/09 : face r -90 (normale +Y) et p 180 (le dessin etait a
+        -- l'envers), dos r 90 (normale -Y). /fan plaque face|dos p y r,
+        -- /fan plaque retourner (echange les cotes), /fan plaque taille l h.
         plates = {
             actif     = true,
             images    = "package://fate-games/Client/liars_bar/cartes/",
             materiau  = "nanos-world::M_Default_Masked_Lit",
             largeur   = 5.9, hauteur = 8.9,   -- cm, comme les anciens modeles
-            rot       = { p = 0, y = 0, r = -90 },
-            rot_dos   = { p = 180, y = 0, r = 0 },
+            rot       = { p = 180, y = 0, r = -90 },
+            rot_dos   = { p = 0, y = 0, r = 90 },
             retourner = false,
         },
 
