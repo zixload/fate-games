@@ -3,19 +3,21 @@
 -- en evenements du HUD (Client/loup_garou/hud.lua) et fait jouer les bots de
 -- test. La logique du jeu n'est pas ici.
 --
--- En attendant la cloche du decor : /lg entrer, /lg sortir, /lg bots N (dev).
--- Hors de cette version : lumiere du jour et de la nuit, bras tendus, corps au
--- sol (effets recus, ignores).
+-- Comme au Liar's Bar : E sur un zabuton pour s'asseoir et rejoindre le salon,
+-- Espace pour se lever et le quitter (hors partie). En dev : /lg entrer (la
+-- premiere place libre), /lg sortir, /lg bots N, /lg centre.
+-- Hors de cette version : bras tendus (effet recu, ignore).
 --
 -- Le resultat d'une partie terminee s'ecrit en base (werewolf_matches et
 -- werewolf_participants, migration 5), sauf avec des bots.
 --
--- Decor (docs/WEREWOLF-ASSETS-IMPORT.md) : le serveur pose le tapis et un
--- zabuton par joueur sur un cercle autour du centre, symetriques par calcul ;
--- rien n'est place a la main dans la map. /lg centre (dev) enregistre le centre
--- a ses pieds dans loup_garou.json, a cote de l'executable du serveur.
+-- Decor (docs/WEREWOLF-ASSETS-IMPORT.md) : le serveur pose le tapis et les
+-- douze zabutons des le demarrage, sur un cercle autour du centre, symetriques
+-- par calcul ; le reste du decor vit dans la map. /lg centre (dev) enregistre
+-- le centre, mesure par le client (sol sous ses pieds), dans loup_garou.json a
+-- cote de l'executable du serveur.
 
-return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
+return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, config)
     local A = {}
     config = config or {}
     local TICK = config.tick or 0.25
@@ -77,9 +79,10 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
 
     local s = Engine.nouveau()
     local salon = { ordre = {}, pret = {}, createur = nil, max = 10, debat = 180,
-        compo = Roles.par_defaut(6), centre = nil }
+        compo = Roles.par_defaut(6) }
     local bots = {}          -- id negatif -> { nom, corps }
-    local decor = { centre = nil, objets = {}, places = {} }   -- places : id -> { x, y, yaw }
+    -- sieges[i] : { x, y, yaw, occupant, repere } ; siege_de[id] : son numero.
+    local decor = { centre = nil, objets = {}, sieges = {}, siege_de = {}, reperes = {} }
     local memoires = {}      -- id de bot -> ce qu'il retient (bots.lua)
     local prochain_bot = -1
 
@@ -170,62 +173,73 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
         for _, o in ipairs(decor.objets) do
             if o and o:IsValid() then o:Destroy() end
         end
-        decor.objets = {}
+        for _, rid in ipairs(decor.reperes) do pcall(Interactables.Unregister, rid) end
+        decor.objets, decor.reperes = {}, {}
     end
 
-    -- Le tapis au centre, puis n zabutons a intervalles egaux sur le cercle,
-    -- tournes vers le feu. Les places suivent l'ordre d'arrivee du salon.
+    local S_ASSEOIR   -- defini avec le salon, appele par les reperes
+
+    -- Le tapis au centre et les douze zabutons a intervalles egaux sur le
+    -- cercle, tournes vers le feu, poses des le demarrage. Sur chacun, un
+    -- repere invisible ou viser pour s'asseoir (comme les chaises du Liar's Bar).
     local function poser_decor()
         effacer_decor()
-        decor.places = {}
         local c = decor.centre
         if not c then return end
         local ok, err = pcall(function()
-            local tapis = StaticMesh(Vector(c.x, c.y, c.sol), Rotator(0, c.yaw or 0, 0), TAPIS, CollisionType.NoCollision)
-            decor.objets[#decor.objets + 1] = tapis
-            local n = math.max(#salon.ordre, Roles.MIN_JOUEURS)
+            decor.objets[#decor.objets + 1] = StaticMesh(Vector(c.x, c.y, c.sol), Rotator(0, c.yaw or 0, 0),
+                TAPIS, CollisionType.NoCollision)
+            local n = Roles.MAX_JOUEURS
             for i = 1, n do
                 local angle = (c.yaw or 0) + 360 * (i - 1) / n
                 local r = math.rad(angle)
                 local x, y = c.x + RAYON * math.cos(r), c.y + RAYON * math.sin(r)
-                local coussin = StaticMesh(Vector(x, y, c.sol + EPAISSEUR_TAPIS), Rotator(0, angle + 180, 0),
+                local ancien = decor.sieges[i]
+                decor.sieges[i] = { x = x, y = y, yaw = angle + 180, occupant = ancien and ancien.occupant }
+                decor.objets[#decor.objets + 1] = StaticMesh(Vector(x, y, c.sol + EPAISSEUR_TAPIS), Rotator(0, angle + 180, 0),
                     "my-asset-pack::SM_WW_Zabuton_" .. COUSSINS[(i - 1) % #COUSSINS + 1], CollisionType.NoCollision)
-                decor.objets[#decor.objets + 1] = coussin
-                local id = salon.ordre[i]
-                if id then decor.places[id] = { x = x, y = y, yaw = angle + 180 } end
+                local repere = Prop(Vector(x, y, c.sol + 30), Rotator(0, angle + 180, 0), "nanos-world::SM_Cube",
+                    CollisionType.IgnoreOnlyPawn, false, GrabMode.Disabled)
+                repere:SetScale(Vector(0.6, 0.6, 0.6))
+                repere:SetVisibility(false)
+                decor.objets[#decor.objets + 1] = repere
+                local numero = i
+                decor.reperes[#decor.reperes + 1] = Interactables.Register(repere, {
+                    label = "S'asseoir",
+                    kind = "seat",
+                    on_interact = function(player) S_ASSEOIR(player, numero) end,
+                })
             end
         end)
         if not ok then Log.Error("werewolf", "decor : " .. tostring(err)) end
     end
 
-    -- /lg centre : le centre du cercle sous les pieds du joueur. On garde la
-    -- hauteur du personnage debout et celle du sol (capsule a l'echelle).
-    function A.PoserCentre(player)
-        local c = personnage(player:GetID())
-        if not (c and c:IsValid()) then return dire(player, "Pas de personnage.") end
-        local l, r = c:GetLocation(), c:GetRotation()
-        local demi = 90
-        pcall(function() demi = c:GetCapsuleSize().HalfHeight * c:GetScale().Z end)
-        decor.centre = { x = l.X, y = l.Y, debout = l.Z, sol = l.Z - demi, yaw = math.floor(r.Yaw + 0.5) }
+    -- /lg centre : le client mesure le sol sous ses pieds (trace, cote client)
+    -- et envoie ou il se tient ; on garde aussi la hauteur du personnage debout.
+    function A.PoserCentre(player, x, y, sol, debout, yaw)
+        if not (tonumber(x) and tonumber(y) and tonumber(sol) and tonumber(debout)) then return end
+        decor.centre = { x = x, y = y, sol = sol, debout = debout, yaw = math.floor((tonumber(yaw) or 0) + 0.5) }
         local ok, err = pcall(ecrire_centre, decor.centre)
         if not ok then Log.Error("werewolf", "centre non enregistre : " .. tostring(err)) end
         if s.statut ~= "partie" then poser_decor() end
-        dire(player, ("Centre du loup-garou enregistre (%d, %d, %d)."):format(l.X, l.Y, l.Z))
+        dire(player, ("Centre du loup-garou enregistre (%d, %d), sol a %d."):format(x, y, sol))
     end
 
-    -- Assoit un joueur (ou un bot) sur sa place, avec une pose ; nil : debout.
+    -- Assoit un joueur (ou un bot) sur son siege, dans une pose.
     local function asseoir(id, pose)
-        local p = decor.places[id]
+        local siege = decor.sieges[decor.siege_de[id] or 0]
         local c = personnage(id)
-        if not (p and c and c:IsValid() and decor.centre) then return end
+        if not (siege and c and c:IsValid() and decor.centre) then return end
         local z = decor.centre.debout + pose.z + AJUSTEMENT
         if id > 0 then
-            Characters.Sit(id, p.x, p.y, p.yaw, z)
+            Characters.Sit(id, siege.x, siege.y, siege.yaw, z)
         else
-            c:SetLocation(Vector(p.x, p.y, z))
-            c:SetRotation(Rotator(0, p.yaw, 0))
+            c:SetLocation(Vector(siege.x, siege.y, z))
+            c:SetRotation(Rotator(0, siege.yaw, 0))
             pcall(function() c:SetGravityEnabled(false) end)
         end
+        local ancienne = c:GetValue("ww_pose", nil)
+        if ancienne and ancienne ~= pose.anim then pcall(function() c:StopAnimation(ancienne) end) end
         pcall(function() c:PlayAnimation(pose.anim, "DefaultSlot", true, 0.15, 0.15, 1.0, true) end)
         c:SetValue("ww_pose", pose.anim, true)
     end
@@ -236,22 +250,23 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
             local anim = c:GetValue("ww_pose", nil)
             if anim then pcall(function() c:StopAnimation(anim) end) end
             c:SetValue("ww_pose", nil, true)
-            if id < 0 then pcall(function() c:SetGravityEnabled(true) end) end
         end
         if id > 0 then pcall(Characters.Stand, id) end
+        local n = decor.siege_de[id]
+        if n and decor.sieges[n] then decor.sieges[n].occupant = nil end
+        decor.siege_de[id] = nil
     end
 
-    local function asseoir_tout_le_monde()
-        if not decor.centre then return end
-        poser_decor()
-        for i, id in ipairs(salon.ordre) do asseoir(id, POSES[(i - 1) % #POSES + 1]) end
+    -- La pose de repos d'un joueur : Idle ou Idle Lazy selon son siege.
+    local function pose_de(id)
+        local n = decor.siege_de[id] or 1
+        return POSES[(n - 1) % #POSES + 1]
     end
 
     ---------------------------------------------------------------- salon
 
     local function envoyer_salon()
         if s.statut == "partie" then return end
-        if decor.centre and #decor.objets ~= math.max(#salon.ordre, Roles.MIN_JOUEURS) + 1 then poser_decor() end
         local joueurs = {}
         for _, id in ipairs(salon.ordre) do joueurs[#joueurs + 1] = { nom = nom(id), pret = salon.pret[id] == true } end
         for i, id in ipairs(salon.ordre) do
@@ -278,7 +293,6 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
         end
         Log.Info("werewolf", ("partie lancee a %d joueurs"):format(#ids))
         diffuser("ww:salon", nil)
-        asseoir_tout_le_monde()
         A.Appliquer(fx)
     end
 
@@ -288,18 +302,41 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
         return true
     end
 
-    function A.Rejoindre(player)
-        local id = player:GetID()
-        if s.statut == "partie" then return dire(player, "Une partie est en cours.") end
-        if membre(id) then return end
-        if #salon.ordre >= Roles.MAX_JOUEURS then return dire(player, "Le salon est plein.") end
-        salon.ordre[#salon.ordre + 1] = id
-        salon.createur = salon.createur or id
-        if not salon.centre then
-            local c = personnage(id)
-            salon.centre = c and c:GetLocation() or Vector(0, 0, 0)
+    local function premier_libre()
+        for i, siege in ipairs(decor.sieges) do
+            if not siege.occupant then return i end
         end
+    end
+
+    local function entrer_au_salon(id)
+        if membre(id) then return end
+        salon.ordre[#salon.ordre + 1] = id
+        if id > 0 then salon.createur = salon.createur or id end
+    end
+
+    -- S'asseoir sur le zabuton n : rejoindre le salon (le HUD "pret" s'affiche).
+    -- E sur sa propre place, hors partie : on se leve.
+    S_ASSEOIR = function(player, n)
+        local id = player:GetID()
+        local siege = decor.sieges[n]
+        if not siege then return end
+        if decor.siege_de[id] == n and s.statut ~= "partie" then return A.Quitter(player) end
+        -- En partie, E sert a designer : pas de message a chaque fois qu'on vise un coussin.
+        if s.statut == "partie" then return end
+        if siege.occupant then return dire(player, "Cette place est prise.") end
+        local ancien = decor.siege_de[id]
+        if ancien then decor.sieges[ancien].occupant = nil end
+        siege.occupant, decor.siege_de[id] = id, n
+        entrer_au_salon(id)
+        asseoir(id, pose_de(id))
         envoyer_salon()
+    end
+
+    function A.Rejoindre(player)
+        if not decor.centre then return dire(player, "Le cercle n'est pas pose : /lg centre d'abord.") end
+        local n = premier_libre()
+        if not n then return dire(player, "Le cercle est plein.") end
+        S_ASSEOIR(player, n)
     end
 
     local function retirer(id)
@@ -313,10 +350,12 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
         end
     end
 
+    -- Se lever (Espace, /lg sortir, E sur sa place) : hors partie seulement ;
+    -- en partie, on reste a sa place jusqu'au bout.
     function A.Quitter(player)
         local id = player:GetID()
         if not membre(id) then return end
-        if s.statut == "partie" then A.Appliquer(Engine.depart(s, id)) end
+        if s.statut == "partie" then return end
         regler_voix(id, "normal")
         voix_actuelle[id] = nil
         relever(id)
@@ -324,6 +363,8 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
         envoyer(id, "ww:fin")
         envoyer_salon()
     end
+
+    A.Lever = A.Quitter
 
     function A.Pret(player)
         local id = player:GetID()
@@ -352,20 +393,23 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
         envoyer_salon()
     end
 
+    -- Des bots sur les places libres, assis, deja prets.
     function A.AjouterBots(player, n)
         if s.statut == "partie" then return dire(player, "Une partie est en cours.") end
-        A.Rejoindre(player)
-        local c0 = decor.centre and Vector(decor.centre.x, decor.centre.y, decor.centre.debout)
-            or salon.centre or Vector(0, 0, 0)
-        for _ = 1, math.max(0, math.min(tonumber(n) or 0, Roles.MAX_JOUEURS - #salon.ordre)) do
+        if not decor.centre then return dire(player, "Le cercle n'est pas pose : /lg centre d'abord.") end
+        for _ = 1, math.max(0, tonumber(n) or 0) do
+            local place = premier_libre()
+            if not place then break end
             local id = prochain_bot
             prochain_bot = prochain_bot - 1
-            local angle = math.rad(360 * (#salon.ordre) / Roles.MAX_JOUEURS)
-            local x, y = c0.X + RAYON * math.cos(angle), c0.Y + RAYON * math.sin(angle)
-            local ok, corps = pcall(Characters.CorpsDebout, x, y, c0.Z, math.deg(angle) + 180)
+            local siege = decor.sieges[place]
+            local ok, corps = pcall(Characters.CorpsAssis, siege.x, siege.y,
+                decor.centre.debout + POSES[1].z + AJUSTEMENT, siege.yaw)
             bots[id] = { nom = "Bot " .. (-id), corps = ok and corps or nil }
-            salon.ordre[#salon.ordre + 1] = id
+            siege.occupant, decor.siege_de[id] = id, place
+            entrer_au_salon(id)
             salon.pret[id] = true
+            asseoir(id, pose_de(id))
         end
         envoyer_salon()
     end
@@ -448,11 +492,7 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
         local c = personnage(e.player)
         if c and c:IsValid() then c:SetValue("ww_mort", true, true) end
         -- Les morts restent assis, hebetes (ANIM_WW_Sitting_Dazed).
-        if decor.places[e.player] then
-            local ancienne = c and c:IsValid() and c:GetValue("ww_pose", nil)
-            if ancienne then pcall(function() c:StopAnimation(ancienne) end) end
-            asseoir(e.player, MORT)
-        end
+        if decor.siege_de[e.player] then asseoir(e.player, MORT) end
     end
     TRADUIRE.voice_channel = function(e) regler_voix(e.player, e.channel) end
     TRADUIRE.mayor = function(e) diffuser("ww:maire", id_personnage(e.player), nom(e.player)) end
@@ -500,7 +540,8 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
         Timer.SetTimeout(function()
             diffuser("ww:fin")
             for _, id in ipairs(salon.ordre) do regler_voix(id, "normal") end
-            for _, id in ipairs(salon.ordre) do relever(id) end
+            -- On reste assis pour la partie suivante ; les morts se redressent.
+            for _, id in ipairs(salon.ordre) do asseoir(id, pose_de(id)) end
             voix_actuelle = {}
             for _, id in ipairs(salon.ordre) do
                 local c = personnage(id)
@@ -538,6 +579,9 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
         voix_actuelle[id] = nil
         if not membre(id) then return end
         if s.statut == "partie" then A.Appliquer(Engine.depart(s, id)) end
+        local n = decor.siege_de[id]
+        if n and decor.sieges[n] then decor.sieges[n].occupant = nil end
+        decor.siege_de[id] = nil
         retirer(id)
         envoyer_salon()
     end
@@ -545,7 +589,10 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
     function A.Init()
         local ok, c = pcall(lire_centre)
         decor.centre = ok and c or nil
-        if decor.centre then Log.Info("werewolf", "centre du loup-garou relu dans " .. FICHIER) end
+        if decor.centre then
+            Log.Info("werewolf", "centre du loup-garou relu dans " .. FICHIER)
+            poser_decor()
+        end
         Timer.SetInterval(function()
             if s.statut ~= "partie" then return end
             local ok, err = pcall(function() A.Appliquer(Engine.avancer(s, TICK)) end)
@@ -555,6 +602,9 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
         Events.SubscribeRemote("ww:designer", function(p, cid) A.Designer(p, cid) end)
         Events.SubscribeRemote("ww:pret", function(p) A.Pret(p) end)
         Events.SubscribeRemote("ww:reglage", function(p, cle, sens) A.Reglage(p, cle, sens) end)
+        Events.SubscribeRemote("ww:centre", function(p, x, y, sol, debout, yaw)
+            if config.bots then A.PoserCentre(p, x, y, sol, debout, yaw) end
+        end)
 
         Chat.Subscribe("PlayerSubmit", function(message, player)
             local mots = {}
@@ -563,11 +613,10 @@ return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
             if mots[2] == "entrer" then A.Rejoindre(player)
             elseif mots[2] == "sortir" then A.Quitter(player)
             elseif mots[2] == "bots" and config.bots then A.AjouterBots(player, mots[3])
-            elseif mots[2] == "centre" and config.bots then A.PoserCentre(player)
             else return end
             return false
         end)
-        Log.Info("werewolf", "loup-garou pret : /lg entrer")
+        Log.Info("werewolf", "loup-garou pret : E sur un zabuton pour s'asseoir")
     end
 
     return A

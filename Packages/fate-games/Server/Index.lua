@@ -89,7 +89,7 @@ Scheduler.Start()
 
 LiarsBar.Init()
 DuelJeu.Init()
-local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, DB, Ids, Characters, WwEngine, WwRoles, WwMatch,
+local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, DB, Ids, Characters, Interactables, WwEngine, WwRoles, WwMatch,
     { bots = ServerConfig.dev and ServerConfig.dev.liars_bots, volume = ServerConfig.voice.volume,
       canaux = ServerConfig.voice.canaux_loup_garou })
 LoupGarou.Init()
@@ -451,6 +451,9 @@ end
 -- (refus en partie) reste a Liar's Bar.
 Events.SubscribeRemote("liars:lever", function(player)
     LiarsBar.Lever(player)
+    -- Espace sert aussi a se lever d'un zabuton du loup-garou (hors partie).
+    local ok, err = pcall(LoupGarou.Lever, player)
+    if not ok then Log.Error("werewolf", "lever : " .. tostring(err)) end
 end)
 
 Player.Subscribe("Ready", function(player)

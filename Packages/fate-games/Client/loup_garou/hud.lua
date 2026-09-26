@@ -93,7 +93,7 @@ return function(config)
     local function neuf()
         return { role = nil, allies = {}, phase = nil, votes = {}, mort = false, salon = nil,
             vise = nil, amoureux = nil, maire = nil, etait_maire = false, victime = nil,
-            potions = { vie = true, mort = true }, ligne = 1, demo = false }
+            potions = { vie = true, mort = true }, ligne = 1, demo = false, voile = 0 }
     end
     local etat = neuf()
     local chat_ouvert = false
@@ -124,6 +124,28 @@ return function(config)
         if etat.mort and etat.phase ~= "hunter_shot" and etat.phase ~= "mayor_succession" then return false end
         if ph.qui == "maire" then return etat.etait_maire end
         return ph.qui == "tous" or ph.qui[etat.role] == true
+    end
+
+    -- La nuit, on ne voit pas : noir complet pour qui dort, un brouillard
+    -- sombre ou l'on devine les silhouettes pour qui agit (loups, voyante...),
+    -- un voile leger pour les morts qui suivent la partie. Le jour, rien.
+    -- StartCameraFade (doc Player) ; le HUD reste au-dessus.
+    local NUIT = config.nuit or { dort = 1.0, agit = 0.72, mort = 0.35, fondu = 1.5 }
+    local COULEUR_NUIT = Color(0.02, 0.03, 0.07)
+    local function ambiance()
+        local player = Client.GetLocalPlayer()
+        if not player then return end
+        local ph = etat.phase and PHASES[etat.phase]
+        local voile = 0
+        if ph and ph.icone == "lune" then
+            voile = etat.mort and NUIT.mort or (peut_designer() and NUIT.agit or NUIT.dort)
+        end
+        if voile == etat.voile then return end
+        local depuis = etat.voile or 0
+        etat.voile = voile
+        pcall(function()
+            player:StartCameraFade(depuis, voile, NUIT.fondu, COULEUR_NUIT, false, voile > 0)
+        end)
     end
 
     -- Le panneau du salon : la vue du serveur, plus les lignes de reglage.
@@ -175,6 +197,7 @@ return function(config)
         local ph = PHASES[id]
         appeler("lg:phase", ph and { texte = ph.texte, icone = ph.icone, duree = duree } or nil)
         appeler("lg:message", peut_designer() and ph.consigne or "", 6)
+        ambiance()
     end
 
     function H.votes(compte) etat.votes = compte or {} end
@@ -231,11 +254,15 @@ return function(config)
 
     function H.mort()
         etat.mort = true
+        ambiance()
         if etat.role ~= "hunter" then appeler("lg:message", "Tu es mort. Tu peux encore regarder la partie.", 6) end
     end
 
     function H.fin()
+        local voile = etat.voile or 0
         etat = neuf()
+        etat.voile = voile
+        ambiance()
         appeler("lg:cacher")
     end
 
@@ -500,6 +527,20 @@ return function(config)
     Chat.Subscribe("PlayerSubmit", function(message)
         local mots = {}
         for m in tostring(message):gmatch("%S+") do mots[#mots + 1] = m end
+        -- /lg centre : le sol sous ses pieds, mesure ici (Trace est cote client).
+        if mots[1] == "/lg" and mots[2] == "centre" then
+            local player = Client.GetLocalPlayer()
+            local perso = player and player:GetControlledCharacter()
+            if not perso then return false end
+            local l, r = perso:GetLocation(), perso:GetRotation()
+            local hit = Trace.LineSingle(l, Vector(l.X, l.Y, l.Z - 400), CollisionChannel.WorldStatic, 0, { perso })
+            if not (hit and hit.Success) then
+                Chat.AddMessage("Pas de sol sous tes pieds.")
+                return false
+            end
+            Events.CallRemote("ww:centre", Reliability.Reliable, l.X, l.Y, hit.Location.Z, l.Z, r.Yaw)
+            return false
+        end
         -- /lg entrer, /lg sortir, /lg bots : pour le serveur, on laisse passer.
         if mots[1] ~= "/lg" or mots[2] ~= "demo" then return end
         local f = DEMO[mots[3] or ""]
