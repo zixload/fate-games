@@ -14,7 +14,8 @@ return function(Match)
     local QUI = {
         night_cupid = { cupid = true }, night_guard = { guard = true },
         night_wolves = { wolf = true, white_wolf = true }, night_white_wolf = { white_wolf = true },
-        night_seer = { seer = true }, hunter_shot = "tireur", mayor_succession = "maire",
+        night_seer = { seer = true }, night_witch = { witch = true },
+        hunter_shot = "tireur", mayor_succession = "maire",
         day_mayor = "tous", day_vote = "tous",
     }
 
@@ -75,6 +76,13 @@ return function(Match)
                 or au_hasard(autres(), rng)
             if cible then memoire.vus[cible] = Match.role(m, cible) end
             return cible
+        elseif phase == "night_witch" then
+            -- Sauve une fois sur deux, empoisonne parfois, sinon passe.
+            if s.potion_vie and s.victime_loups and rng(2) == 1 then return s.victime_loups end
+            if s.potion_mort and rng(3) == 1 then
+                return au_hasard(autres(function(v) return v ~= s.victime_loups end), rng)
+            end
+            return nil
         elseif phase == "night_cupid" then
             local deja = {}
             for _, v in ipairs(s.lies or {}) do deja[v] = true end

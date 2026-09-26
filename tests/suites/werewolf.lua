@@ -14,7 +14,7 @@ return function(H)
         return t
     end
     local function compo(t)
-        local c = { wolf = 1, white_wolf = 0, seer = 0, hunter = 0, guard = 0, cupid = 0 }
+        local c = { wolf = 1, white_wolf = 0, seer = 0, witch = 0, hunter = 0, guard = 0, cupid = 0 }
         for k, v in pairs(t or {}) do c[k] = v end
         return c
     end
@@ -246,6 +246,7 @@ return function(H)
                 for _, e in ipairs(liste or {}) do
                     if e.kind == "assign_role" or e.kind == "lovers" then H.assert_eq(e.audience, e.player, "role prive") end
                     if e.kind == "reveal" then H.assert_eq(e.audience, e.viewer, "vision privee") end
+                    if e.kind == "victim" or e.kind == "potions" then H.assert_eq(e.audience, e.player, "sorciere seule") end
                 end
             end
             local gagnants = {}
@@ -254,7 +255,7 @@ return function(H)
                 local n = math.min(12, 3 + rng(10))
                 local c
                 for _ = 1, 60 do
-                    c = { wolf = rng(4), white_wolf = rng(2) - 1, seer = rng(2) - 1,
+                    c = { wolf = rng(4), white_wolf = rng(2) - 1, seer = rng(2) - 1, witch = rng(2) - 1,
                         hunter = rng(2) - 1, guard = rng(2) - 1, cupid = rng(2) - 1 }
                     if Match.valider(c, n) then break end
                     c = nil
@@ -281,6 +282,32 @@ return function(H)
                 if fin then gagnants[#gagnants + 1] = graine end
             end
             H.assert_eq(#gagnants, 200, "toutes jouees")
+        end)
+
+        H.it("la sorciere sauve la victime, puis empoisonne", function()
+            local s = partie(7, { witch = 1 })
+            local sorciere = porteur(s, "witch")
+            local loup = Match.loups_vivants(s.match)[1]
+            local proie = villageois(s, sorciere)
+            Engine.designer(s, loup, proie)
+            H.assert_eq(Engine.phase(s), "night_witch", "au tour de la sorciere")
+            H.assert_eq(s.victime_loups, proie, "elle connait la victime")
+            Engine.designer(s, sorciere, proie)
+            jusqua(s, "day_debate")
+            H.assert_true(Match.vivant(s.match, proie), "sauvee par la potion de vie")
+            jusqua(s, "night_wolves")
+            local autre = villageois(s, sorciere)
+            Engine.designer(s, loup, autre)
+            H.assert_eq(Engine.phase(s), "night_witch", "de nouveau la sorciere")
+            H.assert_nil(Engine.designer(s, sorciere, autre), "plus de potion de vie")
+            local cible = nil
+            for _, id in ipairs(Match.vivants(s.match)) do
+                if id ~= autre and id ~= sorciere and id ~= loup then cible = id break end
+            end
+            Engine.designer(s, sorciere, cible)
+            jusqua(s, "day_debate")
+            H.assert_false(Match.vivant(s.match, cible), "empoisonne")
+            H.assert_false(Match.vivant(s.match, autre), "la victime des loups meurt, cette fois")
         end)
 
         H.it("un depart sous le minimum arrete la partie sans vainqueur", function()

@@ -49,6 +49,12 @@ return function()
         return effet("voice_channel", { player = joueur, channel = canal }, joueur)
     end
 
+    -- La victime des loups, a la seule sorciere, et ce qu'il lui reste de potions.
+    function E.victim(joueur, cible) return effet("victim", { player = joueur, target = cible }, joueur) end
+    function E.potions(joueur, vie, mort)
+        return effet("potions", { player = joueur, vie = vie, mort = mort }, joueur)
+    end
+
     -- Le maire du village, public.
     function E.mayor(joueur) return effet("mayor", { player = joueur }, "all") end
 

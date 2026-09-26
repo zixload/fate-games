@@ -77,7 +77,7 @@ if not DB.Migrate() then
     return
 end
 
-if not Ids.Seed({ "accounts", "characters", "ledger", "liars_matches" }) then
+if not Ids.Seed({ "accounts", "characters", "ledger", "liars_matches", "werewolf_matches" }) then
     Log.Error("boot", "amorcage des identifiants echoue : initialisation interrompue")
     return
 end
@@ -89,7 +89,7 @@ Scheduler.Start()
 
 LiarsBar.Init()
 DuelJeu.Init()
-local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, Characters, WwEngine, WwRoles, WwMatch,
+local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, DB, Ids, Characters, WwEngine, WwRoles, WwMatch,
     { bots = ServerConfig.dev and ServerConfig.dev.liars_bots, volume = ServerConfig.voice.volume,
       canaux = ServerConfig.voice.canaux_loup_garou })
 LoupGarou.Init()

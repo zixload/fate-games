@@ -11,9 +11,9 @@ Il ne couvre pas la carte, les animations, ni l'interface — cette dernière se
 design, à l'invite d'interaction et à une zone de message transitoire.
 
 **Rôles de cette version (mis à jour le 26/09/26) : loups, villageois, voyante, chasseur, gardien,
-loup blanc, cupidon**, et une composition réglable dans le salon. Voir « Rôles ajoutés et réglages du
-salon » plus bas. La sorcière reste hors de cette version ; l'architecture doit toujours permettre
-d'ajouter un rôle sans refonte — c'est la contrainte principale qui a guidé le découpage.
+loup blanc, cupidon, sorcière**, un maire, et une composition réglable dans le salon. Voir « Rôles
+ajoutés et réglages du salon » plus bas. L'architecture doit toujours permettre d'ajouter un rôle
+sans refonte — c'est la contrainte principale qui a guidé le découpage.
 
 ---
 
@@ -235,6 +235,7 @@ du moteur entre parenthèses ; chacun est une entrée du registre des rôles plu
 | Gardien (`guard`) | `night_guard`, chaque nuit, ordre 8 | protège un joueur de l'attaque des loups ; pas deux nuits de suite le même. |
 | Loups (`wolf`) | `night_wolves`, ordre 10 | inchangé ; le loup blanc vote avec eux. |
 | Loup blanc (`white_wolf`) | `night_white_wolf`, une nuit sur deux, ordre 12 | loup pour les autres loups ; peut dévorer un loup. Gagne seul s'il est le dernier vivant. |
+| Sorcière (`witch`) | `night_witch`, chaque nuit, ordre 15 | apprend en privé la victime des loups (`victim`) ; une potion de vie (la sauver) et une de mort (empoisonner un autre joueur), chacune une fois par partie (`potions`). |
 | Voyante (`seer`) | `night_seer`, ordre 20 | inchangé. |
 | Chasseur (`hunter`) | `hunter_shot`, empilée par son `on_death` | en mourant, désigne un joueur qui meurt avec lui (la pile de phases, prévue plus haut). |
 
@@ -254,8 +255,6 @@ serveur refuse une composition impossible (plus de rôles spéciaux que de joueu
 Événements : le client envoie `ww:reglage(cle, +1 | -1)` et `ww:pret` ; le serveur renvoie
 `ww:salon(vue)` à chaque changement.
 
-## Hors de cette version
-
-La sorcière : elle exige une révélation ciblée de la victime des loups, même mécanisme que la
-voyante, d'où l'intérêt d'en faire une brique réutilisable. Elle s'ajoutera comme les autres, une
-entrée du registre plus une phase.
+**Résultat en base** (migration 5) : `werewolf_matches` (début, fin, nombre de nuits, gagnant) et
+`werewolf_participants` (personnage, rôle, survivant, gagnant), écrits à la fin de la partie par
+l'adaptateur. Une partie avec des bots de test n'est pas enregistrée.

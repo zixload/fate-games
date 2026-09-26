@@ -5,16 +5,19 @@
 --
 -- En attendant la cloche du decor : /lg entrer, /lg sortir, /lg bots N (dev).
 -- Hors de cette version : lumiere du jour et de la nuit, bras tendus, corps au
--- sol, ecriture du resultat en base (effets recus, ignores).
+-- sol (effets recus, ignores).
+--
+-- Le resultat d'une partie terminee s'ecrit en base (werewolf_matches et
+-- werewolf_participants, migration 5), sauf avec des bots.
 
-return function(Log, Characters, Engine, Roles, Match, config)
+return function(Log, DB, Ids, Characters, Engine, Roles, Match, config)
     local A = {}
     config = config or {}
     local TICK = config.tick or 0.25
     local RAYON = config.rayon or 212     -- cercle des places (docs/WEREWOLF-ASSETS-IMPORT.md)
 
     local NOMS_ROLES = { wolf = "Loup-Garou", white_wolf = "Loup Blanc", villager = "Villageois",
-        seer = "Voyante", hunter = "Chasseur", guard = "Gardien", cupid = "Cupidon" }
+        seer = "Voyante", hunter = "Chasseur", guard = "Gardien", cupid = "Cupidon", witch = "Sorcière" }
     local GAGNANTS = { village = "Le village gagne !", wolves = "Les loups-garous gagnent !",
         white_wolf = "Le loup blanc gagne seul !", lovers = "Les amoureux gagnent !",
         none = "Partie terminée sans vainqueur." }
@@ -146,6 +149,7 @@ return function(Log, Characters, Engine, Roles, Match, config)
         if #ids > salon.max then return diffuser("ww:annonce", "Trop de joueurs pour cette partie.") end
         s = Engine.nouveau({ debat = salon.debat })
         memoires = {}
+        s.debut = os.date("!%Y-%m-%dT%H:%M:%SZ")
         local fx, raison = Engine.demarrer(s, ids, salon.compo, rng)
         if not fx then
             salon.pret = {}
@@ -324,14 +328,47 @@ return function(Log, Characters, Engine, Roles, Match, config)
     end
     TRADUIRE.voice_channel = function(e) regler_voix(e.player, e.channel) end
     TRADUIRE.mayor = function(e) diffuser("ww:maire", id_personnage(e.player), nom(e.player)) end
+    TRADUIRE.victim = function(e) envoyer(e.player, "ww:victime", id_personnage(e.target), nom(e.target)) end
+    TRADUIRE.potions = function(e) envoyer(e.player, "ww:potions", e.vie, e.mort) end
     TRADUIRE.announce = function(e)
         local f = ANNONCES[e.key]
         if f then diffuser("ww:annonce", f(e.args)) end
     end
+    -- Gagne-t-il ? Selon son camp, ou pour les amoureux leur lien.
+    local function a_gagne(gagnant, id, role, amoureux)
+        if gagnant == "lovers" then return amoureux ~= nil and (amoureux[1] == id or amoureux[2] == id) end
+        local camp = Roles.roles[role] and Roles.roles[role].camp
+        return (gagnant == "village" and camp == "village") or (gagnant == "wolves" and camp == "wolves")
+            or (gagnant == "white_wolf" and role == "white_wolf")
+    end
+
+    -- Le resultat d'une partie terminee : donnee transactionnelle, ecrite tout
+    -- de suite (R3). Une partie avec des bots ne compte pas.
+    local function enregistrer(gagnant, resume)
+        if next(bots) then return Log.Info("werewolf", "partie avec bots : resultat non enregistre") end
+        local id_partie = Ids.Next("werewolf_matches")
+        local fin = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        DB.Execute([[INSERT INTO werewolf_matches (id, started_at, ended_at, nights, winner)
+                     VALUES (:0, :1, :2, :3, :4)]],
+            function(_, err) if err then Log.Error("werewolf", "resultat non ecrit : " .. tostring(err)) end end,
+            id_partie, s.debut or fin, fin, resume.nuits or 0, tostring(gagnant))
+        for id, role in pairs(resume.roles or {}) do
+            local session = Characters.SessionByPlayer(id)
+            DB.Execute([[INSERT INTO werewolf_participants (match_id, character_id, role, survived, won)
+                         VALUES (:0, :1, :2, :3, :4)]],
+                function(_, err) if err then Log.Error("werewolf", "participant non ecrit : " .. tostring(err)) end end,
+                id_partie, session and session.character_id or 0, role,
+                resume.vivants and resume.vivants[id] and 1 or 0,
+                a_gagne(gagnant, id, role, resume.amoureux) and 1 or 0)
+        end
+    end
+
     TRADUIRE.match_ended = function(e)
         local texte = GAGNANTS[e.winner] or GAGNANTS.none
         diffuser("ww:annonce", texte)
         Log.Info("werewolf", "partie terminee : " .. tostring(e.winner))
+        local ok, err = pcall(enregistrer, e.winner, e.summary or {})
+        if not ok then Log.Error("werewolf", "resultat : " .. tostring(err)) end
         Timer.SetTimeout(function()
             diffuser("ww:fin")
             for _, id in ipairs(salon.ordre) do regler_voix(id, "normal") end

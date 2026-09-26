@@ -123,4 +123,30 @@ return {
             )]],
         },
     },
+
+    {
+        id   = 5,
+        name = "resultat_loup_garou",
+        statements = {
+            -- Seule donnee durable du loup-garou : le resultat d'une partie
+            -- terminee. winner : village, wolves, white_wolf, lovers ou none.
+            [[CREATE TABLE IF NOT EXISTS werewolf_matches (
+                id         INTEGER PRIMARY KEY,
+                started_at TEXT    NOT NULL,
+                ended_at   TEXT    NOT NULL,
+                nights     INTEGER NOT NULL,
+                winner     TEXT    NOT NULL
+            )]],
+
+            -- Un joueur par ligne : son role, s'il a survecu, s'il a gagne.
+            [[CREATE TABLE IF NOT EXISTS werewolf_participants (
+                match_id     INTEGER NOT NULL,
+                character_id INTEGER NOT NULL,
+                role         TEXT    NOT NULL,
+                survived     INTEGER NOT NULL,
+                won          INTEGER NOT NULL,
+                PRIMARY KEY (match_id, character_id)
+            )]],
+        },
+    },
 }

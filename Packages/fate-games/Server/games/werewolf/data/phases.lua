@@ -9,6 +9,7 @@ return {
         night_guard      = 20,
         night_wolves     = 45,
         night_white_wolf = 20,
+        night_witch      = 25,
         night_seer       = 20,
         dawn             = 10,
         hunter_shot      = 15,
@@ -25,6 +26,7 @@ return {
         { id = "night_guard",      role = "guard" },
         { id = "night_wolves",     role = "wolf" },
         { id = "night_white_wolf", role = "white_wolf", une_sur = 2 },
+        { id = "night_witch",      role = "witch" },
         { id = "night_seer",       role = "seer" },
     },
 

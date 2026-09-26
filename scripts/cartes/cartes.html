@@ -27,6 +27,7 @@ const SAUGE = "#9fbcb4", SAUGE_FONCE = "#5d7d76";
 const ARDOISE = "#9db0c6", ARDOISE_FONCE = "#5b728c";
 const GRIS_LOUP = "#8e979b", GRIS_LOUP_FONCE = "#5a6468";
 const ROSE = "#d98b8b", ROSE_FONCE = "#b8332d";
+const VIOLET = "#9a86b5", VIOLET_FONCE = "#5f4f78";
 
 // Trait d'encre en deux passages, comme les contours des HUD : le trait
 // plein, puis un second plus fin, decale, a moitie efface.
@@ -177,6 +178,23 @@ Object.assign(SYMBOLES, {
       + encre("M178 176 L178 318 M118 214 L238 214", { w: 5 })
       + encre("M178 196 L188 222 L216 224 L194 240 L202 268 L178 252 L154 268 L162 240 L140 224 L168 222 Z", { fill: LAITON, w: 4 });
   },
+  // Deux potions : la fiole ronde de vie, la bouteille de mort : la Sorciere.
+  sorciere: () => {
+    const fiole = "M118 196 L142 196 L142 222 Q188 236 188 282 Q188 334 130 334 Q72 334 72 282 Q72 236 118 222 Z";
+    const bouteille = "M214 172 L240 172 L240 214 Q276 232 276 280 L276 330 Q276 344 262 344 L192 344 Q178 344 178 330 L178 280 Q178 232 214 214 Z";
+    return encre(fiole, { fill: SAUGE })
+      + hachures("M130 222 L142 222 Q188 236 188 282 Q188 334 130 334 Z", 130, 222, 190, 336)
+      + encre("M108 186 L152 186 L148 198 L112 198 Z", { fill: LAITON_FONCE, w: 4 })
+      + encre("M92 262 Q100 248 112 244", { w: 3.5 })
+      + encre(bouteille, { fill: VIOLET })
+      + hachures("M227 214 Q276 232 276 280 L276 330 Q276 344 262 344 L227 344 Z", 227, 214, 278, 346)
+      + encre("M206 160 L248 160 L244 174 L210 174 Z", { fill: LAITON_FONCE, w: 4 })
+      + encre("M227 268m-22 0a22 20 0 1 0 44 0a22 20 0 1 0 -44 0", { fill: PAPIER, w: 4 })
+      + encre("M216 292 L216 302 M227 292 L227 304 M238 292 L238 302", { w: 3.5 })
+      + encre("M219 266m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0", { fill: ENCRE, w: 2 })
+      + encre("M235 266m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0", { fill: ENCRE, w: 2 })
+      + encre("M150 150m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0 M136 128m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0", { w: 3 });
+  },
   // Coeur traverse d'une fleche : Cupidon.
   cupidon: () => {
     const coeur = "M178 330 C104 276 80 236 100 198 C120 162 164 166 178 202 C192 166 236 162 256 198 C276 236 252 276 178 330 Z";
@@ -203,6 +221,7 @@ const CARTES = {
   gardien:    { nom: "Gardien",    symbole: SYMBOLES.gardien,    graine: 59, jeu: "loup" },
   loup_blanc: { nom: "Loup Blanc", symbole: SYMBOLES.loup_blanc, graine: 61, jeu: "loup" },
   cupidon:    { nom: "Cupidon",    symbole: SYMBOLES.cupidon,    graine: 67, jeu: "loup" },
+  sorciere:   { nom: "Sorcière",   symbole: SYMBOLES.sorciere,   graine: 71, jeu: "loup" },
 };
 
 // Le dos : encre pleine, cadre laiton trace a la main, un barillet de

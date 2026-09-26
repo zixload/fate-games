@@ -18,6 +18,7 @@ return {
         hunter     = { camp = "village", on_death = "hunter_shot" },
         guard      = { camp = "village" },
         cupid      = { camp = "village" },
+        witch      = { camp = "village" },
     },
 
     -- Bornes des reglages du salon, par role (les villageois completent).
@@ -28,15 +29,16 @@ return {
         hunter     = { 0, 1 },
         guard      = { 0, 1 },
         cupid      = { 0, 1 },
+        witch      = { 0, 1 },
     },
 
     -- Ordre des roles speciaux dans le salon et dans le tirage.
-    speciaux = { "wolf", "white_wolf", "seer", "hunter", "guard", "cupid" },
+    speciaux = { "wolf", "white_wolf", "seer", "witch", "hunter", "guard", "cupid" },
 
     -- Composition par defaut selon le nombre de joueurs (spec, tableau
     -- Composition) : les autres roles sont a 0, le createur les ajoute.
     par_defaut = function(n)
         local loups = n <= 5 and 1 or (n <= 8 and 2 or 3)
-        return { wolf = loups, white_wolf = 0, seer = 1, hunter = 0, guard = 0, cupid = 0 }
+        return { wolf = loups, white_wolf = 0, seer = 1, witch = 0, hunter = 0, guard = 0, cupid = 0 }
     end,
 }

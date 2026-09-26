@@ -34,9 +34,10 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         local gagnant = Outcome.verdict(s.match)
         if not gagnant then return false end
         s.statut = "finie"
-        local roles = {}
-        for id, j in pairs(s.match.joueurs) do roles[id] = j.role end
-        fx[#fx + 1] = Effects.match_ended(gagnant, { roles = roles, nuits = s.nuit })
+        local roles, vivants = {}, {}
+        for id, j in pairs(s.match.joueurs) do roles[id], vivants[id] = j.role, j.vivant end
+        fx[#fx + 1] = Effects.match_ended(gagnant, { roles = roles, vivants = vivants, nuits = s.nuit,
+            amoureux = s.match.amoureux })
         return true
     end
 
@@ -82,7 +83,7 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
             end
             s.file[#s.file + 1] = id
         end
-        s.victime_loups, s.victime_blanc, s.protege = nil, nil, nil
+        s.victime_loups, s.victime_blanc, s.protege, s.victime_sorciere = nil, nil, nil, nil
         fx[#fx + 1] = Effects.world_light("night")
         for _, id in ipairs(Match.vivants(s.match)) do
             fx[#fx + 1] = Effects.voice_channel(id, Match.est_loup(s.match, id) and "wolves" or "sleep")
@@ -95,6 +96,7 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         local morts = {}
         if s.victime_loups and s.victime_loups ~= s.protege then morts[#morts + 1] = s.victime_loups end
         if s.victime_blanc and s.victime_blanc ~= s.victime_loups then morts[#morts + 1] = s.victime_blanc end
+        if s.victime_sorciere then morts[#morts + 1] = s.victime_sorciere end
         local avant = #fx
         for _, id in ipairs(morts) do tuer(s, id, "nuit", fx) end
         local tues = {}
@@ -126,6 +128,13 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
             verifier(s, fx)
         elseif id == "hunter_shot" then
             s.tireur = table.remove(s.tireurs, 1)
+        elseif id == "night_witch" then
+            -- La sorciere apprend la victime des loups, et ce qu'il lui reste.
+            local w = Match.porteur(s.match, "witch")
+            if w then
+                if s.victime_loups then fx[#fx + 1] = Effects.victim(w, s.victime_loups) end
+                fx[#fx + 1] = Effects.potions(w, s.potion_vie, s.potion_mort)
+            end
         end
     end
 
@@ -198,6 +207,7 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
 
         s.statut, s.rng, s.compo, s.nuit = "partie", rng, compo, 0
         s.file, s.pile, s.tireurs = {}, {}, {}
+        s.potion_vie, s.potion_mort = true, true
         s.match = Match.nouveau(ids, Match.tirer(ids, compo, rng))
 
         local fx = {}
@@ -257,6 +267,19 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
             if role ~= "white_wolf" or cible == acteur or not Match.est_loup(m, cible) then return nil, "interdit" end
             s.victime_blanc = cible
             terminer(s, fx)
+        elseif id == "night_witch" then
+            -- Viser la victime des loups la sauve (potion de vie) ; viser un
+            -- autre joueur l'empoisonne (potion de mort). Une fois chacune.
+            if role ~= "witch" then return nil, "interdit" end
+            if cible == s.victime_loups and s.potion_vie then
+                s.victime_loups, s.potion_vie = nil, false
+            elseif cible ~= s.victime_loups and cible ~= acteur and s.potion_mort then
+                s.victime_sorciere, s.potion_mort = cible, false
+            else
+                return nil, "interdit"
+            end
+            fx[#fx + 1] = Effects.potions(acteur, s.potion_vie, s.potion_mort)
+            if not ((s.potion_vie and s.victime_loups) or s.potion_mort) then terminer(s, fx) end
         elseif id == "night_seer" then
             if role ~= "seer" or cible == acteur then return nil, "interdit" end
             fx[#fx + 1] = Effects.reveal(acteur, cible, Match.role(m, cible))

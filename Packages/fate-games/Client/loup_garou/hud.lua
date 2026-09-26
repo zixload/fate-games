@@ -14,6 +14,8 @@
 --   ww:vision   (nom, role)       resultat de la voyante, dans son rappel
 --   ww:amoureux (id, nom)         prive : lie par Cupidon a ce joueur
 --   ww:maire    (id, nom)         le maire du village (medaille au-dessus de lui)
+--   ww:victime  (id, nom)         prive, a la sorciere : la victime des loups
+--   ww:potions  (vie, mort)       prive, a la sorciere : ce qu'il lui reste
 --   ww:annonce  (texte)           message transitoire
 --   ww:mort     ()                on est mort : plus de designation
 --   ww:fin      ()                fin de partie : tout se range
@@ -38,9 +40,10 @@ return function(config)
         hunter     = { image = "chasseur",   nom = "Chasseur",   article = "le " },
         guard      = { image = "gardien",    nom = "Gardien",    article = "le " },
         cupid      = { image = "cupidon",    nom = "Cupidon",    article = "" },
+        witch      = { image = "sorciere",   nom = "Sorcière",   article = "la " },
     }
     local ALIAS = { loup = "wolf", loup_blanc = "white_wolf", villageois = "villager", voyante = "seer",
-        chasseur = "hunter", gardien = "guard", cupidon = "cupid" }
+        chasseur = "hunter", gardien = "guard", cupidon = "cupid", sorciere = "witch" }
     local function role_id(r) return ROLES[r] and r or ALIAS[r] end
 
     -- Phases : bandeau, qui peut designer, invite et consigne.
@@ -53,6 +56,8 @@ return function(config)
             invite = "lg_designer", consigne = "Regarde un joueur et appuie sur [E] pour le désigner" },
         night_white_wolf = { texte = "Nuit · Le loup blanc rôde", icone = "lune", qui = { white_wolf = true },
             invite = "lg_designer", consigne = "Tu peux dévorer un loup : regarde-le et appuie sur [E]" },
+        night_witch      = { texte = "Nuit · La sorcière prépare ses potions", icone = "lune", qui = { witch = true },
+            invite = "sorciere", consigne = "Regarde la victime et appuie sur [E] pour la sauver, ou un autre joueur pour l'empoisonner" },
         night_seer       = { texte = "Nuit · La voyante sonde", icone = "lune", qui = { seer = true },
             invite = "lg_sonder", consigne = "Regarde un joueur et appuie sur [E] pour découvrir son rôle" },
         dawn             = { texte = "Aube", icone = "soleil" },
@@ -68,7 +73,7 @@ return function(config)
         execution        = { texte = "Jour · Exécution", icone = "soleil" },
     }
     local LARGEUR_INVITE = { lg_designer = 196, lg_voter = 170, lg_proteger = 192, lg_lier = 150, lg_tirer = 158,
-        lg_sonder = 176, lg_elire = 160, lg_nommer = 178 }
+        lg_sonder = 176, lg_elire = 160, lg_nommer = 178, lg_sauver = 170, lg_empoisonner = 226 }
 
     -- Reglages du salon, dans l'ordre du panneau : cle, nom, bornes, pas.
     local REGLAGES = {
@@ -76,6 +81,7 @@ return function(config)
         { cle = "wolf",       nom = "Loups-Garous", min = 1, max = 4,  pas = 1, image = "loup" },
         { cle = "white_wolf", nom = "Loup Blanc",  min = 0, max = 1,  pas = 1, image = "loup_blanc" },
         { cle = "seer",       nom = "Voyante",     min = 0, max = 1,  pas = 1, image = "voyante" },
+        { cle = "witch",      nom = "Sorcière",    min = 0, max = 1,  pas = 1, image = "sorciere" },
         { cle = "hunter",     nom = "Chasseur",    min = 0, max = 1,  pas = 1, image = "chasseur" },
         { cle = "guard",      nom = "Gardien",     min = 0, max = 1,  pas = 1, image = "gardien" },
         { cle = "cupid",      nom = "Cupidon",     min = 0, max = 1,  pas = 1, image = "cupidon" },
@@ -86,7 +92,8 @@ return function(config)
     local file = {}
     local function neuf()
         return { role = nil, allies = {}, phase = nil, votes = {}, mort = false, salon = nil,
-            vise = nil, amoureux = nil, maire = nil, etait_maire = false, ligne = 1, demo = false }
+            vise = nil, amoureux = nil, maire = nil, etait_maire = false, victime = nil,
+            potions = { vie = true, mort = true }, ligne = 1, demo = false }
     end
     local etat = neuf()
     local chat_ouvert = false
@@ -164,6 +171,7 @@ return function(config)
     function H.phase(id, duree)
         etat.phase = id
         etat.votes = {}
+        if id ~= "night_witch" then etat.victime = nil end
         local ph = PHASES[id]
         appeler("lg:phase", ph and { texte = ph.texte, icone = ph.icone, duree = duree } or nil)
         appeler("lg:message", peut_designer() and ph.consigne or "", 6)
@@ -203,6 +211,20 @@ return function(config)
         elseif etat.etait_maire and etat.phase == "mayor_succession" then
             etat.etait_maire = false
         end
+    end
+
+    -- La sorciere : la victime des loups (griffes au-dessus d'elle) et ses potions.
+    function H.victime(id, nom)
+        etat.victime = id
+        appeler("lg:message", ("Les loups ont choisi %s."):format(tostring(nom)), 6)
+    end
+
+    function H.potions(vie, mort)
+        etat.potions = { vie = vie == true, mort = mort == true }
+        local reste = (vie and mort) and "Il te reste : vie et mort"
+            or (vie and "Il te reste : la potion de vie") or (mort and "Il te reste : la potion de mort")
+            or "Plus de potion"
+        rappel(reste)
     end
 
     function H.annonce(texte) appeler("lg:message", texte, 5) end
@@ -287,6 +309,7 @@ return function(config)
             if etat.allies[id] then marques[#marques + 1] = { "lg_allie", 62, 62 } end
             if etat.amoureux == id then marques[#marques + 1] = { "lg_coeur", 56, 52 } end
             if etat.maire == id then marques[#marques + 1] = { "lg_maire", 56, 60 } end
+            if etat.victime == id and etat.phase == "night_witch" then marques[#marques + 1] = { "lg_victime", 56, 52 } end
             if #marques > 0 then
                 local pas = 56 * e.s
                 local x0 = e.x - pas * (#marques - 1) / 2
@@ -295,8 +318,17 @@ return function(config)
                 end
                 y = y - 54 * e.s
             end
-            if id == vise_id and ph and ph.invite then
-                sprite(c, ph.invite, e.x, y - 22 * e.s, LARGEUR_INVITE[ph.invite] or 190, 62, e.s)
+            local invite = ph and ph.invite
+            if invite == "sorciere" then
+                -- La victime : la sauver ; un autre : l'empoisonner. Selon les potions.
+                if id == etat.victime then
+                    invite = etat.potions.vie and "lg_sauver" or nil
+                else
+                    invite = etat.potions.mort and "lg_empoisonner" or nil
+                end
+            end
+            if id == vise_id and invite then
+                sprite(c, invite, e.x, y - 22 * e.s, LARGEUR_INVITE[invite] or 190, 62, e.s)
             end
         end
 
@@ -413,7 +445,7 @@ return function(config)
             while #joueurs < 6 do joueurs[#joueurs + 1] = { nom = "Invité " .. #joueurs, pret = false } end
             etat.demo, etat.ligne = true, 1
             H.salon({ joueurs = joueurs, max = 10, createur = true, debat = 180,
-                compo = { wolf = 2, white_wolf = 0, seer = 1, hunter = 1, guard = 0, cupid = 0 } })
+                compo = { wolf = 2, white_wolf = 0, seer = 1, witch = 0, hunter = 1, guard = 0, cupid = 0 } })
         end,
         role = function(r) devenir(role_id(r or "wolf") or "wolf") end,
         nuit = function()
@@ -430,6 +462,12 @@ return function(config)
             local v = voisins()
             if not etat.role then devenir("villager") end
             if v[1] then H.amoureux(v[1]:GetID(), nom_de(v[1], 1)) end
+        end,
+        sorciere = function()
+            local v = voisins()
+            H.salon(nil); devenir("witch"); H.phase("night_witch", 25)
+            if v[1] then H.victime(v[1]:GetID(), nom_de(v[1], 1)) end
+            H.potions(true, true)
         end,
         maire = function()
             local v = voisins()
@@ -469,7 +507,7 @@ return function(config)
             f(mots[4])
         else
             Chat.AddMessage("/lg demo salon | role [loup|loup_blanc|voyante|chasseur|gardien|cupidon|villageois]")
-            Chat.AddMessage("/lg demo nuit | gardien | cupidon | voyante | chasseur | amoureux | maire | jour | stop")
+            Chat.AddMessage("/lg demo nuit | gardien | cupidon | voyante | sorciere | chasseur | amoureux | maire | jour | stop")
         end
         return false
     end)
