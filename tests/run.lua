@@ -84,6 +84,7 @@ local suites = {
     "liars_journal",
     "liars_cartes",
     "liars_salon",
+    "werewolf",
 }
 
 print(("banc de test fate-games (%s)"):format(_VERSION))
