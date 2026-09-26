@@ -12,6 +12,7 @@
 --   /fan table x y z       tas, depuis le centre du plateau
 --   /fan dos p y r         carte face cachee sur la table
 --   /fan face p y r        carte revelee sur la table
+--   /fan os <nom>          os qui tient l'eventail (LeftHand, RightHand...)
 --   /fan <nombre> n        ecart, rayon, taille, levee, curseur, profondeur,
 --                          epaisseur, dispersion
 
@@ -56,6 +57,12 @@ return function(config, Rendu)
         elseif cle == "demo" then
             Rendu.Demo(not Rendu.IsDemo())
             Chat.AddMessage("demo : " .. (Rendu.IsDemo() and "active" or "coupee"))
+        elseif cle == "os" then
+            if mots[3] then
+                config.bone_simple = mots[3]
+                Rendu.Reconstruire()
+            end
+            Chat.AddMessage("/fan os " .. tostring(config.bone_simple))
         elseif VECTEURS[cle] then
             local a, b, c = tonumber(mots[3]), tonumber(mots[4]), tonumber(mots[5])
             if a and b and c then

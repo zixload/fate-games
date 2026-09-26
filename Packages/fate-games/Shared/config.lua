@@ -96,7 +96,9 @@ return {
         -- Support invisible de l'eventail et de chaque fente.
         pivot_mesh = "nanos-world::SM_Cube",
         -- Os qui tient l'eventail : squelette Creative, puis mannequin nanos.
-        bone_simple    = "RightHandProp",
+        -- Pas RightHandProp / LeftHandProp : ces os ne suivent pas les
+        -- animations, les cartes flottaient. /fan os <nom> pour essayer.
+        bone_simple    = "LeftHand",
         bone_mannequin = "hand_r",
         -- Garder la main en texte dans le HUD tant que l'eventail n'est pas
         -- valide en jeu.
@@ -104,9 +106,18 @@ return {
         -- cartes rangees en fichiers dans le pack d'assets : 14 jpg du jeu de
         -- 52, copies dans Assets/my-asset-pack/HUD/Cartes (hors depot).
         images = "assets://my-asset-pack/HUD/Cartes",
-        -- Cartes 3D dans les mains : coupees pour le moment (19/09), l'os
-        -- RightHandProp n'est pas anime. Le tas de la table reste en 3D.
-        en_main = false,
+        -- Cartes 3D dans les mains, rallumees le 26/09 sur l'os de la main.
+        en_main = true,
+
+        -- Mouvements des cartes (Client/liars_bar/rendu.lua), en secondes et cm :
+        -- duree d'un vol, hauteur de l'arc, ecart entre deux cartes d'une meme
+        -- donne, pose ou revelation, et fenetre ou une main qui se remplit fait
+        -- venir ses cartes du centre.
+        anim = {
+            duree = 0.45, arc = 18,
+            ecart_donne = 0.09, ecart_pose = 0.07, ecart_revelation = 0.12,
+            fenetre_donne = 1.5,
+        },
 
         fan = {
             pos        = { x = 0, y = 0, z = 0 },   -- pivot, depuis l'os de la main
