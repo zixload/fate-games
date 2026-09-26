@@ -72,6 +72,12 @@ local ok_tags, err_tags = pcall(function()
 end)
 if not ok_tags then Console.Error("[etiquettes] chargement impossible : " .. tostring(err_tags)) end
 
+-- HUD du Loup-Garou (le moteur viendra ensuite ; /lg pour le voir en jeu).
+local ok_lg, err_lg = pcall(function()
+    Package.Require("loup_garou/hud.lua")(SharedConfig.loup_garou)
+end)
+if not ok_lg then Console.Error("[loup-garou] chargement impossible : " .. tostring(err_lg)) end
+
 -- Pseudos au-dessus des personnages, partout sur la map.
 local ok_pseudos, err_pseudos = pcall(function()
     Package.Require("pseudos.lua")(liars_journal, SharedConfig.pseudos)

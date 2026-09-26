@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Loup-Garou</title>
+<!--
+  HUD fixe du Loup-Garou (loup_garou/hud.lua) : bandeau de phase et minuteur,
+  revelation du role (la carte se retourne), rappel du role, message
+  transitoire, panneau du salon. Ce qui suit les tetes est au Canvas.
+-->
+<style>
+@font-face { font-family: "Lilita One"; src: url("../vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --laiton: #d9b56a; --laiton-fonce: #8a6d3b; --ombre: #070a0b; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent;
+    font-family: "Lilita One", sans-serif; color: var(--encre); user-select: none; pointer-events: none; }
+body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); }
+.cache { display: none !important; }
+
+.sk { position: relative; isolation: isolate; }
+.sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+.sk-svg .ombre { fill: var(--ombre); opacity: .7; }
+.sk-svg .fond { fill: var(--papier); }
+.sk-svg .trait { fill: none; stroke: var(--encre); stroke-width: 3.5px; stroke-linejoin: round; }
+.sk-svg .trait2 { fill: none; stroke: var(--encre); stroke-width: 1.5px; opacity: .4; }
+.touche { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 7px; box-sizing: border-box;
+    border: 2.5px solid var(--encre); border-bottom-width: 5px; border-radius: 8px; background: #f6eedb; font-size: 17px; line-height: 1; }
+
+/* Bandeau de phase, en haut au centre. */
+#phase { position: absolute; top: 28px; left: 50%; transform: translateX(-50%) rotate(-1deg); display: flex; align-items: center; gap: 16px;
+    padding: 12px 18px 12px 22px; font-size: 30px; white-space: nowrap; }
+#phase .ico { width: 40px; height: 40px; }
+#minuteur { display: grid; place-items: center; width: 62px; height: 62px; border-radius: 50%; background: var(--encre); color: var(--papier);
+    font-size: 23px; box-shadow: inset 0 0 0 3px var(--laiton); }
+#minuteur.presse { color: #ffb3a8; box-shadow: inset 0 0 0 3px #b8332d; }
+
+/* Rappel du role, en bas a gauche. */
+#role { position: absolute; left: 36px; bottom: 34px; display: flex; align-items: flex-end; gap: 14px; }
+#role img { width: 110px; transform: rotate(-7deg); filter: drop-shadow(5px 6px 0 rgba(7, 10, 11, .7)); }
+#role .sk { padding: 10px 16px; font-size: 25px; display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+#role small { font-size: 16px; color: var(--laiton-fonce); }
+#role small:empty { display: none; }
+
+/* Message transitoire, en bas au centre : blanc avec ombre. */
+#message { position: absolute; left: 0; right: 0; bottom: 42px; text-align: center; font-size: 24px; color: #fff;
+    text-shadow: 2px 2px 0 #000, 0 0 10px rgba(0, 0, 0, .6); transition: opacity .4s; }
+#message.efface { opacity: 0; }
+#message .touche { text-shadow: none; margin: 0 3px; color: var(--encre); }
+
+/* Revelation du role : la carte arrive de dos et se retourne. */
+#revelation { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(7, 10, 11, .55); transition: opacity .5s; }
+#revelation.efface { opacity: 0; }
+#revelation .scene { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+#carte { width: 300px; height: 451px; perspective: 1200px; }
+#carte .interieur { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transform: rotateY(180deg) scale(.6); }
+#carte.tourne .interieur { transition: transform 1s cubic-bezier(.2, .8, .2, 1.1); transform: rotateY(0deg) scale(1); }
+#carte img { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; filter: drop-shadow(10px 12px 0 rgba(7, 10, 11, .7)); }
+#carte img.dos { transform: rotateY(180deg); }
+#titre-role { font-size: 64px; color: var(--papier); -webkit-text-stroke: 10px var(--encre); paint-order: stroke fill; text-shadow: 7px 8px 0 var(--ombre); }
+#allies { font-size: 26px; color: #fff; text-shadow: 2px 2px 0 #000; }
+#allies:empty { display: none; }
+
+/* Salon : meme panneau que Liar's Bar. */
+#salon { position: absolute; left: 40px; top: 50%; transform: translateY(-50%) rotate(-1deg); width: 330px; padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 12px; }
+#salon .ligne { display: flex; align-items: center; gap: 10px; font-size: 26px; }
+#salon .compte { font-size: 18px; color: var(--laiton-fonce); }
+#salon .compo { display: flex; gap: 10px; font-size: 17px; color: var(--laiton-fonce); align-items: center; }
+#salon .compo img { width: 26px; }
+#places { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.place { display: flex; align-items: center; gap: 6px; font-size: 16px; padding: 5px 8px; border-radius: 8px; background: rgba(28, 33, 35, .07);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.place.pret { background: var(--laiton); }
+.place.moi { outline: 2px solid var(--encre); }
+.place.vide { opacity: .45; }
+#salon .aide { display: flex; flex-wrap: wrap; gap: 10px 14px; font-size: 15px; align-items: center; }
+#salon .aide span { display: inline-flex; gap: 6px; align-items: center; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <symbol id="lune" viewBox="0 0 40 40"><path d="M26 5a15 15 0 1 0 9 22A13 13 0 0 1 26 5z" fill="#d9b56a" stroke="#1c2123" stroke-width="2.6" stroke-linejoin="round"/></symbol>
+  <symbol id="soleil" viewBox="0 0 40 40"><circle cx="20" cy="20" r="8" fill="#d9b56a" stroke="#1c2123" stroke-width="2.6"/><path d="M20 3v6M20 31v6M3 20h6M31 20h6M8 8l4 4M28 28l4 4M32 8l-4 4M12 28l-4 4" stroke="#1c2123" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="coche" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#1c2123" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div id="phase" class="sk cache" data-graine="61" data-rayon="18">
+  <svg class="ico"><use id="phase-ico" href="#lune"/></svg><span id="phase-texte"></span><span id="minuteur"></span>
+</div>
+
+<div id="role" class="cache"><img id="role-img" alt=""><div class="sk" data-graine="67" data-rayon="14"><span id="role-nom"></span><small id="role-petit"></small></div></div>
+
+<div id="message" class="efface"></div>
+
+<div id="revelation" class="cache">
+  <div class="scene">
+    <div id="carte"><div class="interieur"><img id="carte-face" alt=""><img class="dos" src="img/dos_nuit.png" alt=""></div></div>
+    <div id="titre-role"></div>
+    <div id="allies"></div>
+  </div>
+</div>
+
+<div id="salon" class="sk cache" data-graine="83" data-rayon="16">
+  <div class="ligne"><svg width="34" height="34"><use href="#lune"/></svg><span>Loup-Garou</span><span style="flex: 1"></span><span class="compte" id="salon-compte"></span></div>
+  <div class="compo" id="salon-compo"></div>
+  <div id="places"></div>
+  <div class="aide">
+    <span><span class="touche">R</span><svg width="18" height="18"><use href="#coche"/></svg></span>
+    <span><span class="touche">←</span><span class="touche">→</span><span id="salon-debat"></span></span>
+    <span><span class="touche">Espace</span>quitter</span>
+  </div>
+</div>
+
+<script src="../ui/esquisse.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const nettoyer = (s) => String(s == null ? "" : s).replace(/[<>&]/g, "");
+const montrer = (id, oui) => $(id).classList.toggle("cache", !oui);
+const retracer = () => requestAnimationFrame(habiller);
+
+// ---------------------------------------------------------------- phase et minuteur
+let finPhase = 0, minuteurActif = false;
+function phase(p) {
+  if (!p) { montrer("phase", false); minuteurActif = false; return; }
+  $("phase-ico").setAttribute("href", p.icone === "soleil" ? "#soleil" : "#lune");
+  $("phase-texte").textContent = p.texte || "";
+  finPhase = p.duree ? performance.now() + p.duree * 1000 : 0;
+  minuteurActif = !!p.duree;
+  montrer("minuteur", minuteurActif);
+  montrer("phase", true);
+  tic();
+  retracer();
+}
+function tic() {
+  if (!minuteurActif) return;
+  const reste = Math.max(0, Math.ceil((finPhase - performance.now()) / 1000));
+  $("minuteur").textContent = `${Math.floor(reste / 60)}:${String(reste % 60).padStart(2, "0")}`;
+  $("minuteur").classList.toggle("presse", reste <= 10);
+}
+setInterval(tic, 250);
+
+// ---------------------------------------------------------------- role
+function rappel(r) {
+  if (!r) { montrer("role", false); return; }
+  $("role-img").src = `img/${r.image}.png`;
+  $("role-nom").textContent = r.nom || "";
+  $("role-petit").textContent = r.petit || "";
+  montrer("role", true);
+  retracer();
+}
+
+// La carte arrive de dos, se retourne, reste un moment, puis part : le
+// rappel en bas a gauche prend le relais.
+let finRevelation = null;
+function revelation(r) {
+  clearTimeout(finRevelation);
+  $("carte-face").src = `img/${r.image}.png`;
+  $("titre-role").textContent = `Tu es ${r.article || ""}${r.nom}`;
+  $("allies").textContent = r.allies || "";
+  const carte = $("carte");
+  carte.classList.remove("tourne");
+  $("revelation").classList.remove("efface");
+  montrer("revelation", true);
+  montrer("role", false);
+  setTimeout(() => carte.classList.add("tourne"), 600);
+  finRevelation = setTimeout(() => {
+    $("revelation").classList.add("efface");
+    setTimeout(() => { montrer("revelation", false); rappel(r); }, 500);
+  }, 4800);
+}
+
+// ---------------------------------------------------------------- message
+let finMessage = null;
+function message(texte, secondes) {
+  clearTimeout(finMessage);
+  $("message").innerHTML = nettoyer(texte).replace(/\[([^\]]+)\]/g, '<span class="touche">$1</span>');
+  $("message").classList.toggle("efface", !texte);
+  if (texte && secondes !== 0) finMessage = setTimeout(() => $("message").classList.add("efface"), (secondes || 4) * 1000);
+}
+
+// ---------------------------------------------------------------- salon
+function salon(v) {
+  if (!v) { montrer("salon", false); return; }
+  const joueurs = v.joueurs || [];
+  $("salon-compte").textContent = `${joueurs.length}/${v.max || 12}`;
+  const c = v.compo || {};
+  $("salon-compo").innerHTML = `<img src="img/loup.png" alt="">${c.loups || 0} <img src="img/voyante.png" alt="">${c.voyante || 0} <img src="img/villageois.png" alt="">${c.villageois || 0}`;
+  const cases = joueurs.map((j) => `<div class="place${j.pret ? " pret" : ""}${j.moi ? " moi" : ""}">`
+    + `${j.pret ? '<svg width="14" height="14"><use href="#coche"/></svg>' : ""}${nettoyer(j.nom)}</div>`);
+  while (cases.length < Math.max(8, joueurs.length + (joueurs.length % 2))) cases.push('<div class="place vide">…</div>');
+  $("places").innerHTML = cases.join("");
+  $("salon-debat").textContent = `débat ${Math.round((v.debat || 180) / 60)} min`;
+  montrer("salon", true);
+  retracer();
+}
+
+function tout_cacher() {
+  phase(null); rappel(null); salon(null); message("");
+  montrer("revelation", false);
+}
+
+if (typeof Events !== "undefined") {
+  Events.Subscribe("lg:phase", phase);
+  Events.Subscribe("lg:rappel", rappel);
+  Events.Subscribe("lg:revelation", revelation);
+  Events.Subscribe("lg:message", message);
+  Events.Subscribe("lg:salon", salon);
+  Events.Subscribe("lg:cacher", tout_cacher);
+  Events.Call("pret");
+} else {
+  document.body.classList.add("apercu");
+  phase({ texte: "Nuit · Les loups choisissent", icone: "lune", duree: 45 });
+  revelation({ image: "loup", nom: "Loup-Garou", article: "", allies: "Ton allié : Ana" });
+  message("Regarde un joueur et appuie sur [E] pour le désigner", 0);
+}
+</script>
+</body>
+</html>

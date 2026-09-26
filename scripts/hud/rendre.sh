@@ -26,3 +26,15 @@ for r in roi:Roi dame:Dame as:As joker:Joker; do
 done
 for n in $(seq 1 20); do rendre "tas_$n" 90 16 "s=texte&t=$n%20au%20tas&taille=13&l=90&h=16&pale=1"; done
 echo "sprites rendus dans $SORTIE"
+
+# Loup-Garou : invites, compteurs de voix, marque des loups allies.
+SORTIE="$RACINE/Packages/fate-games/Client/loup_garou/hud"
+mkdir -p "$SORTIE"
+rendre lg_designer 196 62 "s=lg_designer"
+rendre lg_voter 170 62 "s=lg_voter"
+rendre lg_allie 62 62 "s=lg_allie"
+for n in $(seq 0 12); do
+    rendre "voix_$n" 96 56 "s=lg_voix&n=$n"
+    rendre "voix_${n}_tete" 96 56 "s=lg_voix&n=$n&tete=1"
+done
+echo "sprites rendus dans $SORTIE"

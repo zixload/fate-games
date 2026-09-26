@@ -111,6 +111,10 @@ return {
         fondu_entree = 4, fondu_sortie = 3,
     },
 
+    -- HUD du Loup-Garou (Client/loup_garou/hud.lua) : portee des marques
+    -- au-dessus des tetes (cm) et demi-angle de visee pour designer (degres).
+    loup_garou = { portee = 1500, cone = 10 },
+
     -- Pseudos au-dessus des personnages (Client/pseudos.lua) : portee (cm),
     -- hauteur au-dessus de la tete (cm), delai entre deux verifications de mur
     -- (ms). Taille de l'ecriture : Client/ui/pseudo.lua.

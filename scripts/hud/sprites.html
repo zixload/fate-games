@@ -18,7 +18,7 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
 .sk-svg .ombre { fill: var(--ombre); opacity: .55; }
 .sk-svg .fond { fill: var(--papier); }
-.sk-svg .trait { fill: none; stroke: var(--encre); stroke-width: 3px; stroke-linejoin: round; }
+.sk-svg .trait { fill: none; stroke: var(--bord, var(--encre)); stroke-width: 3px; stroke-linejoin: round; }
 .sk-svg .trait2 { fill: none; stroke: var(--encre); stroke-width: 1.4px; opacity: .4; }
 
 .barrel { position: relative; width: 48px; height: 48px; box-sizing: border-box; border: 2px solid #c5a774; border-radius: 50%;
@@ -39,6 +39,17 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
     border: 2px solid var(--encre); border-bottom-width: 4px; border-radius: 6px; background: #f6eedb; font-size: 15px; line-height: 1; }
 
 .carton { width: 110px; height: 76px; }
+
+/* Loup-Garou : invites, compteurs de voix, marque des loups allies. */
+.lg-invite { display: flex; align-items: center; gap: 8px; padding: 7px 14px 7px 10px; font: 22px "Lilita One", sans-serif; color: var(--encre); white-space: nowrap; }
+.lg-invite svg.ico { width: 32px; height: 30px; }
+.lg-voix { display: flex; align-items: center; gap: 6px; padding: 5px 13px 5px 9px; font: 26px "Lilita One", sans-serif; color: var(--encre); }
+.lg-voix svg.ico { width: 26px; height: 26px; }
+.lg-voix.tete { --bord: #b8332d; }
+.lg-allie { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #1c2123;
+    box-shadow: inset 0 0 0 3px #d9b56a, 0 3px 8px rgba(0, 0, 0, .6); }
+.lg-allie { position: relative; overflow: hidden; box-sizing: border-box; border: 3px solid #d9b56a; background: #efe6d2; }
+.lg-allie img { position: absolute; width: 78px; left: -18px; top: -30px; }
 .texte { font-family: "Lilita One", sans-serif; color: var(--encre); line-height: 1; white-space: nowrap; }
 </style>
 </head>
@@ -48,6 +59,8 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 <script>
 const q = new URLSearchParams(location.search);
 const boite = document.getElementById("boite");
+const GRIFFES = '<svg class="ico" viewBox="0 0 34 30" aria-hidden="true"><path d="M6 26C10 16 14 9 20 3M14 28C18 18 22 11 28 5M22 28c3-6 6-10 10-14" fill="none" stroke="#b8332d" stroke-width="3.4" stroke-linecap="round"/></svg>';
+const MAIN = '<svg class="ico" viewBox="0 0 26 26" aria-hidden="true"><path d="M8 24v-9L5 11c-1-2 1-4 3-2l2 3V4c0-2 3-2 3 0v6-8c0-2 3-2 3 0v8-6c0-2 3-2 3 0v11c0 5-2 9-6 9h-2c-2 0-3 0-3 0z" fill="#f6eedb" stroke="#1c2123" stroke-width="2" stroke-linejoin="round"/></svg>';
 const NEZ = '<svg class="nez" viewBox="0 0 38 30" aria-hidden="true">'
   + '<path d="M13 3c-6 1-10 6-10 12s4 11 10 12c2 0 3-1 4-2"/><path d="M13 11c1 0 2 1 2 2"/>'
   + '<path d="M16 16c6-1 13-2 20-2"/><path d="M16 19c6 0 12-1 19-3"/><path d="M9 22c2 1 4 1 6 0"/></svg>';
@@ -63,6 +76,14 @@ const SPRITES = {
   fleche: () => [28, 24, '<div class="arrow"></div>'],
   menteur: () => [186, 66, `<div class="liar sk" data-graine="11" data-rayon="14">${NEZ}<span class="touche">R</span><span>Menteur !</span></div>`],
   carton: () => [132, 98, '<div class="carton sk" data-graine="23" data-rayon="12"></div>'],
+  // Loup-Garou
+  lg_designer: () => [196, 62, `<div class="lg-invite sk" data-graine="63" data-rayon="14">${GRIFFES}<span class="touche">E</span>Désigner</div>`],
+  lg_voter: () => [170, 62, `<div class="lg-invite sk" data-graine="73" data-rayon="14">${MAIN}<span class="touche">E</span>Voter</div>`],
+  lg_voix: () => {
+    const n = Number(q.get("n") || 0), tete = q.get("tete") ? " tete" : "";
+    return [96, 56, `<div class="lg-voix sk${tete}" data-graine="${75 + n}" data-rayon="999">${MAIN}${n}</div>`];
+  },
+  lg_allie: () => [62, 62, '<div class="lg-allie"><img src="../../art/cartes/lg_loup.png" alt=""></div>'],
   texte: () => {
     const t = q.get("t") || "", taille = Number(q.get("taille") || 17), l = Number(q.get("l") || 110), h = Number(q.get("h") || 24);
     const op = q.get("pale") ? "opacity:.7;" : "";
