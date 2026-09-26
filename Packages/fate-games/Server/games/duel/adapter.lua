@@ -106,7 +106,8 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     local function nouvelle_arene(def)
         local A = { nom = def.nom, forme = def.forme or "cercle", x = def.x, y = def.y, z = def.z,
             demi_x = def.demi_x or def.rayon, demi_y = def.demi_y or def.rayon,
-            yaw = def.yaw or 0, d = Duel.Nouveau(), numero = 0 }
+            yaw = def.yaw or 0, d = Duel.Nouveau(), numero = 0,
+            departs = (def.depart_a and def.depart_b) and { def.depart_a, def.depart_b } or nil }
         arenes[#arenes + 1] = A
         dessiner_anneau(A)
         return A
@@ -114,6 +115,17 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
 
     -- Depart d'un combattant : son camp a un bout de l'arene, face a l'autre.
     local function depart(A, camp, rang, nombre)
+        -- Points poses dans la map (DUEL_n_A, DUEL_n_B) : chaque camp face a l'autre,
+        -- les coequipiers cote a cote.
+        if A.departs then
+            local ici, la = A.departs[camp], A.departs[3 - camp]
+            local dx, dy = la.x - ici.x, la.y - ici.y
+            local n = math.sqrt(dx * dx + dy * dy)
+            if n < 1 then dx, dy, n = 1, 0, 1 end
+            local cote = (rang - (nombre + 1) / 2) * 120
+            return Vector(ici.x - dy / n * cote, ici.y + dx / n * cote, ici.z + Z_PIEDS + 10),
+                Rotator(0, math.deg(math.atan(dy, dx)), 0)
+        end
         local sens = camp == 1 and -1 or 1
         local cote = (rang - (nombre + 1) / 2) * math.min(180, A.demi_y * 0.5)
         local face = A.yaw + (camp == 1 and 0 or 180)
