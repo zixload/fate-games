@@ -29,3 +29,14 @@ Config.toml
 *.tmp
 Thumbs.db
 desktop.ini
+
+# Rendus d armes Sketchfab et portraits Fab : licence a verifier avant publication.
+# Ils restent sur le serveur (servis aux clients), pas sur GitHub.
+Packages/fate-games/Client/vestiaire/img/
+
+# Sources sous licence Fab (personnage Creative, Nagant) : hors du depot public.
+art/animations/
+# Sons d origine inconnue (gunshot, dryfire) : a verifier avant publication.
+Packages/fate-games/Client/Sounds/
+# Sauvegardes automatiques de Blender
+*.blend1

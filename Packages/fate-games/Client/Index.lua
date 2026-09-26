@@ -19,19 +19,42 @@ end)
 
 local Interaction = Package.Require("interaction/init.lua")(SharedConfig.interaction)
 Interaction.Start()
+local ok_invite, err_invite = pcall(function()
+    Package.Require("interaction/invite.lua")(Interaction)
+end)
+if not ok_invite then Console.Error("[interaction] invite impossible : " .. tostring(err_invite)) end
 
 -- Posture assise des personnages d'essai, publiee par le serveur.
 Package.Require("posture.lua")
 -- Premiere personne ou vue epaule pendant un outil de l'atelier (F2).
 Package.Require("camera_outil.lua")
+Package.Require("vue_assise.lua")
+Package.Require("regard_assis.lua")
 
 -- Marcher par defaut, Maj pour courir.
 Package.Require("course.lua")
+-- Espace pour quitter sa chaise hors partie.
+Package.Require("se_lever.lua")
+
+-- Vestiaire d'arrivee : cartes des personnages et des armes, boutique.
+local ok_vestiaire, err_vestiaire = pcall(function()
+    Package.Require("vestiaire/vestiaire.lua")(SharedConfig)
+end)
+if not ok_vestiaire then Console.Error("[vestiaire] chargement impossible : " .. tostring(err_vestiaire)) end
 
 -- HUD provisoire de Liar's Bar : le journal et la main, au clavier.
 local LiarsJournal = Package.Require("liars_bar/journal.lua")(SharedConfig.liars_hud)
 local liars_journal = Package.Require("liars_bar/hud.lua")(
     SharedConfig.liars_hud, LiarsJournal, send_intent, SharedConfig.liars_cards)
+local ok_tags, err_tags = pcall(function()
+    Package.Require("liars_bar/nametags.lua")(liars_journal)
+end)
+if not ok_tags then Console.Error("[etiquettes] chargement impossible : " .. tostring(err_tags)) end
+
+local ok_sons, err_sons = pcall(function()
+    Package.Require("liars_bar/sons.lua")(Package.Require("Shared/liars_table.lua"))
+end)
+if not ok_sons then Console.Error("[sons] chargement impossible : " .. tostring(err_sons)) end
 
 -- Cartes en 3D, a regler en jeu (/fan). Sous garde : pas encore valide en
 -- jeu, un echec ici ne doit pas emporter le reste du client.
@@ -46,52 +69,6 @@ end)
 if not ok_cartes then
     Console.Error("[cartes] chargement impossible : " .. tostring(err_cartes))
 end
-
--- Invite minimale dessinee directement par le moteur. Elle reste legere et ne
--- depend pas encore de la future WebUI des cartes et de la partie.
-local prompt_label = nil
-local prompt = Canvas(false, Color.TRANSPARENT, -1, true, true)
-
-prompt:Subscribe("Update", function(self, width, height)
-    if not prompt_label then return end
-
-    local box_width  = math.min(420, width - 40)
-    local box_height = 56
-    local box_x      = (width - box_width) / 2
-    local box_y      = height * 0.72
-
-    self:DrawRect(
-        "",
-        Vector2D(box_x, box_y),
-        Vector2D(box_width, box_height),
-        Color(0.02, 0.02, 0.02, 0.82),
-        BlendMode.AlphaBlend
-    )
-    self:DrawText(
-        ("[ E ]  %s"):format(prompt_label),
-        Vector2D(width / 2, box_y + box_height / 2),
-        FontType.Roboto,
-        22,
-        Color.WHITE,
-        0,
-        true,
-        true,
-        Color.BLACK,
-        Vector2D(1, 1),
-        true,
-        Color.BLACK
-    )
-end)
-
-Events.Subscribe("zix:focus_changed", function(id, label)
-    prompt_label = label
-    prompt:SetVisibility(label ~= nil)
-
-    if label then
-        prompt:Repaint()
-        Console.Log(("[ %s ]  (E)"):format(label))
-    end
-end)
 
 Console.Log("[INFO][boot] Fate Games - client pret")
 

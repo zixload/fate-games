@@ -105,7 +105,7 @@ return function(H, Stubs)
             j:On("reveal", 1, { "king", "joker" })
             H.assert_eq(derniere(j).text, "Révélé chez zix (chaise 1) : Roi, Joker", "revelation")
             j:On("designated", 1)
-            H.assert_eq(derniere(j).text, "Tu dois tirer : E sur le revolver", "designation")
+            H.assert_eq(derniere(j).text, "Tu dois prendre ton revolver", "designation")
             j:On("shoot", 1, 3, false)
             H.assert_eq(derniere(j).text,
                 "zix (chaise 1) tire… à blanc (tir 3 sur 6, prochain : 1 chance sur 3)", "tir")

@@ -42,6 +42,36 @@ return {
         max_distance = 250.0,
     },
 
+    -- Argent du jeu et boutique (domain/boutique.lua, Shared/catalogue.lua).
+    boutique = {
+        -- Verse une seule fois, a la premiere arrivee d'un compte.
+        bonus_accueil = 500,
+        -- Porte par un compte qui n'a encore rien choisi.
+        perso_defaut  = "clown",
+    },
+
+    -- Vestiaire d'arrivee : le personnage attend, debout sur un socle
+    -- invisible haut dans le ciel, face a la camera, pendant que le joueur
+    -- choisit ses cartes. Une place par joueur, espacees pour qu'aucun
+    -- voisin n'entre dans le champ. Distances en cm, angles en degres.
+    vestiaire = {
+        enabled  = true,
+        altitude = 6000,     -- au-dessus du point d'apparition
+        ecart    = 800,      -- entre deux places
+        camera_distance = 320,
+        -- Camera a hauteur de poitrine, un peu plongeante : le personnage se
+        -- retrouve dans le haut de l'ecran, au-dessus de l'eventail de cartes.
+        camera_hauteur  = 20,
+        camera_tangage  = -10,
+        socle_visible   = false,
+    },
+
+    -- Voix de proximite native, spatialisée par nanos world.
+    voice = {
+        max_distance = 900, -- cm : toute la table et une partie de la salle
+        volume = 1.0,
+    },
+
     dev = {
         -- Test d'integration au demarrage, sans client de jeu : fabrique un faux
         -- joueur et pousse la vraie chaine de connexion. Voir Server/dev/smoke.lua.
@@ -88,9 +118,11 @@ return {
             face_camera = true,
             eye_height = 60.0,   -- hauteur de la camera depuis le centre du corps
             arm_length = 250.0,  -- recul de la camera ; 0 = premiere personne
-            -- Camera assise, en premiere personne. Reglee en jeu avec /cam le
-            -- 18/09 : l'origine est aux pieds, d'ou la hauteur. side > 0 = droite.
-            seated_camera = { forward = -15.0, up = 125.0, side = -15.0 },
+            -- Camera a la hauteur des yeux, dans l'axe du buste. Avancer de
+            -- plusieurs dizaines de cm placerait tout le corps derriere elle.
+            -- Head et Neck sont caches localement par posture.lua.
+            -- /cam permet de peaufiner cette position en jeu.
+            seated_camera = { forward = 0.0, up = 132.0, side = 0.0 },
         },
     },
 

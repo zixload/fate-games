@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vestiaire</title>
+<style>
+@font-face { font-family: "Lilita One"; src: url("fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --laiton: #d9b56a; --laiton-fonce: #8a6d3b; --ombre: #070a0b; --accent: #b8852a; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent;
+    font-family: "Lilita One", sans-serif; color: var(--encre); user-select: none; }
+body.apercu-navigateur { background: radial-gradient(circle at 50% 30%, #6d8aa6, #2a3a48); }
+button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+button:focus-visible { outline: 3px dashed var(--papier); outline-offset: 6px; }
+
+/* La scene garde les proportions de la maquette (1440 x 810) et se met a
+   l'echelle de la fenetre, sans deformation. */
+#scene { position: relative; width: 1440px; height: 810px; display: none; }
+body { display: grid; place-items: center; }
+body.ouvert #scene { display: block; }
+#voile { position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(to bottom, transparent 55%, rgba(7, 10, 11, .55) 100%); }
+
+/* Kit : chaque bloc recoit un SVG (script : habiller) avec une ombre pleine,
+   un fond papier et deux passages d'encre irreguliers. De vrais traces, que
+   le navigateur lisse : le tremble reste, sans escalier de pixels. */
+.sk { position: relative; isolation: isolate; }
+.sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+.sk-svg .ombre { fill: var(--ombre); }
+.sk-svg .fond { fill: var(--papier); }
+.sk-svg .trait { fill: none; stroke: var(--bord, var(--encre)); stroke-width: var(--epais, 3.5px); stroke-linejoin: round; }
+.sk-svg .trait2 { fill: none; stroke: var(--bord, var(--encre)); stroke-width: 1.5px; opacity: .4; }
+
+#solde { position: absolute; top: 30px; right: 44px; display: flex; align-items: center; gap: 10px;
+    padding: 5px 22px 5px 8px; transform: rotate(1.2deg);
+    --r: 28px 22px 26px 20px / 24px 28px 20px 26px; --r2: 22px 28px 20px 26px / 28px 22px 26px 20px; }
+#solde span { font-size: 26px; line-height: 1; }
+
+#rayons { position: absolute; top: 26px; left: 44px; display: flex; gap: 18px; }
+#rayons button { width: 68px; height: 68px; display: grid; place-items: center; }
+#rayons button:first-child { transform: rotate(-3deg); }
+#rayons button:last-child { transform: rotate(3deg); }
+#rayons img { width: 50px; transform: rotate(-18deg); }
+
+#vitrine { position: absolute; left: 420px; top: 90px; width: 600px; height: 300px;
+    display: none; place-items: center; }
+body.armes #vitrine { display: grid; }
+body.armes.vitrine-3d #vitrine { display: none; }
+#vitrine img { max-width: 560px; max-height: 280px; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .28)); }
+
+.carte { position: absolute; width: 106px; height: 152px; transform-origin: 50% 130%;
+    transition: top .2s ease; }
+.carte .cadre { position: absolute; inset: 7px; overflow: hidden; display: grid; place-items: center;
+    border: 1.5px solid #c5a774; border-radius: 8px 6px 9px 5px; }
+.carte .cadre img.arme { width: 128px; max-width: none; transform: rotate(-58deg); }
+.carte .cadre img.portrait { width: 100%; height: 100%; object-fit: cover; }
+.carte.verrou .cadre img.arme { opacity: .55; }
+.carte .badge { position: absolute; top: -8px; left: -8px; }
+.carte .cadenas { position: absolute; top: 5px; right: 5px; }
+
+#action { position: absolute; top: 470px; right: 64px; display: flex; align-items: center; gap: 12px;
+    height: 64px; padding: 0 18px 0 10px; transform: rotate(-1.5deg);
+    --r: 32px 26px 30px 24px / 28px 32px 24px 30px; --r2: 26px 32px 24px 30px / 32px 26px 30px 24px; }
+#action .prix { font-size: 26px; line-height: 1; }
+#action.pauvre .prix { color: #8a7a66; }
+#action.pauvre #action-icone svg { opacity: .5; }
+#action.pauvre { cursor: not-allowed; }
+.secoue { animation: secoue .35s ease; }
+@keyframes secoue { 25% { translate: -6px 0; } 50% { translate: 6px 0; } 75% { translate: -3px 0; } }
+@media (prefers-reduced-motion: reduce) { .secoue { animation: none; } .carte { transition: none; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true" style="position: absolute">
+<symbol id="pile" viewBox="0 0 48 48">
+  <path d="M20 38a12 4.6 0 0 0 24 0v4.2a12 4.6 0 0 1-24 0z" fill="#8a6d3b" stroke="#1c2123" stroke-width="2.4" stroke-linejoin="round"/><ellipse cx="32" cy="38" rx="12" ry="4.6" fill="#d9b56a" stroke="#1c2123" stroke-width="2.4"/>
+  <path d="M20 32.5a12 4.6 0 0 0 24 0v4.2a12 4.6 0 0 1-24 0z" fill="#8a6d3b" stroke="#1c2123" stroke-width="2.4" stroke-linejoin="round"/><ellipse cx="32" cy="32.5" rx="12" ry="4.6" fill="#d9b56a" stroke="#1c2123" stroke-width="2.4"/>
+  <path d="M20 27a12 4.6 0 0 0 24 0v4.2a12 4.6 0 0 1-24 0z" fill="#8a6d3b" stroke="#1c2123" stroke-width="2.4" stroke-linejoin="round"/><ellipse cx="32" cy="27" rx="12" ry="4.6" fill="#d9b56a" stroke="#1c2123" stroke-width="2.4"/>
+  <circle cx="18.5" cy="25.5" r="13.5" fill="#8a6d3b" stroke="#1c2123" stroke-width="2.6"/>
+  <circle cx="16" cy="24" r="13.5" fill="#e3c173" stroke="#1c2123" stroke-width="2.8"/>
+  <circle cx="16" cy="24" r="9.2" fill="none" stroke="#a8843f" stroke-width="1.8"/>
+  <path d="M16 17.2l2 4.4 4.7.4-3.6 3.1 1.1 4.6-4.2-2.5-4.2 2.5 1.1-4.6-3.6-3.1 4.7-.4z" fill="#a8843f" stroke="#1c2123" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M6.8 19.5a10.5 10.5 0 0 1 5.8-5.6" fill="none" stroke="#fff4d6" stroke-width="2.4" stroke-linecap="round"/>
+</symbol>
+<symbol id="cadenas" viewBox="0 0 24 24">
+  <path d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3" fill="none" stroke="#1c2123" stroke-width="3.2" stroke-linecap="round"/>
+  <rect x="4" y="10" width="16" height="11.5" rx="3" fill="#d9b56a" stroke="#1c2123" stroke-width="2.6"/>
+  <path d="M12 14v3.4" stroke="#1c2123" stroke-width="2.6" stroke-linecap="round"/>
+</symbol>
+<symbol id="coche" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="10" fill="#d9b56a" stroke="#1c2123" stroke-width="2.6"/>
+  <path d="M7 12.5l3.3 3.3 6.7-7.3" fill="none" stroke="#1c2123" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</symbol>
+</svg>
+
+<div id="scene">
+  <div id="voile"></div>
+
+  <div id="solde" class="sk" data-graine="11" data-rayon="999">
+        <svg width="42" height="42" aria-hidden="true" style="overflow: visible"><use href="#pile"/></svg>
+    <span id="montant">0</span>
+  </div>
+
+  <div id="rayons">
+    <button id="rayon-persos" class="sk rond" data-graine="23" data-rayon="999" aria-label="Personnages">
+            <svg viewBox="0 0 220 380" width="28" height="48" aria-hidden="true"><g stroke="#1c2123" stroke-width="14"><rect x="72" y="250" width="32" height="112" rx="14" fill="#8a6d3b"/><rect x="116" y="250" width="32" height="112" rx="14" fill="#8a6d3b"/><rect x="30" y="140" width="28" height="100" rx="14" fill="#d9b56a"/><rect x="162" y="140" width="28" height="100" rx="14" fill="#d9b56a"/><rect x="58" y="128" width="104" height="142" rx="46" fill="#d9b56a"/><ellipse cx="110" cy="70" rx="46" ry="62" fill="#f6eedb"/></g></svg>
+    </button>
+    <button id="rayon-armes" class="sk rond" data-graine="37" data-rayon="999" aria-label="Armes">
+            <img src="img/armes/encre_revolver.png" alt="">
+    </button>
+  </div>
+
+  <div id="vitrine"><img id="vitrine-img" alt=""></div>
+
+  <div id="cartes"></div>
+
+  <button id="action" class="sk" data-graine="41" data-rayon="999">
+        <svg viewBox="0 0 46 46" width="44" height="44" aria-hidden="true" style="overflow: visible">
+      <rect x="3" y="8" width="40" height="35" rx="9" fill="#8a6d3b" stroke="#1c2123" stroke-width="3"/>
+      <rect x="3" y="3" width="40" height="33" rx="9" fill="#f6eedb" stroke="#1c2123" stroke-width="3"/>
+      <path d="M9 10.5q0-2.5 3-2.5h14" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="23" y="28.5" text-anchor="middle" font-family="Lilita One, sans-serif" font-size="21" fill="#1c2123">E</text>
+    </svg>
+    <span id="action-icone"></span>
+  </button>
+</div>
+
+<script>
+// Libelles pour les lecteurs d'ecran seulement : l'ecran n'affiche aucun texte.
+const NOMS = {
+  clown: "Le Clown", souris: "La Souris", chapeau: "Le Chapeau", etudiant: "L'Etudiant",
+  ronchon: "Le Ronchon", casque: "Le Casque", nourrisson: "Le Nourrisson", chauve: "Le Chauve",
+  bavard: "Le Bavard", gantier: "Le Gantier",
+  revolver: "Revolver", canon: "Vieux canon", duel: "Pistolet de duel", flammes: "Lance-flammes",
+  glace: "Pistolet a glace", physique: "Physics gun",
+};
+// Nom des images de chaque arme (Shared/catalogue.lua, champ rendu).
+const RENDUS = { revolver: "revolver", canon: "old", duel: "lawgiver", flammes: "stylized", glace: "ice", physique: "physics" };
+// Repli tant que les portraits ne sont pas rendus : un pictogramme au trait.
+const PICTOS = {
+  clown: "M16 4a12 12 0 1 1 0 24a12 12 0 1 1 0-24M16 15a2.5 2.5 0 1 1 0 5a2.5 2.5 0 1 1 0-5M10 22c3 3 9 3 12 0M11 11h.5M21 11h.5",
+  souris: "M16 11a9 9 0 1 1 0 18a9 9 0 1 1 0-18M8 4a5 5 0 1 1 0 10a5 5 0 1 1 0-10M24 4a5 5 0 1 1 0 10a5 5 0 1 1 0-10M13 19h.5M19 19h.5M15 23h2",
+  chapeau: "M10 20V7h12v13M5 20h22M10 16h12",
+  etudiant: "M4 16a5 5 0 1 0 10 0a5 5 0 1 0-10 0M18 16a5 5 0 1 0 10 0a5 5 0 1 0-10 0M14 15h4",
+  ronchon: "M9 10l5 2M23 10l-5 2M8 20c3-2 5-2 8 0c3-2 5-2 8 0M11 26c3-2 7-2 10 0",
+  casque: "M6 20v-4a10 10 0 0 1 20 0v4M4 19h5v8H4zM23 19h5v8h-5z",
+  nourrisson: "M16 6a4 4 0 1 1 0 8a4 4 0 1 1 0-8M8 16h16M10 16c0 6 12 6 12 0",
+  chauve: "M8 18a8 10 0 0 1 16 0M8 18v5M24 18v5M11 25c2-1 3-1 5 0c2-1 3-1 5 0M12 11c1-2 3-3 5-3",
+  bavard: "M5 7h22v14H14l-6 5v-5H5zM10 14h.5M16 14h.5M22 14h.5",
+  gantier: "M10 28V14l-3-3c-1-2 1-4 3-2l2 2V6c0-2 3-2 3 0v6V4c0-2 3-2 3 0v8V6c0-2 3-2 3 0v7V9c0-2 3-2 3 0v10c0 5-3 9-8 9z",
+};
+const ENCRE = "#1c2123", ACCENT = "#b8852a";
+
+let vue = null;               // etat envoye par le serveur
+let rayon = "persos";
+let sel = { persos: 0, armes: 0 };
+let derniereVitrine = null;   // arme posee en 3D, "" pour aucune
+
+const $ = (id) => document.getElementById(id);
+const envoyer = (nom, ...args) => { if (window.Events) Events.Call(nom, ...args); };
+
+function ajuster() {
+  const k = Math.min(innerWidth / 1440, innerHeight / 810);
+  // zoom et non transform : le navigateur redessine traits et images a la
+  // taille reelle au lieu d'agrandir un rendu fait a 1440 px.
+  $("scene").style.zoom = k;
+}
+addEventListener("resize", ajuster);
+ajuster();
+
+function articles() { return vue ? vue[rayon] : []; }
+function courant() { return articles()[sel[rayon]]; }
+
+function icone(id) {
+  return `<svg width="${id === "pile" ? 40 : 36}" height="${id === "pile" ? 40 : 36}" aria-hidden="true" style="overflow: visible"><use href="#${id}"/></svg>`;
+}
+
+function face(a) {
+  if (rayon === "armes") return `<img class="arme" src="img/armes/encre_${RENDUS[a.id]}.png" alt="">`;
+  // Portrait s'il existe, sinon pictogramme : onerror remplace l'image.
+  const picto = `<svg viewBox="0 0 32 32" width="60" height="60" aria-hidden="true" style="fill: none; stroke: #1c2123; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round"><path d="${PICTOS[a.id] || ""}"/></svg>`;
+  return `<img class="portrait" src="img/perso/${a.id}.png" alt="" onerror="this.outerHTML=this.dataset.repli" data-repli='${picto}'>`;
+}
+
+function dessiner() {
+  if (!vue) return;
+  requestAnimationFrame(habiller);
+  document.body.classList.toggle("armes", rayon === "armes");
+  $("montant").textContent = vue.solde;
+  $("rayon-persos").style.setProperty("--bord", rayon === "persos" ? ACCENT : ENCRE);
+  $("rayon-armes").style.setProperty("--bord", rayon === "armes" ? ACCENT : ENCRE);
+
+  const liste = articles();
+  const n = liste.length;
+  const i = sel[rayon];
+  $("cartes").innerHTML = liste.map((a, k) => {
+    const rel = k - (n - 1) / 2;
+    const on = k === i;
+    const equipe = rayon === "armes" && a.id === vue.arme;
+    return `<button class="carte sk${a.possede ? "" : " verrou"}" data-k="${k}" data-graine="${101 + k * 7}" data-rayon="12" aria-label="${NOMS[a.id] || a.id}"
+      style="left:${Math.round(720 + rel * 84 - 52)}px; top:${Math.round(580 + rel * rel * 3.2 - (on ? 46 : 0))}px;
+             transform: rotate(${(rel * 5).toFixed(1)}deg); z-index:${on ? 20 : k}; --bord:${on ? ACCENT : ENCRE}; --epais:${on ? "5px" : "3.5px"}">
+      <div class="cadre">${face(a)}</div>
+      ${equipe ? `<svg class="badge" width="26" height="26" aria-hidden="true" style="overflow:visible"><use href="#coche"/></svg>` : ""}
+      ${a.possede ? "" : `<svg class="cadenas" width="24" height="24" aria-hidden="true" style="overflow:visible"><use href="#cadenas"/></svg>`}
+    </button>`;
+  }).join("");
+
+  const a = courant();
+  // Une arme sans modele 3D fiable garde son image (champ en_3d du serveur).
+  document.body.classList.toggle("vitrine-3d", rayon === "armes" && !!a && a.en_3d === true);
+  if (rayon === "armes" && a) $("vitrine-img").src = `img/armes/vitrine_${RENDUS[a.id]}.png`;
+  const montree = rayon === "armes" && a ? a.id : "";
+  if (montree !== derniereVitrine) { derniereVitrine = montree; envoyer("vitrine", montree); }
+
+  const bouton = $("action");
+  bouton.classList.remove("pauvre");
+  if (!a) return;
+  if (!a.possede) {
+    bouton.classList.toggle("pauvre", vue.solde < a.prix);
+    bouton.setAttribute("aria-label", `Acheter pour ${a.prix}`);
+    bouton.style.setProperty("--bord", ENCRE);
+    $("action-icone").innerHTML = `<span style="display:flex;align-items:center;gap:6px">${icone("pile")}<span class="prix">${a.prix}</span></span>`;
+  } else if (rayon === "armes") {
+    bouton.setAttribute("aria-label", "Equiper");
+    bouton.style.setProperty("--bord", ACCENT);
+    $("action-icone").innerHTML = `<svg viewBox="0 0 32 32" width="36" height="36" aria-hidden="true"><path d="M6 16.5l6.5 6.5L26 9" fill="none" stroke="#1c2123" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  } else {
+    bouton.setAttribute("aria-label", "Entrer");
+    bouton.style.setProperty("--bord", ACCENT);
+    $("action-icone").innerHTML = `<svg viewBox="0 0 32 32" width="36" height="36" aria-hidden="true" style="overflow:visible"><path d="M14 5.5h10.5v21H14z" fill="#8a6d3b" stroke="#1c2123" stroke-width="2.8" stroke-linejoin="round"/><path d="M14 5.5l6 2.5v19.5l-6-1z" fill="#d9b56a" stroke="#1c2123" stroke-width="2.6" stroke-linejoin="round"/><path d="M3 16h13M11.5 11l5 5-5 5" fill="none" stroke="#1c2123" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+}
+
+// ---------------------------------------------------------------- contours
+// Rectangle arrondi dont le bord ondule un peu, comme trace a main levee.
+// Frequences entieres : le trace se referme sans cassure.
+function hasard(graine) {
+  let s = (graine * 2654435761) >>> 0 || 1;
+  return () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
+}
+function contourTrace(w, h, r, graine, ampleur) {
+  r = Math.min(r, w / 2, h / 2);
+  const R = hasard(graine);
+  const ph = [R() * 6.283, R() * 6.283, R() * 6.283];
+  const segs = [
+    ["l", r, 0, w - r, 0], ["a", w - r, r, -90], ["l", w, r, w, h - r], ["a", w - r, h - r, 0],
+    ["l", w - r, h, r, h], ["a", r, h - r, 90], ["l", 0, h - r, 0, r], ["a", r, r, 180],
+  ];
+  const long = (s) => s[0] === "l" ? Math.hypot(s[3] - s[1], s[4] - s[2]) : r * Math.PI / 2;
+  const total = segs.reduce((n, s) => n + long(s), 0);
+  const n = Math.max(28, Math.round(total / 8));
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / n;
+    let d = t * total, x, y, nx, ny;
+    for (const s of segs) {
+      const L = long(s);
+      if (d > L) { d -= L; continue; }
+      const f = L ? d / L : 0;
+      if (s[0] === "l") {
+        x = s[1] + (s[3] - s[1]) * f; y = s[2] + (s[4] - s[2]) * f;
+        const dx = s[3] - s[1], dy = s[4] - s[2], m = Math.hypot(dx, dy) || 1;
+        nx = dy / m; ny = -dx / m;
+      } else {
+        const ang = (s[3] + 90 * f) * Math.PI / 180;
+        nx = Math.cos(ang); ny = Math.sin(ang);
+        x = s[1] + r * nx; y = s[2] + r * ny;
+      }
+      break;
+    }
+    const b = ampleur * (0.6 * Math.sin(6.283 * 3 * t + ph[0]) + 0.3 * Math.sin(6.283 * 7 * t + ph[1]) + 0.15 * Math.sin(6.283 * 13 * t + ph[2]));
+    pts.push([x + nx * b, y + ny * b]);
+  }
+  // Catmull-Rom ferme vers des courbes de Bezier : aucun angle entre deux points.
+  let dstr = `M${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    dstr += `C${c1[0].toFixed(2)},${c1[1].toFixed(2)} ${c2[0].toFixed(2)},${c2[1].toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+  }
+  return dstr + "Z";
+}
+// Pose le SVG de chaque bloc .sk, une fois sa taille connue (0 tant que
+// l'ecran est ferme : on repassera a l'ouverture).
+function habiller() {
+  document.querySelectorAll(".sk").forEach((el) => {
+    const w = el.offsetWidth, h = el.offsetHeight;
+    if (!w || !h || el.dataset.trace === `${w}x${h}`) return;
+    el.dataset.trace = `${w}x${h}`;
+    const g = Number(el.dataset.graine || 1);
+    const r = Math.min(Number(el.dataset.rayon || 12), w / 2, h / 2);
+    const m = 8;
+    const svg = el.querySelector(":scope > .sk-svg") || document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "sk-svg");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("width", w + 2 * m); svg.setAttribute("height", h + 2 * m);
+    svg.setAttribute("viewBox", `${-m} ${-m} ${w + 2 * m} ${h + 2 * m}`);
+    svg.style.left = svg.style.top = `${-m}px`;
+    svg.innerHTML =
+      `<path class="ombre" transform="translate(4 5)" d="${contourTrace(w, h, r, g, 0.9)}"/>` +
+      `<path class="fond" d="${contourTrace(w, h, r, g, 0.9)}"/>` +
+      `<path class="trait2" transform="translate(1.2 0.8)" d="${contourTrace(w, h, r, g + 5, 1.4)}"/>` +
+      `<path class="trait" d="${contourTrace(w, h, r, g, 0.9)}"/>`;
+    if (!svg.parentNode) el.prepend(svg);
+  });
+}
+
+function secouer() {
+  const b = $("action");
+  b.classList.remove("secoue");
+  void b.offsetWidth;
+  b.classList.add("secoue");
+}
+
+function choisir(k) {
+  const n = articles().length;
+  if (!n) return;
+  sel[rayon] = ((k % n) + n) % n;
+  if (rayon === "persos") envoyer("apercu", courant().id);
+  dessiner();
+}
+
+function changerRayon(r) {
+  rayon = r;
+  if (r === "persos" && courant()) envoyer("apercu", courant().id);
+  dessiner();
+}
+
+function agir() {
+  const a = courant();
+  if (!a) return;
+  if (!a.possede) {
+    if (vue.solde < a.prix) return secouer();
+    return envoyer("acheter", rayon, a.id);
+  }
+  if (rayon === "armes") return envoyer("equiper", a.id);
+  envoyer("entrer", a.id);
+}
+
+$("cartes").addEventListener("click", (e) => {
+  const c = e.target.closest(".carte");
+  if (c) choisir(Number(c.dataset.k));
+});
+$("rayon-persos").addEventListener("click", () => changerRayon("persos"));
+$("rayon-armes").addEventListener("click", () => changerRayon("armes"));
+$("action").addEventListener("click", agir);
+addEventListener("wheel", (e) => choisir(sel[rayon] + (e.deltaY > 0 ? 1 : -1)));
+addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (k === "arrowright" || k === "d") choisir(sel[rayon] + 1);
+  else if (k === "arrowleft" || k === "q" || k === "a") choisir(sel[rayon] - 1);
+  else if (k === "tab") { e.preventDefault(); changerRayon(rayon === "persos" ? "armes" : "persos"); }
+  else if (k === "e" || k === "enter") agir();
+});
+
+function recevoir(nouvelle, refus) {
+  const premiere = vue === null;
+  vue = nouvelle;
+  if (premiere) {
+    // On ouvre sur la tenue portee et l'arme equipee.
+    sel.persos = Math.max(0, vue.persos.findIndex((a) => a.id === vue.perso));
+    sel.armes = Math.max(0, vue.armes.findIndex((a) => a.id === vue.arme));
+  }
+  dessiner();
+  if (refus) secouer();
+}
+
+if (window.Events) {
+  Events.Subscribe("vestiaire:ouvrir", () => {
+    document.body.classList.add("ouvert");
+    // Nouvelle visite : le serveur a remis le personnage visible, on
+    // renvoie l'arme a poser si l'on est reste sur le rayon des armes.
+    derniereVitrine = null;
+    dessiner();
+  });
+  Events.Subscribe("vestiaire:etat", recevoir);
+  Events.Call("pret");
+} else {
+  // Ouverte dans un navigateur : donnees d'exemple pour regler la page.
+  document.body.classList.add("ouvert", "apercu-navigateur");
+  recevoir({
+    solde: 650, perso: "clown", arme: "revolver",
+    persos: Object.keys(PICTOS).map((id, k) => ({ id, prix: k < 6 ? 0 : 400 + 200 * (k - 6), possede: k < 6 })),
+    armes: Object.keys(RENDUS).map((id, k) => ({ id, prix: [0, 500, 900, 1400, 2000, 3000][k], possede: k < 2 })),
+  });
+  // vestiaire.html#armes ouvre directement le rayon des armes, carte 3.
+  if (location.hash === "#armes") { changerRayon("armes"); choisir(2); }
+}
+</script>
+</body>
+</html>

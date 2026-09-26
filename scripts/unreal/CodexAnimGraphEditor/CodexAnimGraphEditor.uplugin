@@ -1,0 +1,13 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0",
+  "FriendlyName": "Codex AnimGraph Editor",
+  "Description": "Editor-only helper to add the gameplay montage slot to the Creative animation graph.",
+  "Category": "Editor",
+  "EnabledByDefault": false,
+  "CanContainContent": false,
+  "Modules": [
+    { "Name": "CodexAnimGraphEditor", "Type": "Editor", "LoadingPhase": "Default" }
+  ]
+}

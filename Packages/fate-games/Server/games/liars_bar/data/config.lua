@@ -32,4 +32,9 @@ return {
     -- Shared, parce que le client en a besoin pour poser les cartes au centre ;
     -- rien de secret dans ces coordonnees.
     layout = Package.Require("Shared/liars_table.lua"),
+
+    -- Ajustement initial mesure sur le mannequin Creative dans Blender.
+    -- L'import Unreal peut changer le repere du socket : affiner en jeu avec
+    -- "/prise x y z tangage lacet roulis" si necessaire.
+    revolver_prise = { x = -1.8, y = 3.0, z = -9.0, p = 57.1, ya = -24.4, r = 160.8 },
 }

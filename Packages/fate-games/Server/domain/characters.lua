@@ -10,11 +10,15 @@
 -- La creation d'un personnage est ici un bouchon : le vrai parcours passe par le
 -- Vestibule et son questionnaire (voir SYSTEME-EPREUVE.md), qui n'existe pas encore.
 
-return function(Log, DB, Ids, Scheduler, Accounts, config)
+return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
     local Characters = {}
 
     -- Par joueur connecte. Cle : l'identifiant d'entite du joueur.
     local sessions = {}
+
+    -- Appele a la place du spawn quand le joueur est pret, s'il est fixe
+    -- (vestiaire d'arrivee, voir Server/Index.lua).
+    local sur_arrivee = nil
 
     -- Reference d'asset, au format <pack>::<NomDeclare dans Assets.toml>.
     -- Le pack doit etre liste dans `assets` de Config.toml pour etre monte.
@@ -75,8 +79,8 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
 
         -- Assis, on garderait la chaise comme point de retour : a la reconnexion
         -- le personnage reapparaitrait dans son meuble. On garde la derniere
-        -- position debout.
-        if session.assis or not moved(transform, session.saved) then
+        -- position debout. Au vestiaire, dans le ciel, pareil.
+        if session.assis or session.vestiaire or not moved(transform, session.saved) then
             if callback then callback(false) end
             return
         end
@@ -112,9 +116,19 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
     -- La camera du jeu, reglee ici et publiee sur le personnage : un outil
     -- de l'atelier la remplace chez son client (premiere personne, epaule),
     -- puis la remet a l'identique (Client/camera_outil.lua).
-    local function regler_camera(c, relative, bras)
-        c:SetSpringArmSettings(relative, bras)
-        c:SetValue("camera_jeu", { x = relative.X, y = relative.Y, z = relative.Z, bras = bras }, true)
+    -- `retard` : le retard de camera du moteur (actif par defaut, doc
+    -- CharacterSimple). Coupe en premiere personne assise, sinon la camera
+    -- glisse jusqu'a la tete au lieu d'y sauter.
+    local function regler_camera(c, relative, bras, retard)
+        retard = retard ~= false
+        c:SetSpringArmSettings(relative, bras, Vector(0, 0, 0), retard)
+        c:SetValue("camera_jeu", { x = relative.X, y = relative.Y, z = relative.Z, bras = bras, retard = retard }, true)
+    end
+
+    -- La longueur du bras, elle, est toujours interpolee par le moteur : on la
+    -- force sans transition par la camera du joueur (doc Player, [Client/Server]).
+    local function bras_immediat(session, bras)
+        session.player:SetCameraArmLength(bras, true)
     end
 
     -- Rotation d'un personnage debout. Face camera (use_controller_desired
@@ -152,6 +166,18 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         return character
     end
 
+    -- Donne le personnage au joueur et le met dans la roue de persistance.
+    local function entrer_en_jeu(session)
+        session.player:Possess(session.character)
+
+        Scheduler.Add(wheel_key(session.character_id), function()
+            Characters.Flush(session.character_id)
+        end)
+
+        Log.Info("characters", ("personnage %d en jeu (%s)")
+            :format(session.character_id, session.character_name))
+    end
+
     local function spawn(session, transform)
         local point = transform or config.spawn
 
@@ -174,14 +200,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         session.saved     = transform   -- nil si le personnage est neuf
         session.essai     = (essai and essai.enabled) and essai or nil
 
-        session.player:Possess(character)
-
-        Scheduler.Add(wheel_key(session.character_id), function()
-            Characters.Flush(session.character_id)
-        end)
-
-        Log.Info("characters", ("personnage %d en jeu (%s)")
-            :format(session.character_id, session.character_name))
+        entrer_en_jeu(session)
     end
 
     ----------------------------------------------------------------------------
@@ -203,15 +222,19 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         c:SetCollision(CollisionType.NoCollision)
         c:SetLocation(Vector(x, y, z))
         c:SetRotation(Rotator(0, yaw, 0))
+        -- Le client utilise aussi cet angle pour initialiser sa camera apres
+        -- la possession : un joueur peut s'asseoir depuis n'importe quelle vue.
+        c:SetValue("seat_yaw", yaw, true)
         -- SetAnimationBlueprintPropertyValue n'existe que cote client : le
         -- serveur publie une valeur synchronisee, chaque client l'applique
         -- (Client/posture.lua).
         c:SetValue("assis", true, true)
+        c:SetValue("liars_look", { yaw = 0, pitch = 0 }, true)
     end
 
     -- Pose le personnage sur la chaise (x, y), tourne vers yaw. La hauteur
     -- de marche est gardee : les pieds restent au niveau du sol.
-    function Characters.Sit(player_id, x, y, yaw)
+    function Characters.Sit(player_id, x, y, yaw, z)
         local session = sessions[player_id]
         if not (session and session.essai and session.character) then return false end
 
@@ -219,11 +242,13 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         -- Marque d'abord : si un appel ci-dessous leve, Stand saura encore
         -- tout defaire au lieu de laisser le joueur fige.
         session.assis = true
-        poser_assis(c, x, y, c:GetLocation().Z, yaw)
+        poser_assis(c, x, y, z or c:GetLocation().Z, yaw)
+        session.player:SetCameraRotation(Rotator(0, yaw, 0))
         -- Premiere personne a hauteur des yeux : derriere, le bras de la camera
         -- butait sur le dossier et rentrait dans le corps.
         local cam = session.essai.seated_camera
-        regler_camera(c, Vector(cam.forward, cam.side or 0, cam.up), 0)
+        regler_camera(c, Vector(cam.forward, cam.side or 0, cam.up), 0, false)
+        bras_immediat(session, 0)
         return true
     end
 
@@ -245,7 +270,8 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         if not (session and session.essai) then return false end
         session.essai.seated_camera = { forward = forward, up = up, side = side or 0 }
         if session.assis and session.character then
-            regler_camera(session.character, Vector(forward, side or 0, up), 0)
+            regler_camera(session.character, Vector(forward, side or 0, up), 0, false)
+            bras_immediat(session, 0)
         end
         return true
     end
@@ -344,13 +370,154 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
         local essai = session.essai
         c:SetValue("cartes", false, true)
         c:SetValue("assis", false, true)
+        c:SetValue("liars_look", { yaw = 0, pitch = 0 }, true)
         c:SetCollision(CollisionType.Normal)
         c:SetGravityEnabled(true)
         c:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
         rotation_debout(c, essai)
         regler_camera(c, Vector(0, 0, essai.eye_height), essai.arm_length)
+        bras_immediat(session, essai.arm_length)
         session.assis = nil
         return true
+    end
+
+    ----------------------------------------------------------------------------
+    -- Vestiaire d'arrivee : le personnage attend dans le ciel, face a une
+    -- camera fixe, le temps que le joueur choisisse ses cartes. Il n'est
+    -- possede qu'a l'entree en jeu.
+    ----------------------------------------------------------------------------
+
+    local function essai_actif()
+        local essai = config.dev and config.dev.creative_character
+        return (essai and essai.enabled) and essai or nil
+    end
+
+    -- Habille un corps Creative d'une apparence du catalogue. Memes pieces et
+    -- meme "master pose" que Liar's Bar (games/liars_bar/adapter.lua).
+    local function habiller(c, look_id)
+        local look = Appearances and Appearances.Resolve(look_id)
+        if not look then return false end
+        c:SetMesh(look.body)
+        c:RemoveAllSkeletalMeshesAttached()
+        for i, mesh in ipairs(look.head) do c:AddSkeletalMeshAttached("tete_" .. i, mesh) end
+        for i, mesh in ipairs(look.worn) do c:AddSkeletalMeshAttached("tenue_" .. i, mesh) end
+        return true
+    end
+
+    -- Places du vestiaire : index -> player_id. La plus petite libre.
+    local places = {}
+
+    local function prendre_place(player_id)
+        local i = 1
+        while places[i] do i = i + 1 end
+        places[i] = player_id
+        return i
+    end
+
+    function Characters.SurArrivee(fn)
+        sur_arrivee = fn
+    end
+
+    function Characters.AuVestiaire(player_id)
+        local session = sessions[player_id]
+        return session ~= nil and session.vestiaire ~= nil
+    end
+
+    -- transform : la position sauvee, ou nil pour un personnage neuf.
+    function Characters.OuvrirVestiaire(session, transform, look_id)
+        local essai = essai_actif()
+        local v = config.vestiaire
+        local base = config.spawn
+        local place = prendre_place(session.player_id)
+
+        local pied = Vector(base.x + (place - 1) * v.ecart, base.y, base.z + v.altitude)
+        -- Socle : un cube aplati sous les pieds, pour que le personnage tienne
+        -- debout et joue son animation de repos au lieu de tomber.
+        local socle = StaticMesh(pied - Vector(0, 0, 10), Rotator(0, 0, 0), "nanos-world::SM_Cube")
+        socle:SetScale(Vector(2, 2, 0.2))
+        if not v.socle_visible then socle:SetVisibility(false) end
+
+        if session.character then
+            session.character:SetLocation(Vector(pied.X, pied.Y, pied.Z + 120))
+            session.character:SetRotation(Rotator(0, 0, 0))
+        else
+            session.character = creer_essai({ x = pied.X, y = pied.Y, z = pied.Z + 120, yaw = 0 }, essai)
+        end
+        habiller(session.character, look_id)
+        session.character:SetVisibility(true)
+
+        session.saved     = transform
+        session.essai     = essai
+        session.vestiaire = { place = place, socle = socle, retour = transform }
+
+        -- Tourne vers +X : la camera se place devant lui et le regarde.
+        local camera = pied + Vector(v.camera_distance, 0, 120 + v.camera_hauteur)
+        session.player:SetCameraLocation(camera)
+        session.player:SetCameraRotation(Rotator(v.camera_tangage, 180, 0))
+
+        Log.Info("characters", ("personnage %d au vestiaire, place %d")
+            :format(session.character_id, place))
+    end
+
+    -- Remonter au vestiaire en cours de jeu, debout seulement. La position
+    -- quittee est ecrite d'abord : c'est la que l'on redescendra.
+    function Characters.RetournerVestiaire(player_id, look_id)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) then return false, "indisponible" end
+        if session.vestiaire then return false, "deja" end
+        if session.assis then return false, "assis" end
+
+        local ici = read_transform(session)
+        Scheduler.Remove(wheel_key(session.character_id))
+        Characters.Flush(session.character_id)
+        session.player:UnPossess()
+        Characters.OuvrirVestiaire(session, ici, look_id)
+        return true
+    end
+
+    -- Au vestiaire, le personnage s'efface pendant qu'on regarde les armes :
+    -- il passerait sinon derriere l'arme posee devant la camera.
+    function Characters.MontrerAuVestiaire(player_id, visible)
+        local session = sessions[player_id]
+        if not (session and session.vestiaire and session.character) then return false end
+        session.character:SetVisibility(visible == true)
+        return true
+    end
+
+    -- Change la tenue du personnage du joueur, au vestiaire ou en jeu.
+    function Characters.Habiller(player_id, look_id)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) then return false end
+        return habiller(session.character, look_id)
+    end
+
+    local function liberer_vestiaire(session)
+        local v = session.vestiaire
+        if not v then return end
+        session.vestiaire = nil
+        places[v.place] = nil
+        if v.socle and v.socle:IsValid() then v.socle:Destroy() end
+        return v
+    end
+
+    -- Descend du ciel a la derniere position debout, ou au point d'apparition.
+    function Characters.QuitterVestiaire(player_id)
+        local session = sessions[player_id]
+        if not (session and session.vestiaire) then return false end
+
+        local v = liberer_vestiaire(session)
+        local point = v.retour or config.spawn
+        session.character:SetVisibility(true)
+        session.character:SetLocation(Vector(point.x, point.y, point.z))
+        session.character:SetRotation(Rotator(0, point.yaw or 0, 0))
+        entrer_en_jeu(session)
+        return true
+    end
+
+    -- Sans vestiaire : apparait directement, deja habille.
+    function Characters.Apparaitre(session, transform, look_id)
+        spawn(session, transform)
+        if session.essai and session.character then habiller(session.character, look_id) end
     end
 
     local function load_state(session, callback)
@@ -503,6 +670,9 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
 
                 load_state(session, function(transform)
                     if not sessions[player_id] then return end
+                    if sur_arrivee and essai_actif() then
+                        return sur_arrivee(session, transform)
+                    end
                     spawn(session, transform)
                 end)
             end)
@@ -519,6 +689,8 @@ return function(Log, DB, Ids, Scheduler, Accounts, config)
             Scheduler.Remove(wheel_key(session.character_id))
             Characters.Flush(session.character_id)
         end
+
+        liberer_vestiaire(session)
 
         if session.character then
             session.character:Destroy()

@@ -13,18 +13,23 @@ local function est_le_mien(character)
     return mien ~= nil and mien:GetID() == character:GetID()
 end
 
+local vue_outil = "jeu"
+
 local function appliquer(character, assis)
     local ok, err = pcall(function()
         character:SetAnimationBlueprintPropertyValue("Assis", assis == true)
 
-        -- Assis, la camera est dans la tete : on la cache, chez soi seulement.
-        -- HideBone appele cote client ne vaut que pour ce client, les autres
-        -- joueurs voient toujours la tete. Visage et nez suivent l'os.
+        -- La camera assise est avancee devant le visage. Le corps reste visible
+        -- pour voir le buste et les jambes en baissant les yeux ; seule la tete
+        -- et le cou sont caches localement pour eviter de voir leur interieur.
         if est_le_mien(character) then
-            if assis then
+            character:SetVisibility(vue_outil ~= "premiere")
+            if assis and vue_outil ~= "epaule" then
                 character:HideBone("Head")
+                character:HideBone("Neck")
             else
                 character:UnHideBone("Head")
+                character:UnHideBone("Neck")
             end
         end
     end)
@@ -32,6 +37,15 @@ local function appliquer(character, assis)
         Console.Error("[posture] Assis impossible : " .. tostring(err))
     end
 end
+
+Events.Subscribe("atelier:vue", function(mode)
+    vue_outil = (mode == "epaule" or mode == "premiere") and mode or "jeu"
+    local player = Client.GetLocalPlayer()
+    local mien = player and player:GetControlledCharacter()
+    if mien and mien:IsA(CharacterSimple) then
+        appliquer(mien, mien:GetValue("assis", false))
+    end
+end)
 
 -- Pose « cartes en main » pendant une partie : meme principe, variable
 -- "Cartes" de ABP_Creative. Si elle n'existe pas encore, rien ne se passe.

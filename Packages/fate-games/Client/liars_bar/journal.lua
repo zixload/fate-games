@@ -15,6 +15,13 @@ return function(config)
         pas_assis            = "il faut être assis pour lancer",
         pas_assez_de_joueurs = "pas assez de joueurs",
         pas_a_table          = "tu n'es pas à la table",
+        pas_ton_revolver     = "ce revolver appartient à une autre place",
+        tir_en_cours         = "le coup est en cours",
+        pas_designe          = "ce n'est pas ton tir",
+        arme_deja_prise      = "revolver déjà en main",
+        arme_non_preparee    = "prends d'abord ton revolver",
+        arme_pas_prete       = "attends que le revolver soit en place",
+        aucun_tir_en_attente = "aucun tir en attente",
         aucune_partie        = "aucune partie en cours",
         charge_invalide      = "demande invalide",
         demarrage_impossible = "la partie n'a pas pu démarrer",
@@ -30,6 +37,8 @@ return function(config)
             names      = {},
             table_rank = nil,
             turn       = nil,
+            designated = nil,
+            gun_ready  = false,
             hand       = {},
             lines      = {},
             cursor     = nil,  -- carte de ma main sous le curseur (molette)
@@ -67,6 +76,7 @@ return function(config)
 
         local function hors_partie()
             j.hand, j.table_rank, j.turn = {}, nil, nil
+            j.designated, j.gun_ready = nil, false
             j.cursor, j.counts, j.pile, j.revealed = nil, {}, {}, nil
             selected, pending = {}, nil
         end
@@ -159,16 +169,32 @@ return function(config)
         end
 
         H.designated = function(chair)
+            j.designated, j.gun_ready = chair, false
             if chair ~= nil and chair == j.my_chair then
-                ligne("Tu dois tirer : E sur le revolver")
+                ligne("Tu dois prendre ton revolver")
             else
                 ligne(qui(chair) .. " doit tirer")
+            end
+        end
+
+        H.shoot_prepare = function(chair)
+            ligne(qui(chair) .. " prend son revolver…")
+        end
+
+        H.gun_ready = function(chair)
+            if chair == j.my_chair then j.gun_ready = true end
+        end
+
+        H.gun_cancelled = function(chair)
+            if chair == j.designated then
+                j.designated, j.gun_ready = nil, false
             end
         end
 
         -- Le decompte de chaque barillet est public : on dit ou en est le tireur,
         -- et ce que vaudra son prochain tir.
         H.shoot = function(chair, chamber, fatal)
+            j.designated, j.gun_ready = nil, false
             local total = config.chambers
             local suite
             if fatal then
@@ -195,6 +221,7 @@ return function(config)
 
         H.round_ended = function(reason)
             j.turn = nil
+            j.designated, j.gun_ready = nil, false
             selected = {}
             ligne(FINS[reason] or "Fin de manche")
         end
@@ -213,9 +240,13 @@ return function(config)
         end
 
         H.intent_result = function(name, ok, detail)
-            if name ~= "liars_play" and name ~= "liars_challenge" then return end
+            if name ~= "liars_play" and name ~= "liars_challenge"
+                and name ~= "liars_shoot" then return end
             if ok then return end
             if name == "liars_play" then pending = nil end
+            if name == "liars_shoot" and j.designated == j.my_chair then
+                j.gun_ready = true
+            end
             refus(type(detail) == "table" and detail.audit or detail)
         end
 

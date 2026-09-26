@@ -1,43 +1,48 @@
 -- Disposition de la table de Liar's Bar dans MapEgypt.
 --
--- Reperes mesures dans MapEgypt avec des cubes Unreal. Les meubles sont
--- cuits dans la carte : le serveur ne doit creer que les volumes
--- interactifs et le revolver mobile.
+-- Transformations des meubles SM_Liars_Table / SM_Liars_Chair dans MapEgypt
+-- communiquees le 25/09/2026. Origine des FBX au sol. Le serveur ne cree
+-- que les volumes interactifs et les revolvers mobiles.
 return {
     -- Calibration : les quatre reperes sont visibles pour verifier en jeu
     -- qu'ils recouvrent leur chaise. Mettre false une fois verifie.
     debug_visible = false,
 
+    -- Hauteur de la surface du coussin au-dessus du pivot de chaque chaise.
+    seat_height = 46.0,
+    -- Hauteur du centre du personnage assis au-dessus du pivot de la chaise.
+    character_height = 70.0,
+    -- Avance le buste sur le coussin, vers le centre de la table.
+    seat_forward = 8.0,
+    -- Hauteur du feutre au-dessus du pivot de la table (modele Blender).
+    table_height = 76.0,
+    -- Distance du centre du plateau au centre de chaque revolver.
+    revolver_radius = 58.0,
+
     chairs = {
-        -- ordre du tour : Cube2, Cube, Cube4, Cube3
+        -- Ordre des places : nord, est, sud, ouest.
         {
-            location = { x = -3361.988548, y = -40.611231, z = 326.171189 },
-            yaw = 140.0,
-            scale = { x = 0.3275, y = 0.3025, z = 0.4750 },
+            location = { x = -3440.0, y = 170.0, z = 310.0 },
+            yaw = 0.0,
+            scale = { x = 0.55, y = 0.55, z = 0.13 },
         },
         {
-            location = { x = -3471.988548, y = -30.611231, z = 326.171189 },
-            yaw = 50.0,
-            scale = { x = 0.3375, y = 0.4100, z = 0.4750 },
+            location = { x = -3300.813574, y = 48.004115, z = 303.939434 },
+            yaw = -90.0,
+            scale = { x = 0.55, y = 0.55, z = 0.13 },
         },
         {
-            location = { x = -3481.988548, y = 79.388769, z = 316.171189 },
-            yaw = 140.0,
-            scale = { x = 0.3375, y = 0.4100, z = 0.5200 },
+            location = { x = -3430.0, y = -70.0, z = 300.0 },
+            yaw = 180.0,
+            scale = { x = 0.55, y = 0.55, z = 0.13 },
         },
         {
-            location = { x = -3361.988548, y = 99.388769, z = 326.171189 },
-            yaw = 140.0,
-            scale = { x = 0.3375, y = 0.4100, z = 0.4325 },
+            location = { x = -3560.0, y = 50.0, z = 310.0 },
+            yaw = 90.0,
+            scale = { x = 0.55, y = 0.55, z = 0.13 },
         },
     },
 
-    -- Hauteur d'un personnage Creative debout sur le plancher (centre de sa
-    -- capsule), mesuree en jeu le 19/09 (panneau F2, Positions : z 380 assis
-    -- sur la chaise 4, la hauteur de marche etant gardee). Les bots s'assoient
-    -- a cette hauteur.
-    z_assis = 380.0,
-
-    -- Sommet du cube pose sur le plateau : 327.086143 + 68.5 / 2.
-    revolver_home = { x = -3414.257385, y = 35.547911, z = 361.336143 },
+    -- Sommet du plateau : pivot z=310 + feutre z=76.
+    revolver_home = { x = -3440.0, y = 50.0, z = 386.0 },
 }

@@ -98,4 +98,29 @@ return {
             )]],
         },
     },
+
+    {
+        id   = 4,
+        name = "boutique",
+        statements = {
+            -- Ce qu'un compte a achete. Les articles gratuits n'y figurent pas :
+            -- ils sont possedes par construction (Shared/catalogue.lua).
+            -- rayon vaut "persos" ou "armes".
+            [[CREATE TABLE IF NOT EXISTS possessions (
+                account_id  INTEGER NOT NULL,
+                rayon       TEXT    NOT NULL,
+                article     TEXT    NOT NULL,
+                acquired_at TEXT    NOT NULL,
+                PRIMARY KEY (account_id, rayon, article)
+            )]],
+
+            -- Ce que le compte porte : une ligne par compte, ecrite au choix.
+            [[CREATE TABLE IF NOT EXISTS equipement (
+                account_id INTEGER PRIMARY KEY,
+                perso      TEXT,
+                arme       TEXT,
+                updated_at TEXT NOT NULL
+            )]],
+        },
+    },
 }

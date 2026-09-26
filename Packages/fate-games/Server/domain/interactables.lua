@@ -23,7 +23,8 @@ return function(Log, Intents, Characters, config)
     end
 
     local function public_entry(id, entry)
-        return { id = id, label = entry.label, max_distance = entry.max_distance }
+        return { id = id, label = entry.label, kind = entry.kind,
+            max_distance = entry.max_distance }
     end
 
     local function distance_between(a, b)
@@ -37,6 +38,7 @@ return function(Log, Intents, Characters, config)
 
     -- spec = {
     --     label        = "Examiner"          -- ce que le joueur lit
+    --     kind         = "seat"              -- icone client, optionnel
     --     max_distance = 250                 -- optionnel
     --     validate     = function(player, session, entry) -> ok, raison  -- optionnel
     --     on_interact  = function(player, session, entry, cid)           -- requis
@@ -54,6 +56,7 @@ return function(Log, Intents, Characters, config)
         registry[id] = {
             actor        = actor,
             label        = spec.label or "Interagir",
+            kind         = spec.kind or "pickup",
             max_distance = spec.max_distance or default_distance(),
             validate     = spec.validate,
             on_interact  = spec.on_interact,

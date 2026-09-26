@@ -45,11 +45,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     local POSE_REVOLVER = REVOLVER_CUIT and { lever = 2.2, rot = Rotator(90, 0, 0) }
         or { lever = 0, rot = Rotator(0, 0, 0) }
 
-    -- Les cinq FBX Mixamo attendent leur retargeting dans l'ADK. Tant que ces
-    -- references sont vides, l'adaptateur ne joue rien : le jeu fonctionne sans,
-    -- seulement moins expressif. Remplir une seule ligne suffit a l'activer.
     local ANIMATIONS = {
         accuse = "",   -- bras tendu, slot UpperBody, pour garder la posture assise
+        take = "my-asset-pack::ANIM_Seated_Revolver_Take",
+        fire = "my-asset-pack::ANIM_Seated_Revolver_Fire",
     }
 
     -- Deux numerotations coexistent, et il ne faut jamais les confondre.
@@ -71,11 +70,16 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
     local shoot_timer      = nil
     local shoot_timer_seat = nil   -- la place pour laquelle ce delai court
+    local shot_sequence    = nil   -- resultat valide, en attente de la fin du geste
+    local gun_raised       = nil   -- { seat, chair, ready } : arme prise, verdict encore secret
 
-    -- Mobilier retenu par Init, pour faire glisser le revolver.
-    local revolver_prop  = nil
-    local revolver_home  = nil   -- au centre de la table
-    local devant_chaise  = {}    -- chaise -> position du revolver devant elle
+    -- Un revolver par chaise. Le centre reste l'ancre du plateau et du tas de
+    -- cartes ; chaque arme a sa propre position et son propre barillet moteur.
+    local revolver_props = {}    -- chaise -> Prop
+    local revolver_home  = nil   -- ancre au centre de la table
+    local devant_chaise  = {}    -- chaise -> position du revolver
+    local revolver_offset = {}   -- chaise -> decalage ajuste a l'atelier
+    local revolver_rotation = {} -- chaise -> orientation au repos
     local reperes        = {}    -- chaise -> son repere (Prop invisible)
 
     -- Bots de test. Chaque lot d'effets incremente la generation : un
@@ -143,15 +147,24 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         return player:GetControlledCharacter()
     end
 
-    -- ESSAI : le personnage d'un vrai joueur s'assoit sur le repere de sa
-    -- chaise, tourne vers le centre de la table. Characters decide si ce
-    -- personnage sait s'asseoir ; un bot garde son corps debout.
+    local function position_assise(chair_n)
+        local loc = config.layout.chairs[chair_n].location
+        local home = config.layout.revolver_home
+        local dx, dy = home.x - loc.x, home.y - loc.y
+        local distance = math.sqrt(dx * dx + dy * dy)
+        if distance < 1 then distance = 1 end
+        local avance = config.layout.seat_forward or 0
+        return loc.x + dx / distance * avance,
+            loc.y + dy / distance * avance,
+            loc.z + config.layout.character_height,
+            math.deg(math.atan(dy, dx))
+    end
+
+    -- La meme position sur le coussin sert aux joueurs et aux bots Creative.
     local function asseoir_personnage(player, chair_n)
         if not player or player.bot then return end
-        local loc  = config.layout.chairs[chair_n].location
-        local home = config.layout.revolver_home
-        local yaw  = math.deg(math.atan(home.y - loc.y, home.x - loc.x))
-        Characters.Sit(player:GetID(), loc.x, loc.y, yaw)
+        local x, y, z, yaw = position_assise(chair_n)
+        Characters.Sit(player:GetID(), x, y, yaw, z)
     end
 
     local function relever_personnage(player)
@@ -171,22 +184,131 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     local function marquer_chaise(entry, chaise)
         local ok, err = pcall(function()
             local c = personnage_de(entry)
-            if c and c:IsValid() then c:SetValue("liars_chair", chaise, true) end
+            if c and c:IsValid() then
+                c:SetValue("liars_name", chaise > 0 and entry.name or "", true)
+                c:SetValue("liars_chair", chaise, true)
+            end
         end)
         if not ok then
             Log.Warn("liars", "marque de chaise impossible : " .. tostring(err))
         end
     end
 
-    local function placer_revolver(position)
-        if revolver_prop and position then
-            revolver_prop:SetLocation(position)
+    local function ranger_revolvers(force)
+        for chair_n, prop in ipairs(revolver_props) do
+            if prop and prop:IsValid() and devant_chaise[chair_n] then
+                -- Un nouveau tour peut etre annonce avant que la main ait
+                -- repose l'arme : sa propre animation termine ce geste.
+                if force or not (shot_sequence and shot_sequence.chair == chair_n
+                    and prop:GetAttachedTo()) then
+                    if prop:GetAttachedTo() then prop:Detach() end
+                    prop:SetLocation(devant_chaise[chair_n])
+                    local pose = revolver_rotation[chair_n]
+                    prop:SetRotation(pose and Rotator(pose.p, pose.ya, pose.r) or POSE_REVOLVER.rot)
+                    prop:SetCollision(CollisionType.IgnoreOnlyPawn)
+                    prop:SetVisibility(true)
+                end
+            end
+        end
+    end
+
+    -- Le Nagant dans la main, selon config.revolver_prise.
+    local function poser_dans_la_main(prop)
+        local g = config.revolver_prise or {}
+        prop:SetRelativeLocation(Vector(g.x or 0, g.y or 0, g.z or 0))
+        prop:SetRelativeRotation(Rotator(g.p or 0, g.ya or 0, g.r or 0))
+    end
+
+    local function arreter_pose_revolver(preparation)
+        if not preparation then return end
+        local character = character_of(preparation.seat)
+        if character and character:IsValid() and character:IsA(CharacterSimple) then
+            local ok, err = pcall(function() character:StopAnimation(ANIMATIONS.take) end)
+            if not ok then Log.Warn("liars", "arret de la pose du revolver : " .. tostring(err)) end
+        end
+    end
+
+    -- Reglage en jeu de la prise (commande /prise, mode dev) : s'applique
+    -- aussitot aux revolvers deja en main.
+    function Adapter.SetPrise(prise)
+        config.revolver_prise = prise
+        for _, prop in ipairs(revolver_props) do
+            if prop and prop:IsValid() and prop:GetAttachedTo() then
+                poser_dans_la_main(prop)
+            end
+        end
+        return true
+    end
+
+    -- Le premier clip s'arrete a la tempe et conserve sa derniere pose jusqu'au
+    -- clic. L'arme rejoint la main quand elle atteint le plateau (image 10).
+    local function prendre_revolver(preparation, character)
+        local chair_n = preparation.chair
+        local prop = revolver_props[chair_n]
+        if not (prop and prop:IsValid() and character and character:IsValid()) then return end
+
+        if character:IsA(CharacterSimple) then
+            character:PlayAnimation(ANIMATIONS.take, "DefaultSlot", false, 0.08, -1, 1.0, true)
+            Timer.SetTimeout(function()
+                if gun_raised ~= preparation
+                    or not prop:IsValid() or not character:IsValid() then return end
+                local ok = prop:AttachTo(character, AttachmentRule.SnapToTarget, "RightHandProp", -1)
+                if ok then
+                    poser_dans_la_main(prop)
+                    prop:SetCollision(CollisionType.NoCollision)
+                else
+                    Log.Warn("liars", "revolver : attache a RightHandProp refusee")
+                end
+            end, 300)
+            return
+        end
+
+        local depart = devant_chaise[chair_n]
+        local tete = character:GetLocation()
+        local dx, dy = tete.X - revolver_home.X, tete.Y - revolver_home.Y
+        local longueur = math.sqrt(dx * dx + dy * dy)
+        if longueur < 1 then longueur = 1 end
+        -- Sur la tempe droite, un peu devant le visage, sans masquer toute la
+        -- vue du joueur assis. La hauteur suit le personnage reel.
+        local cible = Vector(tete.X - dy / longueur * 23 - dx / longueur * 12,
+            tete.Y + dx / longueur * 23 - dy / longueur * 12, tete.Z + 119)
+        local leve = Vector(depart.X, depart.Y, depart.Z + 28)
+        local repose = revolver_rotation[chair_n] or { p = 90, ya = 0, r = 0 }
+        local orientation = math.deg(math.atan(tete.Y - cible.Y, tete.X - cible.X)) - 90
+
+        local function melanger(a, b, t)
+            return Vector(a.X + (b.X - a.X) * t,
+                a.Y + (b.Y - a.Y) * t, a.Z + (b.Z - a.Z) * t)
+        end
+
+        for step = 1, 12 do
+            Timer.SetTimeout(function()
+                if gun_raised ~= preparation or not prop:IsValid() then return end
+                local progress = step / 12
+                local location
+                if progress < 0.34 then
+                    local t = progress / 0.34
+                    location = melanger(depart, leve, t * t * (3 - 2 * t))
+                else
+                    local t = (progress - 0.34) / 0.66
+                    location = melanger(leve, cible, t * t * (3 - 2 * t))
+                end
+                prop:SetLocation(location)
+                prop:SetRotation(Rotator(
+                    repose.p + (0 - repose.p) * progress,
+                    repose.ya + (orientation - repose.ya) * progress,
+                    repose.r))
+            end, step * 65)
         end
     end
 
     ---------------------------------------------------------------- remise a zero
 
     local function remettre_a_zero()
+        -- Detacher avant de detruire un corps de bot porteur du revolver.
+        arreter_pose_revolver(gun_raised)
+        ranger_revolvers(true)
+        gun_raised = nil
         for _, entry in ipairs(seated) do
             marquer_chaise(entry, 0)
             if entry.body then entry.body:Destroy() end
@@ -205,6 +327,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
                 :format(tostring(e.look), tostring(chair(e.seat))))
             return
         end
+
+        -- Un joueur garde la tenue choisie au vestiaire (decision du 25/09) :
+        -- seuls les bots recoivent celle que le moteur a tiree.
+        local occupant = player_by_seat[e.seat]
+        if occupant and not occupant.bot then return end
 
         local character = character_of(e.seat)
         if not character then
@@ -249,10 +376,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         send(e.audience, "liars:deal", e.cards)
     end
 
-    -- Chaque manche s'ouvre sur sa carte de table : le revolver revient au
-    -- centre, d'ou qu'il soit parti.
+    -- Chaque joueur garde son revolver devant sa chaise pendant la partie.
     TRANSLATORS.table_card = function(e)
-        placer_revolver(revolver_home)
+        ranger_revolvers()
         send(e.audience, "liars:table_card", e.rank)
     end
 
@@ -272,16 +398,20 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         send(e.audience, "liars:round_ended", e.reason)
     end
 
-    -- "Le perdant est designe, le revolver glisse devant lui."
+    -- L'arme du perdant est deja devant sa propre chaise.
     TRANSLATORS.designated = function(e)
         local c = chair(e.seat)
         send(e.audience, "liars:designated", c)
-        placer_revolver(devant_chaise[c])
     end
 
     TRANSLATORS.shoot = function(e)
+        -- Le nombre de chambres deja essayees est public et doit aussi etre
+        -- visible chez un joueur arrive apres le debut de la partie.
+        local character = character_of(e.seat)
+        if character and character:IsValid() then
+            character:SetValue("liars_fired", e.chamber, true)
+        end
         send(e.audience, "liars:shoot", chair(e.seat), e.chamber, e.fatal)
-        placer_revolver(revolver_home)
     end
 
     TRANSLATORS.accuse = function(e)
@@ -299,6 +429,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         -- Il garde la parole : il n'y a precisement RIEN a faire sur son micro.
         -- Il reste assis, il voit tout, il peut commenter.
         local c = chair(e.seat)
+        local character = character_of(e.seat)
+        if character and character:IsValid() then
+            character:SetValue("liars_alive", false, true)
+        end
         send(e.audience, "liars:eliminated", c)
         Log.Info("liars", ("chaise %s eliminee"):format(tostring(c)))
     end
@@ -357,7 +491,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         for _, entry in ipairs(releve.seated) do
             send("all", "liars:unseated", entry.chair)
         end
-        placer_revolver(revolver_home)
+        ranger_revolvers()
 
         Log.Info("liars", ("partie terminee, vainqueur chaise %s"):format(tostring(chaise_gagnante)))
     end
@@ -459,7 +593,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             if state and state.pending and state.pending.seat == designe then
                 Log.Info("liars", ("tir resolu d'office pour la chaise %s")
                     :format(tostring(chair_of[designe])))
-                Adapter.Act({ kind = "shoot", seat = designe })
+                Adapter.Act({ kind = "shoot", seat = designe, auto = true })
             end
         end, math.floor(config.shoot_timeout * 1000))
     end
@@ -485,6 +619,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             if generation ~= bot_generation then return end
             local act = Bots.Decide(state, seat, bot_rng)
             if not act then return end
+            if act.kind == "shoot" then act.auto = true end
             local ok, raison = Adapter.Act(act)
             if not ok then
                 Log.Warn("liars", "coup de bot refuse : " .. tostring(raison))
@@ -492,9 +627,55 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         end, math.floor(config.bots.delay * 1000))
     end
 
+    function Adapter.PrepareShot(seat)
+        if not (state and state.pending) then return false, "aucun_tir_en_attente" end
+        if state.pending.seat ~= seat then return false, "pas_designe" end
+        if shot_sequence then return false, "tir_en_cours" end
+        if gun_raised then return false, "arme_deja_prise" end
+
+        local chair_n = chair(seat)
+        local preparation = { seat = seat, chair = chair_n, ready = false }
+        gun_raised = preparation
+        send("all", "liars:shoot_prepare", chair_n)
+        local ok, err = pcall(prendre_revolver, preparation, character_of(seat))
+        if not ok then Log.Warn("liars", "prise du revolver : " .. tostring(err)) end
+        Timer.SetTimeout(function()
+            if gun_raised ~= preparation then return end
+            preparation.ready = true
+            send("all", "liars:gun_ready", chair_n)
+        end, 900)
+        return true
+    end
+
     function Adapter.Act(act, cid)
         if not state then
             return false, "aucune partie en cours"
+        end
+        if shot_sequence then
+            return false, "tir_en_cours"
+        end
+
+        if act.kind == "shoot" then
+            if not (state.pending and state.pending.seat == act.seat) then
+                return false, "aucun_tir_en_attente"
+            end
+            if not gun_raised then
+                if not act.auto then return false, "arme_non_preparee" end
+                local ok, raison = Adapter.PrepareShot(act.seat)
+                if not ok then return false, raison end
+            end
+            if gun_raised.seat ~= act.seat then return false, "pas_designe" end
+            if not gun_raised.ready then
+                if not act.auto then return false, "arme_pas_prete" end
+                local attente = gun_raised
+                Timer.SetTimeout(function()
+                    if gun_raised == attente and state and state.pending
+                        and state.pending.seat == act.seat then
+                        Adapter.Act({ kind = "shoot", seat = act.seat, auto = true })
+                    end
+                end, 950)
+                return true
+            end
         end
 
         -- pcall sur une fonction a plusieurs valeurs de retour les rend TOUTES
@@ -510,9 +691,54 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         end
 
         state = nouveau
-        dispatch(effects, cid)
-        Adapter.ArmShootTimeout()
-        Adapter.ScheduleBots()
+
+        if act.kind ~= "shoot" and gun_raised
+            and not (state.pending and state.pending.seat == gun_raised.seat) then
+            local ancienne_chaise = gun_raised.chair
+            arreter_pose_revolver(gun_raised)
+            gun_raised = nil
+            ranger_revolvers(true)
+            send("all", "liars:gun_cancelled", ancienne_chaise)
+        end
+
+        if act.kind == "shoot" then
+            -- Le moteur ne tranche qu'au clic (ou au delai de secours). Le
+            -- clip de tir commence a la pose maintenue contre la tempe.
+            local chair_n = chair(act.seat)
+            local sequence = { chair = chair_n, departures = {} }
+            shot_sequence = sequence
+            gun_raised = nil
+            Adapter.ArmShootTimeout()
+            local character = character_of(act.seat)
+            if character and character:IsValid() and character:IsA(CharacterSimple) then
+                local ok_anim, err_anim = pcall(function()
+                    character:PlayAnimation(ANIMATIONS.fire, "DefaultSlot", false,
+                        0.05, 0.15, 1.0, true)
+                end)
+                if not ok_anim then Log.Warn("liars", "tir du revolver : " .. tostring(err_anim)) end
+            end
+            Timer.SetTimeout(function()
+                if shot_sequence ~= sequence then return end
+                dispatch(effects, cid)
+            end, 70)
+            Timer.SetTimeout(function()
+                if shot_sequence ~= sequence then return end
+                ranger_revolvers(true)
+                shot_sequence = nil
+                Adapter.ArmShootTimeout()
+                Adapter.ScheduleBots()
+                -- Un deconnecte pendant le geste est elimine apres le coup.
+                -- Son depart ne peut ainsi devancer le verdict deja valide.
+                for _, player_id in ipairs(sequence.departures) do
+                    local seat = seat_by_player[player_id]
+                    if state and seat then Adapter.Act({ kind = "leave", seat = seat }) end
+                end
+            end, 850)
+        else
+            dispatch(effects, cid)
+            Adapter.ArmShootTimeout()
+            Adapter.ScheduleBots()
+        end
         return true
     end
 
@@ -580,6 +806,14 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         return true
     end
 
+    -- Se lever sans viser sa chaise : Espace chez le client (Client/se_lever.lua).
+    -- Un joueur qui n'est pas a table n'a rien a entendre.
+    function Adapter.Lever(player, cid)
+        local ok, raison = Adapter.Stand(player, cid)
+        if not ok and raison ~= "pas_a_table" then refuser(player, raison) end
+        return ok, raison
+    end
+
     ---------------------------------------------------------------- bots de test
 
     -- Un bot est un pseudo-joueur : il repond a GetID et GetName comme un
@@ -601,8 +835,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     local function corps_de_bot(chair_n)
         local loc  = config.layout.chairs[chair_n].location
         local home = config.layout.revolver_home
-        local vers_table = math.deg(math.atan(home.y - loc.y, home.x - loc.x))
-        local assis = Characters.CorpsAssis(loc.x, loc.y, config.layout.z_assis, vers_table)
+        local x, y, z, vers_table = position_assise(chair_n)
+        local assis = Characters.CorpsAssis(x, y, z, vers_table)
         if assis then return assis end
 
         local dx, dy = loc.x - home.x, loc.y - home.y
@@ -709,6 +943,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         local annonce = {}
         for i, entry in ipairs(seated) do
             annonce[i] = { chair = entry.chair, name = entry.name }
+            local character = character_of(i)
+            if character and character:IsValid() then
+                character:SetValue("liars_fired", 0, true)
+                character:SetValue("liars_alive", true, true)
+            end
         end
         send("all", "liars:started", annonce)
 
@@ -736,17 +975,27 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
     ---------------------------------------------------------------- disposition
 
-    -- Le revolver s'arrete aux deux tiers du chemin vers chaque chaise et
-    -- reste a la hauteur de sa place de repos.
+    -- Chaque arme repose devant sa chaise, sur le bord du plateau.
     local function recalculer_devant()
         local home = config.layout.revolver_home
         for chair_n, marker in ipairs(config.layout.chairs) do
             local loc = marker.location
+            local offset = revolver_offset[chair_n] or { x = 0, y = 0, z = 0 }
+            local dx, dy = loc.x - home.x, loc.y - home.y
+            local distance = math.sqrt(dx * dx + dy * dy)
+            if distance < 1 then distance = 1 end
+            local rayon = config.layout.revolver_radius
             devant_chaise[chair_n] = Vector(
-                home.x + (loc.x - home.x) * 0.66,
-                home.y + (loc.y - home.y) * 0.66,
-                revolver_home.Z)
+                home.x + dx / distance * rayon + offset.x,
+                home.y + dy / distance * rayon + offset.y,
+                revolver_home.Z + offset.z)
+            if not revolver_rotation[chair_n] then
+                revolver_rotation[chair_n] = {
+                    p = 90, ya = math.deg(math.atan(dy, dx)) + 90, r = 0,
+                }
+            end
         end
+        ranger_revolvers()
     end
 
     ---------------------------------------------------------------- atelier
@@ -754,14 +1003,23 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     -- Le revolver et les reperes des chaises se deplacent a l'atelier
     -- (panneau dev, F2 : Physics Gun, Tool Gun). Une place enregistree
     -- revient par "atelier:place" a chaque demarrage ; c'est ici qu'elle
-    -- devient la disposition de la table. Sans atelier, rien ne se passe.
+    -- devient la disposition de la table. Le prefixe furniture2 evite que
+    -- des decalages sauvegardes pour l'ancienne table recouvrent la nouvelle.
     local JEU = "fate-games"
 
     local function declarer_objets()
-        if not revolver_prop then return end
-        local liste = { { id = "liars.revolver", label = "Revolver", entite = revolver_prop } }
+        if #revolver_props == 0 then return end
+        local liste = {}
+        for chair_n, prop in ipairs(revolver_props) do
+            liste[#liste + 1] = {
+                id = "liars.furniture2.revolver." .. chair_n,
+                label = "Revolver " .. chair_n,
+                entite = prop,
+            }
+        end
         for chair_n, prop in ipairs(reperes) do
-            liste[#liste + 1] = { id = "liars.chaise." .. chair_n, label = "Chaise " .. chair_n, entite = prop }
+            liste[#liste + 1] = { id = "liars.furniture2.chaise." .. chair_n,
+                label = "Chaise " .. chair_n, entite = prop }
         end
         Events.Call("atelier:declarer_objets", JEU, liste)
     end
@@ -774,18 +1032,25 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         return true
     end
 
-    -- La place du revolver est sa pose de repos : position (levee comprise)
-    -- et rotation. Le plateau est a la moitie de son epaisseur plus bas ; le
-    -- centre de la table est publie aux clients pour le tas de cartes.
-    local function placer_revolver_repos(lieu)
-        revolver_home = Vector(lieu.x, lieu.y, lieu.z)
-        config.layout.revolver_home = { x = lieu.x, y = lieu.y, z = lieu.z - POSE_REVOLVER.lever }
+    -- Une arme de chaise deplacee dans l'atelier garde son decalage quand le
+    -- centre ou la chaise bouge ensuite.
+    local function placer_revolver_chaise(chair_n, lieu)
+        local marker = config.layout.chairs[chair_n]
+        local prop = revolver_props[chair_n]
+        if not (marker and prop) then return end
+        local home = config.layout.revolver_home
+        local dx, dy = marker.location.x - home.x, marker.location.y - home.y
+        local distance = math.sqrt(dx * dx + dy * dy)
+        if distance < 1 then distance = 1 end
+        local rayon = config.layout.revolver_radius
+        revolver_offset[chair_n] = {
+            x = lieu.x - (home.x + dx / distance * rayon),
+            y = lieu.y - (home.y + dy / distance * rayon),
+            z = lieu.z - revolver_home.Z,
+        }
+        revolver_rotation[chair_n] = { p = lieu.p, ya = lieu.ya, r = lieu.r }
+        prop:SetRotation(Rotator(lieu.p, lieu.ya, lieu.r))
         recalculer_devant()
-        if revolver_prop then
-            revolver_prop:SetRotation(Rotator(lieu.p, lieu.ya, lieu.r))
-            revolver_prop:SetValue("liars_home", config.layout.revolver_home, true)
-            if not state then revolver_prop:SetLocation(revolver_home) end
-        end
     end
 
     -- La place d'une chaise est celle de son repere : on s'y assoit, et le
@@ -793,7 +1058,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     local function placer_chaise(chair_n, lieu)
         local marker = config.layout.chairs[chair_n]
         if not marker then return end
-        marker.location = { x = lieu.x, y = lieu.y, z = lieu.z }
+        marker.location = { x = lieu.x, y = lieu.y,
+            z = lieu.z - config.layout.seat_height }
         marker.yaw = lieu.ya
         recalculer_devant()
         local prop = reperes[chair_n]
@@ -806,12 +1072,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     Events.Subscribe("atelier:place", function(id, lieu)
         if type(id) ~= "string" or not lieu_valide(lieu) then return end
         local ok, err = pcall(function()
-            if id == "liars.revolver" then
-                placer_revolver_repos(lieu)
-            else
-                local n = tonumber(id:match("^liars%.chaise%.(%d+)$"))
-                if n then placer_chaise(n, lieu) end
-            end
+            local r = tonumber(id:match("^liars%.furniture2%.revolver%.(%d+)$"))
+            local c = tonumber(id:match("^liars%.furniture2%.chaise%.(%d+)$"))
+            if r then placer_revolver_chaise(r, lieu)
+            elseif c then placer_chaise(c, lieu) end
         end)
         if ok then
             Log.Info("liars", ("place %s appliquee"):format(id))
@@ -839,7 +1103,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             -- Un petit Prop est saisissable par defaut, et la saisie
             -- emporterait le repere loin de sa chaise : on l'interdit.
             local prop = Prop(
-                Vector(loc.x, loc.y, loc.z),
+                Vector(loc.x, loc.y, loc.z + layout.seat_height),
                 Rotator(0, marker.yaw, 0),
                 ASSETS.seat_marker,
                 CollisionType.IgnoreOnlyPawn,
@@ -855,6 +1119,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
             Interactables.Register(prop, {
                 label = ("S'asseoir (place %d)"):format(chair_n),
+                kind = "seat",
                 on_interact = function(player, session, entry, cid)
                     -- E sur sa propre chaise, hors partie : on se leve.
                     local ok, raison
@@ -868,33 +1133,47 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             })
         end
 
-        -- Le revolver au centre porte deux actes : lancer la partie, et tirer.
-        -- C'est le meme objet parce que c'est le meme geste — on y pose la main.
-        revolver_prop = Prop(
-            revolver_home,
-            POSE_REVOLVER.rot,
-            ASSETS.revolver,
-            CollisionType.IgnoreOnlyPawn,
-            false,
-            GrabMode.Disabled
-        )
+        -- Une arme par place, accessible depuis sa chaise. Le joueur ne peut
+        -- lancer la partie et tirer qu'avec la sienne ; le moteur garde la
+        -- decision sur la place designee et le barillet de chaque joueur.
+        for chair_n = 1, #layout.chairs do
+            local gun_chair = chair_n
+            local prop = Prop(
+                devant_chaise[gun_chair],
+                Rotator(revolver_rotation[gun_chair].p,
+                    revolver_rotation[gun_chair].ya, revolver_rotation[gun_chair].r),
+                ASSETS.revolver,
+                CollisionType.IgnoreOnlyPawn,
+                false,
+                GrabMode.Disabled
+            )
+            -- Le mouvement du geste est pilote par le serveur, meme quand un
+            -- joueur est tout pres de l'arme.
+            prop:SetNetworkAuthorityAutoDistributed(false)
+            prop:SetValue("liars_revolver_chair", gun_chair, true)
+            prop:SetValue("liars_home", layout.revolver_home, true)
+            revolver_props[gun_chair] = prop
 
-        Interactables.Register(revolver_prop, {
-            label = "Prendre le revolver",
-            on_interact = function(player, session, entry, cid)
-                if not state then
-                    local ok, raison, contexte = Adapter.Begin(player, cid)
-                    if not ok then refuser(player, raison, contexte) end
-                    return
-                end
-                local seat = seat_by_player[player:GetID()]
-                if not seat then
-                    return refuser(player, "pas_a_table")
-                end
-                local ok, raison = Adapter.Act({ kind = "shoot", seat = seat }, cid)
-                if not ok then refuser(player, raison) end
-            end,
-        })
+            Interactables.Register(prop, {
+                label = ("Prendre son revolver (place %d)"):format(gun_chair),
+                kind = "revolver",
+                on_interact = function(player, session, entry, cid)
+                    local seat = seat_by_player[player:GetID()]
+                    if not seat then return refuser(player, "pas_a_table") end
+                    local own_chair = state and chair_of[seat] or seat
+                    if own_chair ~= gun_chair then
+                        return refuser(player, "pas_ton_revolver")
+                    end
+                    if not state then
+                        local ok, raison, contexte = Adapter.Begin(player, cid)
+                        if not ok then refuser(player, raison, contexte) end
+                        return
+                    end
+                    local ok, raison = Adapter.PrepareShot(seat)
+                    if not ok then refuser(player, raison) end
+                end,
+            })
+        end
 
         -- Les deux intentions heritent du pipeline : audit et correlation
         -- viennent gratuitement. Elles ne revalident PAS la distance — seule
@@ -941,6 +1220,28 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             end,
         })
 
+        Intents.Register("liars_shoot", {
+            validate = function(player)
+                local seat = seat_by_player[player:GetID()]
+                if not (state and state.pending and seat == state.pending.seat) then
+                    return false, "pas_designe"
+                end
+                if not (gun_raised and gun_raised.seat == seat and gun_raised.ready) then
+                    return false, "arme_pas_prete"
+                end
+                return true
+            end,
+            apply = function(player, _, cid)
+                local seat = seat_by_player[player:GetID()]
+                local chair_n = chair_of[seat]
+                local ok, raison = Adapter.Act({ kind = "shoot", seat = seat }, cid)
+                return ok, {
+                    target = "chair:" .. tostring(chair_n),
+                    audit = ok and "tir" or tostring(raison),
+                }
+            end,
+        })
+
         declarer_objets()
 
         if layout.debug_visible then
@@ -960,7 +1261,19 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         local seat = seat_by_player[player_id]
         if not seat then return end
 
+        if gun_raised and gun_raised.seat == seat then
+            local ancienne_chaise = gun_raised.chair
+            arreter_pose_revolver(gun_raised)
+            gun_raised = nil
+            ranger_revolvers(true)
+            send("all", "liars:gun_cancelled", ancienne_chaise)
+        end
+
         if state then
+            if shot_sequence then
+                shot_sequence.departures[#shot_sequence.departures + 1] = player_id
+                return
+            end
             Adapter.Act({ kind = "leave", seat = seat })
             return
         end

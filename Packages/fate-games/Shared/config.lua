@@ -5,6 +5,14 @@
 -- La configuration serveur (base, intervalles de flush) vit dans Server/core/config.lua.
 
 return {
+    -- Arme posee en 3D au vestiaire (Client/vestiaire/vestiaire.lua), devant
+    -- la camera fixe : a `distance` cm, remontee de `hauteur` cm pour flotter
+    -- au-dessus de l'eventail. Les modeles font 100 cm de long a l'import,
+    -- `echelle` les met a la taille voulue a l'ecran. Rotation en degres/s.
+    vestiaire = {
+        arme = { distance = 150, hauteur = 30, echelle = 1.05, vitesse = 35, inclinaison = -8 },
+    },
+
     interaction = {
         -- Portee de la visee, en centimetres. Plus longue que la portee serveur :
         -- on peut lire l'invite d'un peu plus loin qu'on ne peut agir.

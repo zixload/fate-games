@@ -14,7 +14,7 @@ return function(config)
     -- Un outil de l'atelier en main : E sert a tourner l'objet tenu.
     local outil_atelier = Package.Require("outil_atelier.lua")
 
-    -- id -> { label, max_distance }
+    -- id -> { label, kind, max_distance }
     local known = {}
 
     local focused_id = nil
@@ -32,13 +32,15 @@ return function(config)
     Events.SubscribeRemote("zix:interactables_full", function(list)
         known = {}
         for _, entry in ipairs(list or {}) do
-            known[entry.id] = { label = entry.label, max_distance = entry.max_distance }
+            known[entry.id] = { label = entry.label, kind = entry.kind,
+                max_distance = entry.max_distance }
         end
     end)
 
     Events.SubscribeRemote("zix:interactable_added", function(entry)
         if entry and entry.id then
-            known[entry.id] = { label = entry.label, max_distance = entry.max_distance }
+            known[entry.id] = { label = entry.label, kind = entry.kind,
+                max_distance = entry.max_distance }
         end
     end)
 
@@ -53,15 +55,15 @@ return function(config)
     -- Focus
     ----------------------------------------------------------------------------
 
-    -- Signale le changement de cible. C'est ce que l'interface ecoutera pour
-    -- afficher ou masquer l'invite ; aucune UI n'existe encore.
+    -- Signale le changement de cible pour l'invite sans texte.
     function Interaction.SetFocus(id)
         if focused_id == id then return end
 
         focused_id = id
         local entry = id and known[id] or nil
 
-        Events.Call("zix:focus_changed", id, entry and entry.label or nil)
+        Events.Call("zix:focus_changed", id, entry and entry.label or nil,
+            entry and entry.kind or nil)
     end
 
     function Interaction.GetFocus()

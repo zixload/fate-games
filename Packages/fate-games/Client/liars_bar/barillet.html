@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+        body.preview { background: radial-gradient(circle at center, #34352f, #111619); }
+        .preview-note { position: fixed; top: 24px; left: 0; right: 0; text-align: center;
+            color: #e8dec8; font: 16px Arial, sans-serif; letter-spacing: .04em; }
+        #layer { position: fixed; inset: 0; pointer-events: none; }
+        .marker { position: absolute; left: 0; top: 0; will-change: transform; }
+        .badge { display: flex; flex-direction: column; align-items: center; transform: scale(var(--scale, 1)); transform-origin: center bottom; }
+        .barrel {
+            position: relative; width: 48px; height: 48px; box-sizing: border-box;
+            border: 2px solid #c5a774; border-radius: 50%;
+            background: rgba(19, 25, 27, .88);
+            box-shadow: 0 2px 9px rgba(0, 0, 0, .65), inset 0 0 0 2px rgba(241, 222, 179, .12);
+        }
+        .barrel::after {
+            content: ""; position: absolute; width: 6px; height: 6px; left: 19px; top: 19px;
+            border-radius: 50%; background: #8e7859;
+        }
+        .chamber {
+            position: absolute; width: 8px; height: 8px; box-sizing: border-box;
+            border-radius: 50%; background: #e8dec8;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, .5);
+        }
+        .chamber.spent { background: #e83d37; box-shadow: 0 0 5px rgba(232, 61, 55, .7); }
+        .chamber:nth-child(1) { left: 18px; top: 5px; }
+        .chamber:nth-child(2) { left: 30px; top: 11px; }
+        .chamber:nth-child(3) { left: 30px; top: 27px; }
+        .chamber:nth-child(4) { left: 18px; top: 33px; }
+        .chamber:nth-child(5) { left: 6px; top: 27px; }
+        .chamber:nth-child(6) { left: 6px; top: 11px; }
+        .arrow { display: none; width: 0; height: 0; margin-top: 5px;
+            border-left: 9px solid transparent; border-right: 9px solid transparent;
+            border-top: 13px solid #f03b35; filter: drop-shadow(0 1px 4px rgba(240, 59, 53, .75)); }
+        .marker.active .arrow { display: block; }
+    </style>
+</head>
+<body>
+    <div id="layer" aria-hidden="true"></div>
+    <script>
+        const layer = document.getElementById("layer");
+        const markers = new Map();
+
+        function makeMarker(id) {
+            const marker = document.createElement("div");
+            marker.className = "marker";
+            marker.dataset.id = String(id);
+            const badge = document.createElement("div");
+            badge.className = "badge";
+            const barrel = document.createElement("div");
+            barrel.className = "barrel";
+            for (let i = 0; i < 6; i++) {
+                const chamber = document.createElement("i");
+                chamber.className = "chamber";
+                barrel.appendChild(chamber);
+            }
+            const arrow = document.createElement("div");
+            arrow.className = "arrow";
+            badge.append(barrel, arrow);
+            marker.appendChild(badge);
+            layer.appendChild(marker);
+            return marker;
+        }
+
+        function update(state) {
+            const seen = new Set();
+            const factorX = state.width > 0 ? window.innerWidth / state.width : 1;
+            const factorY = state.height > 0 ? window.innerHeight / state.height : 1;
+            for (const item of state.markers || []) {
+                const id = String(item.id);
+                seen.add(id);
+                let marker = markers.get(id);
+                if (!marker) {
+                    marker = makeMarker(id);
+                    markers.set(id, marker);
+                }
+                marker.style.transform = `translate3d(${item.x * factorX}px, ${item.y * factorY}px, 0) translate(-50%, -100%)`;
+                marker.style.setProperty("--scale", String(item.scale || 1));
+                marker.classList.toggle("active", !!item.active);
+                marker.querySelectorAll(".chamber").forEach((dot, i) => {
+                    dot.classList.toggle("spent", i < (item.fired || 0));
+                });
+            }
+            for (const [id, marker] of markers) {
+                if (!seen.has(id)) {
+                    marker.remove();
+                    markers.delete(id);
+                }
+            }
+        }
+
+        if (typeof Events !== "undefined") {
+            Events.Subscribe("barillet:maj", update);
+            Events.Call("pret");
+        } else {
+            // Apercu local : le jeu fournit normalement ces positions via Events.
+            document.body.classList.add("preview");
+            const note = document.createElement("div");
+            note.className = "preview-note";
+            note.textContent = "Aperçu du HUD · les barillets suivent les joueurs en partie";
+            document.body.appendChild(note);
+            const preview = () => update({
+                width: window.innerWidth,
+                height: window.innerHeight,
+                markers: [
+                    { id: 1, x: window.innerWidth * .35, y: window.innerHeight * .54, fired: 2, active: true },
+                    { id: 2, x: window.innerWidth * .65, y: window.innerHeight * .54, fired: 4, active: false }
+                ]
+            });
+            preview();
+            window.addEventListener("resize", preview);
+        }
+    </script>
+</body>
+</html>

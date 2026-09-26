@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+        * { box-sizing: border-box; }
+        #cue { position: fixed; left: 50%; top: 55%; transform: translate(-50%, 8px) scale(.95);
+            opacity: 0; transition: opacity .13s ease, transform .13s ease; pointer-events: none; }
+        #cue.visible { opacity: 1; transform: translate(-50%, 0) scale(1); }
+        #cue.armed .badge { border-color: #e83d37; box-shadow: 0 2px 9px rgba(0, 0, 0, .65), 0 0 11px rgba(232, 61, 55, .5); }
+        .badge { display: grid; place-items: center; width: 56px; height: 56px;
+            border: 2px solid #c5a774; border-radius: 50%; background: rgba(19, 25, 27, .91);
+            box-shadow: 0 2px 9px rgba(0, 0, 0, .65), inset 0 0 0 2px rgba(241, 222, 179, .1); }
+        .icon { width: 31px; height: 31px; fill: none; stroke: #e8dec8; stroke-width: 2.2;
+            stroke-linecap: round; stroke-linejoin: round; display: none; }
+        #cue[data-kind="seat"] .seat,
+        #cue[data-kind="revolver"] .revolver,
+        #cue[data-kind="pickup"] .pickup { display: block; }
+        /* L'aperçu hors jeu montre les trois états du composant sans aucune écriture. */
+        body.preview { background: radial-gradient(circle at 50% 58%, #303431 0%, #151a1d 72%); }
+        body.preview #cue { display: none; }
+        #gallery { display: none; position: fixed; inset: 0; align-items: center; justify-content: center; gap: 72px; }
+        body.preview #gallery { display: flex; }
+        #gallery .icon { display: block; }
+        @media (max-width: 560px) { #gallery { gap: 28px; } }
+    </style>
+</head>
+<body>
+    <div id="cue" aria-hidden="true"><div class="badge"></div></div>
+    <div id="gallery" aria-hidden="true"></div>
+    <script>
+        const icons = {
+            seat: '<svg class="icon seat" viewBox="0 0 32 32"><path d="M9 5v12h15V5M9 10h15M7 18h19v5H7zM9 23v5m15-5v5"/></svg>',
+            revolver: '<svg class="icon revolver" viewBox="0 0 32 32"><path d="M4 14h14l4-4h6v6l-6 2h-7l-3 9H7l2-9H4zM14 18l-1 4m3-12v4m7-1h4"/></svg>',
+            pickup: '<svg class="icon pickup" viewBox="0 0 32 32"><path d="M8 5v11m5-9v9m5-7v8m5-6v7M8 13c-3-1-5 1-4 4l5 9c1 2 3 2 5 2h6c3 0 5-2 6-5l1-5c1-3-3-4-4-1"/></svg>'
+        };
+        function apply(kind, armed) {
+            const cue = document.getElementById('cue');
+            const valid = Object.prototype.hasOwnProperty.call(icons, kind) ? kind : 'pickup';
+            cue.dataset.kind = valid;
+            cue.classList.toggle('visible', !!kind);
+            cue.classList.toggle('armed', !!armed);
+        }
+        document.querySelector('#cue .badge').innerHTML = Object.values(icons).join('');
+        if (typeof Events !== 'undefined') {
+            Events.Subscribe('interaction:focus', apply);
+            Events.Call('pret');
+        } else {
+            document.body.classList.add('preview');
+            document.getElementById('gallery').innerHTML = ['seat', 'revolver', 'pickup']
+                .map(kind => `<div class="badge">${icons[kind]}</div>`).join('');
+        }
+    </script>
+</body>
+</html>

@@ -68,6 +68,7 @@ local suites = {
     "migrations",
     "intents",
     "accounts",
+    "boutique",
     "characters",
     "interactables",
     "liars_deck",

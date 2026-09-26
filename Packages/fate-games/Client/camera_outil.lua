@@ -35,7 +35,13 @@ end
 local function tete(c, visible)
     -- Assis, la tete reste cachee : posture.lua s'en occupe.
     if visible and c:GetValue("assis", false) then return end
-    if visible then c:UnHideBone("Head") else c:HideBone("Head") end
+    if visible then
+        c:UnHideBone("Head")
+        c:UnHideBone("Neck")
+    else
+        c:HideBone("Head")
+        c:HideBone("Neck")
+    end
 end
 
 local function appliquer()
@@ -53,18 +59,21 @@ local function appliquer()
             -- Sans retard de camera : on vise au pixel.
             c:SetSpringArmSettings(Vector(p.avant, p.cote, p.hauteur), 0, Vector(0, 0, 0), false)
             bras(0)
+            c:SetVisibility(false)
             tete(c, false)
         elseif vue == "epaule" then
             local e = reglage.epaule
             c:SetSpringArmSettings(Vector(0, 0, e.hauteur), e.bras, Vector(0, 0, 0), false)
             bras(e.bras, Vector(0, e.cote, e.dessus))
+            c:SetVisibility(true)
             tete(c, true)
         else
             local j = c:GetValue("camera_jeu", nil)
             if type(j) == "table" then
-                c:SetSpringArmSettings(Vector(j.x, j.y, j.z), j.bras)
+                c:SetSpringArmSettings(Vector(j.x, j.y, j.z), j.bras, Vector(0, 0, 0), j.retard ~= false)
                 bras(j.bras)
             end
+            c:SetVisibility(true)
             tete(c, true)
         end
     end)

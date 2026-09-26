@@ -15,12 +15,22 @@ return function(config, Journal, send_intent, cartes_cfg)
     -- Evenements relayes tels quels, sous leur nom court.
     local EVENTS = {
         "unseated", "started", "deal", "table_card", "turn", "cards_played",
-        "accuse", "reveal", "designated", "shoot", "eliminated",
+        "accuse", "reveal", "designated", "shoot_prepare", "gun_ready",
+        "gun_cancelled", "shoot", "eliminated",
         "round_ended", "match_ended", "refused",
     }
     for _, name in ipairs(EVENTS) do
         Events.SubscribeRemote("liars:" .. name, function(...)
             journal:On(name, ...)
+            if name == "shoot_prepare" and select(1, ...) == journal.my_chair then
+                Events.Call("liars:gun_state", "preparing")
+            elseif name == "gun_ready" and select(1, ...) == journal.my_chair then
+                Events.Call("liars:gun_state", "ready")
+            elseif name == "shoot" or name == "gun_cancelled"
+                or name == "round_ended" or name == "match_ended"
+                or name == "unseated" then
+                Events.Call("liars:gun_state", nil)
+            end
         end)
     end
 
@@ -33,6 +43,9 @@ return function(config, Journal, send_intent, cartes_cfg)
 
     Events.SubscribeRemote("zix:intent_result", function(name, ok, detail)
         journal:On("intent_result", name, ok, detail)
+        if name == "liars_shoot" and not ok and journal.gun_ready then
+            Events.Call("liars:gun_state", "ready")
+        end
     end)
 
     -- Taper "/bots 3" ne doit pas poser de cartes.
@@ -79,6 +92,14 @@ return function(config, Journal, send_intent, cartes_cfg)
 
     Input.Subscribe("MouseDown", function(key_name)
         if chat_ouvert or outil_atelier.actif or key_name ~= "LeftMouseButton" then return end
+        if journal.designated == journal.my_chair and journal.designated ~= nil then
+            if journal.gun_ready then
+                journal.gun_ready = false -- evite deux intentions sur un double clic
+                Events.Call("liars:gun_state", "preparing")
+                send_intent("liars_shoot", {})
+            end
+            return false
+        end
         if not journal:IsMyTurn() or not journal.cursor then return end
         journal:ToggleCursor()
         return false
