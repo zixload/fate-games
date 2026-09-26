@@ -181,7 +181,21 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
     local function relever_personnage(player)
         if not player or player.bot then return end
-        Characters.Stand(player:GetID())
+        local player_id = player:GetID()
+        local session = Characters.SessionByPlayer(player_id)
+        local character = session and session.character
+        if character and character:IsValid() then
+            -- La chute fatale reste volontairement sur sa derniere image pendant
+            -- la partie. Il faut retirer ce montage avant de repasser debout :
+            -- Assis=false dans l'Animation Blueprint ne suffit pas a l'ecraser.
+            if character:GetValue("liars_dead", false) and character:IsA(CharacterSimple) then
+                local ok, err = pcall(function() character:StopAnimation(ANIMATIONS.fatal) end)
+                if not ok then Log.Warn("liars", "arret de la chute fatale : " .. tostring(err)) end
+            end
+            character:SetValue("liars_dead", false, true)
+            character:SetValue("liars_alive", false, true)
+        end
+        return Characters.Stand(player_id)
     end
 
     -- Le personnage qui occupe une place : le corps d'un bot, sinon celui du
@@ -652,9 +666,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         -- Tout le monde se leve. Sous pcall, apres la remise a zero : un
         -- personnage qui refuse de se relever ne doit pas bloquer la table.
         for _, p in ipairs(a_relever) do
-            local ok, err = pcall(relever_personnage, p)
+            local ok, releve_ou_err = pcall(relever_personnage, p)
             if not ok then
-                Log.Error("liars", "relever un joueur a echoue : " .. tostring(err))
+                Log.Error("liars", "relever un joueur a echoue : " .. tostring(releve_ou_err))
+            elseif not p.bot and not releve_ou_err then
+                Log.Warn("liars", "joueur non releve a la fin de partie : " .. tostring(p:GetID()))
             end
             if not p.bot then
                 pcall(Events.CallRemote, "liars:salon", p, Reliability.Reliable, nil)
