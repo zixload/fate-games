@@ -71,6 +71,7 @@ return function(Log, Characters, Engine, Roles, Match, config)
     local salon = { ordre = {}, pret = {}, createur = nil, max = 10, debat = 180,
         compo = Roles.par_defaut(6), centre = nil }
     local bots = {}          -- id negatif -> { nom, corps }
+    local memoires = {}      -- id de bot -> ce qu'il retient (bots.lua)
     local prochain_bot = -1
 
     local function rng(k) return math.random(k) end
@@ -144,6 +145,7 @@ return function(Log, Characters, Engine, Roles, Match, config)
         for _, id in ipairs(salon.ordre) do ids[#ids + 1] = id end
         if #ids > salon.max then return diffuser("ww:annonce", "Trop de joueurs pour cette partie.") end
         s = Engine.nouveau({ debat = salon.debat })
+        memoires = {}
         local fx, raison = Engine.demarrer(s, ids, salon.compo, rng)
         if not fx then
             salon.pret = {}
@@ -244,44 +246,21 @@ return function(Log, Characters, Engine, Roles, Match, config)
 
     ---------------------------------------------------------------- bots de test
 
-    -- Un bot qui peut agir dans cette phase designe une cible au hasard,
-    -- quelques secondes apres son debut (Cupidon deux fois).
-    local function cibles(bot, phase)
-        local m = s.match
-        local out = {}
-        for _, id in ipairs(Match.vivants(m)) do
-            local ok = id ~= bot
-            if phase == "night_wolves" then ok = ok and not Match.est_loup(m, id) end
-            if phase == "night_white_wolf" then ok = ok and Match.est_loup(m, id) end
-            if phase == "night_guard" then ok = id ~= s.protege_avant end
-            if phase == "night_cupid" then ok = true end
-            if ok then out[#out + 1] = id end
-        end
-        return out
-    end
-
-    local QUI = { night_wolves = { wolf = true, white_wolf = true }, night_white_wolf = { white_wolf = true },
-        night_guard = { guard = true }, night_seer = { seer = true }, night_cupid = { cupid = true },
-        day_vote = "tous", day_mayor = "tous", hunter_shot = { hunter = true }, mayor_succession = "maire" }
+    -- Les bots jouent avec bots.lua (le meme cerveau que les parties simulees
+    -- des tests), quelques secondes apres le debut de chaque phase.
+    local Bots = Package.Require("games/werewolf/bots.lua")(Match)
 
     local function faire_jouer_bots(phase)
-        local qui = QUI[phase]
-        if not qui then return end
         for id in pairs(bots) do
-            local role = Match.role(s.match, id)
-            local vivant = Match.vivant(s.match, id)
-            local actif = (qui == "tous" and vivant) or (qui == "maire" and s.ancien_maire == id)
-                or (type(qui) == "table" and qui[role] and (vivant or (phase == "hunter_shot" and s.tireur == id)))
-            if actif then
-                for coup = 1, phase == "night_cupid" and 2 or 1 do
-                    Timer.SetTimeout(function()
-                        if s.statut ~= "partie" or Engine.phase(s) ~= phase then return end
-                        local c = cibles(id, phase)
-                        if #c == 0 then return end
-                        local fx = Engine.designer(s, id, c[math.random(#c)])
-                        if fx then A.Appliquer(fx) end
-                    end, math.random(2000, 6000) + coup * 700)
-                end
+            for coup = 1, Bots.coups(s, id) do
+                Timer.SetTimeout(function()
+                    if s.statut ~= "partie" or Engine.phase(s) ~= phase then return end
+                    memoires[id] = memoires[id] or {}
+                    local cible = Bots.choisir(s, id, rng, memoires[id])
+                    if not cible then return end
+                    local fx = Engine.designer(s, id, cible)
+                    if fx then A.Appliquer(fx) end
+                end, math.random(2000, 6000) + coup * 900)
             end
         end
     end

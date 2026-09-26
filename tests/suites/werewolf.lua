@@ -233,6 +233,56 @@ return function(H)
             H.assert_eq(s.maire, heritier, "nouveau maire")
         end)
 
+        H.it("200 parties jouees par les bots se terminent, sans fuite de role", function()
+            local Bots = Package.Require("games/werewolf/bots.lua")(Match)
+            local function lcg(graine)
+                local x = graine
+                return function(k)
+                    x = (x * 1103515245 + 12345) % 2147483648
+                    return (x // 65536) % k + 1
+                end
+            end
+            local function prives(liste)
+                for _, e in ipairs(liste or {}) do
+                    if e.kind == "assign_role" or e.kind == "lovers" then H.assert_eq(e.audience, e.player, "role prive") end
+                    if e.kind == "reveal" then H.assert_eq(e.audience, e.viewer, "vision privee") end
+                end
+            end
+            local gagnants = {}
+            for graine = 1, 200 do
+                local rng = lcg(graine)
+                local n = math.min(12, 3 + rng(10))
+                local c
+                for _ = 1, 60 do
+                    c = { wolf = rng(4), white_wolf = rng(2) - 1, seer = rng(2) - 1,
+                        hunter = rng(2) - 1, guard = rng(2) - 1, cupid = rng(2) - 1 }
+                    if Match.valider(c, n) then break end
+                    c = nil
+                end
+                c = c or Roles.par_defaut(n)
+                local s = Engine.nouveau()
+                prives(assert(Engine.demarrer(s, ids(n), c, rng)))
+                local memoires, pas = {}, 0
+                while s.statut == "partie" and pas < 5000 do
+                    pas = pas + 1
+                    for _, id in ipairs(s.match.ordre) do
+                        for _ = 1, Bots.coups(s, id) do
+                            if s.statut == "partie" and rng(3) == 1 then
+                                memoires[id] = memoires[id] or {}
+                                local cible = Bots.choisir(s, id, rng, memoires[id])
+                                if cible then prives(Engine.designer(s, id, cible)) end
+                            end
+                        end
+                    end
+                    prives(Engine.avancer(s, 5))
+                end
+                H.assert_eq(s.statut, "finie", "partie " .. graine .. " terminee")
+                local fin = s.match and true
+                if fin then gagnants[#gagnants + 1] = graine end
+            end
+            H.assert_eq(#gagnants, 200, "toutes jouees")
+        end)
+
         H.it("un depart sous le minimum arrete la partie sans vainqueur", function()
             local s = partie(4)
             local fx = Engine.depart(s, villageois(s))
