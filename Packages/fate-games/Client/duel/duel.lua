@@ -130,11 +130,17 @@ return function(SharedConfig)
     -- donc un modele de son arme pose devant sa camera ; les autres voient
     -- celle que le serveur met dans la main (et on cache celle-la chez soi).
     local vue_arme, vue_id, recul = nil, nil, 0
+    -- Position de la camera dans le repere du personnage (mesuree a l'arret),
+    -- et balancement lisse qui suit la vitesse.
+    local camera_locale, stable, balance = nil, 0, Vector(0, 0, 0)
 
     local function retirer_vue_arme()
         if vue_arme and vue_arme:IsValid() then vue_arme:Destroy() end
         vue_arme, vue_id = nil, nil
+        camera_locale, stable, balance = nil, 0, Vector(0, 0, 0)
     end
+
+    local function angle(a) return (a + 180) % 360 - 180 end
 
     local function poser_vue_arme(id)
         if vue_id == id and vue_arme and vue_arme:IsValid() then return end
@@ -180,16 +186,40 @@ return function(SharedConfig)
         if not combat then
             if vue_arme then retirer_vue_arme(); masquer_soi(false) end
         else
-            if not vue_arme or vue_id ~= d.arme then poser_vue_arme(d.arme); masquer_soi(true) end
+            if not vue_arme or vue_id ~= d.arme then
+                poser_vue_arme(d.arme); masquer_soi(true)
+                -- Accrochee au personnage : elle bouge dans la meme image que lui.
+                -- Placee d'apres la camera, elle avait une image de retard et
+                -- saccadait en marchant.
+                if vue_arme and vue_arme:IsValid() then
+                    -- KeepWorld : elle garde sa taille reelle (le personnage est a 0,8).
+                    pcall(function() vue_arme:AttachTo(perso, AttachmentRule.KeepWorld, "", -1, false) end)
+                end
+            end
             if vue_arme and vue_arme:IsValid() then
                 local p = Client.GetLocalPlayer()
                 local loc, rot = p:GetCameraLocation(), p:GetCameraRotation()
+                local prot = perso:GetRotation()
+                local vitesse = prot:UnrotateVector(perso:GetVelocity())
+                -- La camera ne bouge pas par rapport au personnage (bras nul) :
+                -- on la mesure une fois a l'arret, ou la mesure est exacte.
+                local vx, vy = vitesse.X, vitesse.Y
+                if vx * vx + vy * vy < 25 then stable = stable + 1 else stable = 0 end
+                if not camera_locale or stable == 8 then
+                    camera_locale = prot:UnrotateVector(loc - perso:GetLocation())
+                end
                 recul = math.max(0, recul - delta * 1000 / (vm.retour_ms or 90) * (vm.recul or 6))
-                local pos = loc + rot:GetForwardVector() * ((vm.avant or 38) - recul)
-                    + rot:GetRightVector() * (vm.droite or 16) - rot:GetUpVector() * (vm.bas or 15)
+                local k = math.min(1, delta * (vm.lissage or 8))
+                local voulu = Vector(-vitesse.X, -vitesse.Y, -vitesse.Z) * (vm.balancement or 0.006)
+                balance = balance + (voulu - balance) * k
+                local visee = Rotator(rot.Pitch, angle(rot.Yaw - prot.Yaw), 0)
+                local decalage = visee:RotateVector(Vector((vm.avant or 38) - recul, vm.droite or 16, -(vm.bas or 15)))
                 local r = vm.rotation or { p = 0, y = 180, r = 0 }
-                vue_arme:SetLocation(pos)
-                vue_arme:SetRotation(Rotator(rot.Pitch + r.p, rot.Yaw + r.y, rot.Roll + r.r))
+                -- Le decalage relatif est dans le repere du personnage, donc a son echelle.
+                local s = perso:GetScale().X
+                if not s or s == 0 then s = 1 end
+                vue_arme:SetRelativeLocation((camera_locale + decalage + balance) * (1 / s))
+                vue_arme:SetRelativeRotation(Rotator(visee.Pitch + r.p, visee.Yaw + r.y, r.r))
             end
         end
 

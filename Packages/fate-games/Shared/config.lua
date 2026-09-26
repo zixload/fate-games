@@ -21,6 +21,9 @@ return {
         rotation = { p = 0, y = 180, r = 0 },
         recul = 6, retour_ms = 90,
         recul_camera = 1.4,           -- degres de tangage par tir
+        -- Inertie en marchant : l'arme glisse a l'oppose du mouvement
+        -- (cm par cm/s) puis revient, lissee.
+        balancement = 0.006, lissage = 8,
     },
 
     -- Trainee d'un tir de duel : longueur du trait (cm), ecart depuis le canon,
