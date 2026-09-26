@@ -93,7 +93,13 @@ return {
     -- Sons de Liar's Bar (Client/liars_bar/sons.lua), fichiers de
     -- Client/Sounds/ (hors depot). menteur : crie a chaque accusation ; vide
     -- tant que le fichier n'est pas la (un mp3 se convertit en ogg).
-    liars_sons = { menteur = "", volume_menteur = 0.9 },
+    -- musique : jouee en boucle tant qu'on est assis a la table (salon et
+    -- partie), tres bas, en fondu (secondes).
+    liars_sons = {
+        menteur = "", volume_menteur = 0.9,
+        musique = "musique_liars.ogg", volume_musique = 0.08,
+        fondu_entree = 4, fondu_sortie = 3,
+    },
 
     -- Roue d'emotes (Client/emotes.lua, Server/domain/emotes.lua). touche ouvre
     -- la roue, puis 1, 2 ou 3 : noms de la doc Input en QWERTY, en AZERTY (le
