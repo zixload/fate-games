@@ -53,18 +53,24 @@ return function(config)
         return out
     end
 
-    -- Fente i sur n de l'eventail, dans le repere du pivot. Les cartes
-    -- s'ouvrent en arc autour de l'axe Y (le tangage) ; celle du milieu est
-    -- droite. La levee eloigne la carte le long de son propre axe.
+    -- Fente i sur n de l'eventail, dans le repere du pivot. Une carte du FBX
+    -- est a plat dans son plan XY, face vers +Z (posee sans rotation sur la
+    -- table, elle montre sa face), sa hauteur le long de X. Comme dans une
+    -- vraie main, les cartes tournent donc dans leur plan (lacet, autour de
+    -- Z) autour d'un point commun, le pivot, et s'empilent le long de Z sans
+    -- se traverser. rayon : du pivot au centre de la carte ; a la moitie de
+    -- sa hauteur, les bases se rejoignent. La levee eloigne la carte du pivot.
+    -- La carte du milieu reste a l'origine du support : le reglage de
+    -- position (/fan pos) la place, l'eventail s'ouvre autour d'elle.
     function Cartes.Fente(n, i, fan, levee)
         local angle = (i - (n + 1) / 2) * fan.ecart
         local rad   = math.rad(angle)
         local r     = fan.rayon + (levee or 0)
         return {
-            x     = math.sin(rad) * r,
-            y     = (i - 1) * fan.profondeur,
-            z     = math.cos(rad) * r - fan.rayon,
-            pitch = -angle,
+            x   = math.cos(rad) * r - fan.rayon,
+            y   = math.sin(rad) * r,
+            z   = (i - 1) * fan.profondeur,
+            yaw = angle,
         }
     end
 
