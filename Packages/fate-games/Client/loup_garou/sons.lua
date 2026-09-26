@@ -151,11 +151,37 @@ return function(config)
         if gagnant == "wolves" or gagnant == "white_wolf" then jouer("lg_hurlement") else jouer("lg_victoire") end
     end)
 
-    -- /lg son <nom> : jouer un son a la main, pour verifier (ex. /lg son lg_cloche).
+    -- /lg son <nom> [3d] [volume] : jouer un son a la main et afficher dans le
+    -- chat ce que le moteur en dit (duree lue, en train de jouer ou non).
+    -- 3d : pose le son a la camera au lieu d'un son 2D.
+    local function diagnostiquer(nom, en3d, volume)
+        local ok, son = pcall(function()
+            if en3d then
+                local p = Client.GetLocalPlayer()
+                return Sound(p:GetCameraLocation(), DOSSIER .. nom .. ".ogg", false, false, SoundType.SFX,
+                    volume, 1, 400, 3600)
+            end
+            return Sound(Vector(), DOSSIER .. nom .. ".ogg", true, false, SoundType.SFX, volume, 1)
+        end)
+        if not ok then return Chat.AddMessage("son " .. nom .. " : erreur " .. tostring(son)) end
+        local function etat_son(quand)
+            if not son:IsValid() then return Chat.AddMessage("son " .. nom .. " " .. quand .. " : detruit") end
+            local texte = "son " .. nom .. (en3d and " 3d" or " 2d") .. " vol " .. volume .. " " .. quand
+                .. " : duree " .. tostring(son:GetDuration()) .. " joue " .. tostring(son:IsPlaying())
+            Chat.AddMessage(texte)
+            Console.Log("[loup-garou sons] " .. texte)
+        end
+        etat_son("0 ms")
+        Timer.SetTimeout(function() etat_son("500 ms") end, 500)
+        Timer.SetTimeout(function() if son:IsValid() then son:Destroy() end end, 15000)
+    end
+
     Chat.Subscribe("PlayerSubmit", function(message)
-        local nom = tostring(message):match("^/lg son%s+(%S+)")
+        local nom, reste = tostring(message):match("^/lg son%s+(%S+)%s*(.*)$")
         if not nom then return end
-        jouer(nom)
+        local en3d = reste:find("3d") ~= nil
+        local volume = tonumber(reste:match("([%d%.]+)%s*$")) or VOLUMES.sons
+        diagnostiquer(nom, en3d, volume)
         return false
     end)
 
