@@ -223,7 +223,7 @@ return {
             rayon      = 5,     -- du pivot (bas commun) au centre d'une carte :
                                 -- la moitie de sa hauteur, les bases se touchent
             taille     = 0.035, -- le FBX est en pouces : 254 cm de haut, ramene a ~9 cm
-            levee      = 3,     -- carte choisie
+            levee      = 4.5,   -- carte choisie (3 : pas assez, 26/09)
             curseur    = 1.5,   -- carte sous le curseur
             profondeur = 0.15,  -- empilement le long de la face, contre le scintillement
         },
@@ -235,10 +235,10 @@ return {
             -- /fan face 0 0 -90.
             dos        = { p = 0, y = 0, r = -90 },   -- carte face cachee
             face       = { p = 0, y = 0, r = 90 },    -- carte revelee
-            echelle    = 1.8,   -- taille des cartes posees, par rapport a la main
+            echelle    = 2.1,   -- taille des cartes posees, par rapport a la main (1,8 : un peu petit)
             epaisseur  = 0.3,   -- entre deux cartes du tas
-            dispersion = 6,     -- desordre autour du tas
-            ecart_revelation = 11, -- entre deux cartes revelees (une carte fait 5 cm x echelle)
+            dispersion = 7,     -- desordre autour du tas
+            ecart_revelation = 14, -- entre deux cartes revelees (une carte fait 5,9 cm x echelle)
         },
     },
 
