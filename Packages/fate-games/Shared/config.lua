@@ -88,6 +88,9 @@ return {
         -- propre barillet s'affiche en haut de l'ecran.
         cone_menteur = 12,
         tangage_barillet = 14,
+        -- Revolver de celui qui doit tirer (liars_bar/surbrillance.lua) :
+        -- couleur laiton, intensite (x5 et plus : ca brille, doc Client), slot.
+        surbrillance = { couleur = { r = 1.0, g = 0.72, b = 0.25 }, intensite = 3, index = 1 },
     },
 
     -- Sons de Liar's Bar (Client/liars_bar/sons.lua), fichiers de

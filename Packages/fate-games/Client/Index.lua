@@ -66,6 +66,12 @@ local ok_tags, err_tags = pcall(function()
 end)
 if not ok_tags then Console.Error("[etiquettes] chargement impossible : " .. tostring(err_tags)) end
 
+-- Le revolver de celui qui doit tirer, en surbrillance chez tous.
+local ok_surb, err_surb = pcall(function()
+    Package.Require("liars_bar/surbrillance.lua")(SharedConfig.liars_hud.surbrillance)
+end)
+if not ok_surb then Console.Error("[surbrillance] chargement impossible : " .. tostring(err_surb)) end
+
 -- Salon d'avant-partie : pret, mise, qui est assis.
 local ok_salon, err_salon = pcall(function()
     Package.Require("liars_bar/salon.lua")()
