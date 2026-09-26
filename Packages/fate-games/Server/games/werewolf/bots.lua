@@ -51,7 +51,7 @@ return function(Match)
     end
 
     -- memoire : une table par bot, gardee d'un appel a l'autre ({ vus = {} }).
-    function B.choisir(s, id, rng, memoire)
+    local function choisir(s, id, rng, memoire)
         local m, phase = s.match, s.phase
         memoire.vus = memoire.vus or {}
         local vivants = Match.vivants(m)
@@ -106,6 +106,17 @@ return function(Match)
         else
             return au_hasard(autres(), rng)
         end
+    end
+
+    -- Redesigner sa cible actuelle retirerait son vote (engine.lua) : un bot
+    -- deja d'accord avec son choix ne fait rien.
+    function B.choisir(s, id, rng, memoire)
+        local cible = choisir(s, id, rng, memoire)
+        local phase = s.phase
+        local urne = (phase == "day_debate" or phase == "day_vote") and s.vote_jour
+            or ((phase == "night_wolves" or phase == "day_mayor") and s.bulletin) or nil
+        if cible and urne and urne.choix and urne.choix[id] == cible then return nil end
+        return cible
     end
 
     return B

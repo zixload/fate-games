@@ -775,6 +775,13 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             geste(e.player, GESTES.vote)
             local phase = Engine.phase(s)
             if phase == "day_debate" or phase == "day_vote" then choix_jour[e.player] = e.target end
+        elseif e.audience == "all" then
+            -- Vote retire : la main se baisse tout de suite, plus de pointage.
+            choix_jour[e.player] = nil
+            if gestes[e.player] then
+                gestes[e.player] = nil
+                changer_pose(e.player, pose_actuelle(e.player))
+            end
         end
         local cible = e.target and id_personnage(e.target) or nil
         local nom_cible = e.target and nom(e.target) or nil

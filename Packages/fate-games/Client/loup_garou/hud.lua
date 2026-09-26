@@ -69,9 +69,9 @@ return function(config, Interaction)
         mayor_succession = { texte = "Le maire désigne son successeur", icone = "soleil", qui = "maire",
             invite = "lg_nommer", consigne = "Tu étais le maire : regarde un joueur et appuie sur [E] pour lui passer la médaille" },
         day_debate       = { texte = "Jour · Débat", icone = "soleil", qui = "tous",
-            invite = "lg_voter", consigne = "Débattez. Le vote est ouvert : regarde un joueur et appuie sur [E]" },
+            invite = "lg_voter", consigne = "Débattez. Le vote est ouvert : regarde un joueur et appuie sur [E] (encore [E] pour retirer)" },
         day_vote         = { texte = "Jour · Le village vote", icone = "soleil", qui = "tous",
-            invite = "lg_voter", consigne = "Regarde un joueur et appuie sur [E] pour voter contre lui" },
+            invite = "lg_voter", consigne = "Regarde un joueur et appuie sur [E] pour voter contre lui (encore [E] pour retirer)" },
         execution        = { texte = "Jour · Exécution", icone = "soleil" },
     }
     local LARGEUR_INVITE = { lg_designer = 196, lg_voter = 170, lg_proteger = 192, lg_lier = 150, lg_tirer = 158,

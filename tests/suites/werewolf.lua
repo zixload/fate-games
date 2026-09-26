@@ -327,6 +327,23 @@ return function(H)
             H.assert_eq(Voting.votants(s.vote_jour), 1, "le vote du debat compte toujours")
         end)
 
+        H.it("revoter la meme personne retire son vote", function()
+            local s = partie(5)
+            local loup = Match.loups_vivants(s.match)[1]
+            Engine.designer(s, loup, villageois(s))
+            jusqua(s, "day_debate")
+            local cible = villageois(s)
+            Engine.designer(s, loup, cible)
+            H.assert_eq(Voting.votants(s.vote_jour), 1, "vote pose")
+            local fx = Engine.designer(s, loup, cible)
+            H.assert_eq(Voting.votants(s.vote_jour), 0, "vote retire")
+            local pointe
+            for _, e in ipairs(fx) do if e.kind == "point_at" then pointe = e end end
+            H.assert_true(pointe ~= nil and pointe.target == nil, "les autres voient le vote retire")
+            Engine.designer(s, loup, cible)
+            H.assert_eq(Voting.votants(s.vote_jour), 1, "et on peut revoter")
+        end)
+
         H.it("un depart sous le minimum arrete la partie sans vainqueur", function()
             local s = partie(4)
             local fx = Engine.depart(s, villageois(s))

@@ -256,6 +256,17 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
 
     -- Une designation, selon la phase : vote, cible des loups, protection,
     -- vision, lien ou tir. Rend les effets, ou nil et la raison du refus.
+    -- Un vote : designer la meme cible une deuxieme fois retire son vote.
+    -- Rend vrai si le vote est pose, faux s'il est retire.
+    local function voter(b, acteur, cible)
+        if Voting.choix(b, acteur) == cible then
+            Voting.designer(b, acteur, nil)
+            return false
+        end
+        Voting.designer(b, acteur, cible)
+        return true
+    end
+
     function Engine.designer(s, acteur, cible)
         if s.statut ~= "partie" then return nil, "aucune_partie" end
         local m, id = s.match, s.phase
@@ -269,10 +280,10 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         local fx = {}
         if id == "night_wolves" then
             if not Match.est_loup(m, acteur) or Match.est_loup(m, cible) then return nil, "interdit" end
-            Voting.designer(s.bulletin, acteur, cible)
+            local pose = voter(s.bulletin, acteur, cible)
             fx[#fx + 1] = Effects.votes(Voting.compte(s.bulletin), "wolves")
-            fx[#fx + 1] = Effects.point_at(acteur, cible, "wolves")
-            if Voting.votants(s.bulletin) >= #Match.loups_vivants(m) then presser(s, fx) end
+            fx[#fx + 1] = Effects.point_at(acteur, pose and cible or nil, "wolves")
+            if pose and Voting.votants(s.bulletin) >= #Match.loups_vivants(m) then presser(s, fx) end
         elseif id == "night_guard" then
             if role ~= "guard" or cible == s.protege_avant then return nil, "interdit" end
             s.protege = cible
@@ -314,15 +325,15 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         elseif id == "day_vote" or id == "day_debate" then
             -- Le vote du village s'ouvre des le debat ; il se clot a la fin du vote.
             if cible == acteur then return nil, "interdit" end
-            Voting.designer(s.vote_jour, acteur, cible)
+            local pose = voter(s.vote_jour, acteur, cible)
             fx[#fx + 1] = Effects.votes(Voting.compte(s.vote_jour, poids_maire(s)), "all")
-            fx[#fx + 1] = Effects.point_at(acteur, cible, "all")
-            if id == "day_vote" and Voting.votants(s.vote_jour) >= #Match.vivants(m) then presser(s, fx) end
+            fx[#fx + 1] = Effects.point_at(acteur, pose and cible or nil, "all")
+            if pose and id == "day_vote" and Voting.votants(s.vote_jour) >= #Match.vivants(m) then presser(s, fx) end
         elseif id == "day_mayor" then
-            Voting.designer(s.bulletin, acteur, cible)
+            local pose = voter(s.bulletin, acteur, cible)
             fx[#fx + 1] = Effects.votes(Voting.compte(s.bulletin), "all")
-            fx[#fx + 1] = Effects.point_at(acteur, cible, "all")
-            if Voting.votants(s.bulletin) >= #Match.vivants(m) then presser(s, fx) end
+            fx[#fx + 1] = Effects.point_at(acteur, pose and cible or nil, "all")
+            if pose and Voting.votants(s.bulletin) >= #Match.vivants(m) then presser(s, fx) end
         elseif succession then
             if cible == acteur then return nil, "interdit" end
             s.maire = cible
