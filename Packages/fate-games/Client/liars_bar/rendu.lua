@@ -265,21 +265,39 @@ return function(config, Cartes, journal, disposition)
         if nouvelle then faire_venir(ma_main.cartes) end
     end
 
+    -- Les mains a dessiner chez les autres : chaise -> nombre de cartes. En
+    -- demo (hors partie), chaque chaise occupee recoit une main complete.
+    local function mains_des_autres()
+        if not demo or next(journal.counts) then return journal.counts end
+        local mains = {}
+        for _, classe in ipairs({ CharacterSimple, Character }) do
+            for _, c in pairs(classe.GetPairs()) do
+                local chaise = c:IsValid() and c:GetValue("liars_chair", 0) or 0
+                if chaise > 0 then mains[chaise] = #DEMO_MAIN end
+            end
+        end
+        return mains
+    end
+
     local function maj_autres()
         local vues = {}
-        for chaise, nombre in pairs(journal.counts) do
+        for chaise, nombre in pairs(mains_des_autres()) do
             if chaise ~= journal.my_chair and nombre > 0 then
                 local perso = personnage_de_chaise(chaise)
                 if perso then
                     vues[chaise] = true
-                    local cle = ("%d|%d|%s"):format(perso:GetID(), nombre, tostring(Rendu.reglage))
+                    local cle = ("%d|%d|%s|%s"):format(perso:GetID(), nombre, tostring(Rendu.reglage), tostring(demo))
                     local groupe = autres[chaise] or { objets = {}, cartes = {}, cle = nil, nombre = 0 }
                     if groupe.cle ~= cle then
                         local nouvelle = (groupe.nombre or 0) == 0
                         detruire(groupe.objets)
-                        local dos = {}
-                        for i = 1, nombre do dos[i] = config.back_mesh end
-                        groupe.objets, groupe.cartes = eventail(perso, os_de(perso), dos, {})
+                        local modeles = {}
+                        for i = 1, nombre do
+                            -- En demo, des faces : on voit dans quel sens la carte tient.
+                            modeles[i] = demo and not next(journal.counts)
+                                and Cartes.Mesh(DEMO_MAIN[i] or "king", (i % 4) + 1) or config.back_mesh
+                        end
+                        groupe.objets, groupe.cartes = eventail(perso, os_de(perso), modeles, {})
                         groupe.cle, groupe.nombre = cle, nombre
                         if nouvelle then faire_venir(groupe.cartes) end
                     end

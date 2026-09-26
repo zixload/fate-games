@@ -55,7 +55,10 @@ return function(config, Rendu)
         if not cle then
             afficher()
         elseif cle == "demo" then
+            -- Le serveur assoit des bots sur toutes les chaises (mode dev) ; le
+            -- rendu leur donne un eventail de demonstration a chacun.
             Rendu.Demo(not Rendu.IsDemo())
+            Events.CallRemote("liars:fan_demo", Reliability.Reliable, Rendu.IsDemo())
             Chat.AddMessage("demo : " .. (Rendu.IsDemo() and "active" or "coupee"))
         elseif cle == "os" then
             if mots[3] then

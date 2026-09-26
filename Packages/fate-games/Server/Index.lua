@@ -401,6 +401,16 @@ do
     end
 end
 
+-- Demo de reglage des cartes (/fan demo, cote client) : bots sur toutes les
+-- chaises, en mode dev seulement.
+if ServerConfig.dev and ServerConfig.dev.liars_bots then
+    Events.SubscribeRemote("liars:fan_demo", function(player, actif)
+        local ok, detail = LiarsBar.DemoCartes(actif == true)
+        Chat.SendMessage(player, ok and (actif and ("demo : %d bot(s) assis"):format(detail) or "demo : bots partis")
+            or ("demo impossible : " .. tostring(detail)))
+    end)
+end
+
 -- Se lever de sa chaise hors partie, par la touche du client. Le verdict
 -- (refus en partie) reste a Liar's Bar.
 Events.SubscribeRemote("liars:lever", function(player)

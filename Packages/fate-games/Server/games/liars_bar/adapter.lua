@@ -1000,6 +1000,21 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
     -- Fixe le nombre de bots assis : on retire ceux qui sont la, puis on en
     -- assoit n aux chaises libres, par ordre croissant. Hors partie seulement.
+    -- Demo de reglage des cartes (/fan demo) : des bots sur toutes les chaises
+    -- libres, en pose "cartes en main", pour verifier chaque place. Hors partie.
+    function Adapter.DemoCartes(actif)
+        local ok, detail = Adapter.SetBots(actif and #config.layout.chairs or 0)
+        if not ok then return ok, detail end
+        if actif then
+            for _, entry in ipairs(seated) do
+                if entry.bot and entry.body and entry.body:IsValid() then
+                    entry.body:SetValue("cartes", true, true)
+                end
+            end
+        end
+        return true, detail
+    end
+
     function Adapter.SetBots(n)
         if state then return false, "partie_en_cours" end
         if debug_body then Adapter.StopPoseBot() end
