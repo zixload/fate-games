@@ -41,10 +41,15 @@ return function(config)
         end
         local ok, objet = pcall(function()
             if MODELE then
-                local o = StaticMesh(Vector(c.x, c.y, c.z - 0.3), Rotator(0, (c.yaw or 0) + TOURNER + 90, 0),
-                    MODELE, CollisionType.NoCollision)
+                -- Taille mesuree plutot que supposee : l'import a pu lire les
+                -- metres du FBX comme des centimetres (carte de 1,5 mm).
+                local o = StaticMesh(Vector(c.x, c.y, c.z - 0.3), Rotator(0, 0, 0), MODELE, CollisionType.NoCollision)
                 local k = LARGEUR / 10
+                local ok_b, b = pcall(function() return o:GetBounds() end)
+                local e = ok_b and b and b.BoxExtent
+                if e and math.max(e.X, e.Y) > 0.0001 then k = HAUTEUR / (2 * math.max(e.X, e.Y)) end
                 o:SetScale(Vector(k, k, k))
+                o:SetRotation(Rotator(0, (c.yaw or 0) + TOURNER + 90, 0))
                 return o
             end
             local o = StaticMesh(Vector(c.x, c.y, c.z), Rotator(0, (c.yaw or 0) + TOURNER, 0),
