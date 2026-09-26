@@ -470,21 +470,30 @@ return function(config, Interaction)
     end
 
     -- Les votants d'un joueur, "(Moi)" compris, tries ; au-dela de 5, "+n".
+    -- Chacun : { nom, maire } (la voix du maire compte double).
     local function votants_de(id, mon_id, noms)
-        local out, moi = {}, false
+        local out, moi = {}, nil
         for votant, choix in pairs(etat.choix) do
             if choix.id == id then
-                if votant == mon_id then moi = true else out[#out + 1] = noms[votant] or "?" end
+                local v = { nom = votant == mon_id and "(Moi)" or (noms[votant] or "?"), maire = votant == etat.maire }
+                if votant == mon_id then moi = v else out[#out + 1] = v end
             end
         end
-        table.sort(out)
-        if moi then table.insert(out, 1, "(Moi)") end
+        table.sort(out, function(a, b) return a.nom < b.nom end)
+        if moi then table.insert(out, 1, moi) end
         if #out > 5 then
             local reste = #out - 4
             for k = #out, 5, -1 do out[k] = nil end
-            out[5] = "+" .. reste
+            out[5] = { nom = "+" .. reste }
         end
         return out
+    end
+
+    -- Une ligne de votant : "> Nom", et la medaille si c'est le maire.
+    local function ligne_votant(c, v, x, y, s)
+        local h, l = Pseudo.Dessiner(c, "> " .. v.nom, x, y, s, ROUGE)
+        if v.maire then sprite(c, "lg_maire", x + (l or 0) / 2 + 14 * s, y - h * 0.55, 56, 60, 0.42 * s) end
+        return h
     end
 
     local function dessiner(c, largeur, hauteur)
@@ -553,8 +562,8 @@ return function(config, Interaction)
                 y = y - h - 6 * e.s
             end
             -- Ceux qui votent contre lui, juste au-dessus de son compteur.
-            for _, nom in ipairs(votants_de(id, mon_id, noms)) do
-                local h = Pseudo.Dessiner(c, "> " .. nom, e.x, y - 2 * e.s, 0.75 * e.s, ROUGE)
+            for _, v in ipairs(votants_de(id, mon_id, noms)) do
+                local h = ligne_votant(c, v, e.x, y - 2 * e.s, 0.75 * e.s)
                 y = y - h - 3 * e.s
             end
             -- Les marques cote a cote : loup allie, amoureux, maire.
@@ -583,8 +592,8 @@ return function(config, Interaction)
             Pseudo.Dessiner(c, etat.phase == "day_mayor" and "pour toi" or "contre toi", x + 104, y + 14, 1)
             -- Et qui : sous le compteur.
             local ligne = y + 58
-            for _, nom in ipairs(votants_de(mon_id, mon_id, noms)) do
-                ligne = ligne + Pseudo.Dessiner(c, "> " .. nom, largeur / 2, ligne, 0.8, ROUGE) + 4
+            for _, v in ipairs(votants_de(mon_id, mon_id, noms)) do
+                ligne = ligne + ligne_votant(c, v, largeur / 2, ligne, 0.8) + 4
             end
         end
     end

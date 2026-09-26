@@ -30,7 +30,7 @@ local Pseudo = {}
 -- Un pseudo centre sur x, pose sur la ligne y (son bas), a l'echelle s.
 -- style (facultatif) : { couleur = Color, penche = degres } ; la planche est
 -- une image, l'italique se fait en penchant chaque lettre. Rend sa hauteur a
--- l'ecran.
+-- l'ecran, puis sa largeur.
 function Pseudo.Dessiner(c, texte, x, y, s, style)
     local gs = glyphes(tostring(texte or ""))
     if #gs == 0 then return 0 end
@@ -50,7 +50,7 @@ function Pseudo.Dessiner(c, texte, x, y, s, style)
             couleur, BlendMode.AlphaBlend, penche, Vector2D(0.5, 0.5))
         cx = cx + (g.a + ESPACE) * k
     end
-    return (Police.base + 10) * k
+    return (Police.base + 10) * k, largeur
 end
 
 return Pseudo
