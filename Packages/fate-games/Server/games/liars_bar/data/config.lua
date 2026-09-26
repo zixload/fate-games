@@ -20,7 +20,7 @@ return {
 
     -- Secondes entre la revelation des cartes d'un accuse et la designation
     -- du tireur : le temps de lire ce qu'il avait pose.
-    pause_revelation = 4.0,
+    pause_revelation = 1.5,   -- 4 : trop long avant de pouvoir prendre le revolver (26/09)
     bonus_participation = 10,
 
     -- chambres du barillet ; une seule balle, position tiree au hasard
