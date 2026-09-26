@@ -720,7 +720,14 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     }
 
     local ANNONCES = {
-        aube_morts = function(a) return "Au lever du jour, on découvre : " .. liste_noms(a.morts) .. "." end,
+        aube_morts = function(a)
+            -- Chaque mort avec son role, en couleur : "Pixel (Villageois)".
+            local t = {}
+            for _, id in ipairs(a.morts or {}) do
+                t[#t + 1] = ("%s (%s)"):format(nom(id), role_txt(s.match and Match.role(s.match, id)))
+            end
+            return "Au lever du jour, on découvre : " .. table.concat(t, ", ") .. "."
+        end,
         aube_personne = function() return "Personne n'est mort cette nuit." end,
         execution = function(a) return ("Le village élimine %s. C'était : %s."):format(nom(a.joueur), role_txt(a.role)) end,
         egalite = function() return "Égalité : le village ne tranche pas." end,
