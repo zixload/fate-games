@@ -151,7 +151,7 @@ return {
             carte      = { p = 0, y = 0, r = 0 },   -- carte, dans sa fente
             axe        = "y",   -- la face est traversee par Y (epaisseur 0,6 sur 142 x 254)
             coin       = -2.2,  -- pivot pres du bord gauche (demi-largeur d'une carte : 2,5)
-            sens       = 1,     -- sens de rotation (/fan sens pour l'inverser)
+            sens       = -1,    -- sens de rotation, valide en jeu le 26/09 (/fan sens)
             empilement = 1,     -- quelle carte passe devant (/fan empilement)
             ecart      = 20,    -- degres entre deux cartes, dans leur plan (12 : trop serre)
             rayon      = 5,     -- du pivot (bas commun) au centre d'une carte :
