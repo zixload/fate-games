@@ -11,6 +11,10 @@ return function(config)
     config = config or {}
     local LARGEUR, HAUTEUR = config.largeur or 60, config.hauteur or 90
     local TOURNER = config.tourner or 0          -- degres, si le dessin est de travers
+    -- La vraie carte (coins arrondis, epaisseur : scripts/blender/create_carte_role.py,
+    -- importee par scripts/unreal/import_decor_loup_garou.py), une fois cuite.
+    -- Elle mesure 10 x 15 cm, le dessin court le long de X : quart de tour.
+    local MODELE = config.modele3d and "my-asset-pack::SM_WW_RoleCard" or nil
     local IMG = "package://fate-games/Client/loup_garou/img/"
     local IMAGES = { wolf = "loup", white_wolf = "loup_blanc", villager = "villageois", seer = "voyante",
         hunter = "chasseur", guard = "gardien", cupid = "cupidon", witch = "sorciere" }
@@ -19,7 +23,8 @@ return function(config)
 
     local function texture(objet, image)
         pcall(function()
-            objet:SetMaterial("nanos-world::M_Default_Masked_Lit")
+            -- La vraie carte a ses materiaux (face avec un parametre Texture).
+            if not MODELE then objet:SetMaterial("nanos-world::M_Default_Masked_Lit") end
             objet:SetMaterialTextureParameter("Texture", IMG .. image .. ".png")
         end)
     end
@@ -35,6 +40,13 @@ return function(config)
             return
         end
         local ok, objet = pcall(function()
+            if MODELE then
+                local o = StaticMesh(Vector(c.x, c.y, c.z - 0.3), Rotator(0, (c.yaw or 0) + TOURNER + 90, 0),
+                    MODELE, CollisionType.NoCollision)
+                local k = LARGEUR / 10
+                o:SetScale(Vector(k, k, k))
+                return o
+            end
             local o = StaticMesh(Vector(c.x, c.y, c.z), Rotator(0, (c.yaw or 0) + TOURNER, 0),
                 "nanos-world::SM_Plane", CollisionType.NoCollision)
             -- Le dessin court en largeur le long de X et en hauteur le long de Y

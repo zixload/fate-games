@@ -117,7 +117,9 @@ return {
         portee = 1500, cone = 10,
         -- Cartes de role au sol (Client/loup_garou/cartes.lua), en cm ; tourner :
         -- degres a ajouter si le dessin apparait de travers.
-        cartes = { largeur = 32, hauteur = 48, tourner = 0 },   -- 60 x 90 : trop grandes
+        -- modele3d : la carte a coins arrondis et epaisseur (SM_WW_RoleCard),
+        -- a passer a true une fois importee et cuite ; sinon une carte plate.
+        cartes = { largeur = 32, hauteur = 48, tourner = 0, modele3d = false },   -- 60 x 90 : trop grandes
         -- Sons (Client/loup_garou/sons.lua, fichiers dans Client/Sounds/loup_garou/).
         sons = { volumes = { ambiance = 0.18, sons = 0.6, coeur = 0.35 } },
     },
