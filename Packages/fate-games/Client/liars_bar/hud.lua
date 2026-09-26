@@ -217,7 +217,11 @@ return function(config, Journal, send_intent, cartes_cfg)
     -- fois, vide, au chargement, et plus jamais.
     local canvas = Canvas(true, Color.TRANSPARENT, 0, true, true)
 
+    local photo = Package.Require("photo.lua")
+
     canvas:Subscribe("Update", function(self, width, height)
+        -- Mode capture (F1) : rien a l'ecran.
+        if photo.cache then return end
         -- Rien a montrer tant que la table n'a rien dit.
         if #journal.lines == 0 then return end
 

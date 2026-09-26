@@ -9,6 +9,11 @@ return function(SharedConfig)
     local vm = SharedConfig.duel_arme or {}
 
     local page = WebUI("duel", "file://duel/hud.html", WidgetVisibility.VisibleNotHitTestable, true, true)
+    -- Mode capture (F1, Client/photo.lua) : la page disparait le temps des captures.
+    Events.Subscribe("zix:photo", function(cache)
+        page:SetVisibility(cache and WidgetVisibility.Hidden or WidgetVisibility.VisibleNotHitTestable)
+    end)
+
     local pret_page = false
     local attente = {}
     local etat = nil
