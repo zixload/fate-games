@@ -22,6 +22,7 @@ return function(Log, Characters, Combat, Armes, config)
     local MESH = config.mesh or "nanos-world::SK_Mannequin"
     local REAPPARITION = config.reapparition or 4
     local ARME_DEFAUT = config.arme or "epee_longue"
+    local VITESSE_BOT = config.vitesse_bot or 320   -- cm/s avant armure, arme et statuts
 
     local P = {}            -- id de personnage -> participant
     local par_joueur = {}   -- id de joueur -> id de personnage
@@ -153,8 +154,7 @@ return function(Log, Characters, Combat, Armes, config)
         local cid = perso:GetID()
         Combat.ajouter(w, cid, { camp = o.camp or cid, arme = "poings", armure = o.armure or "aucune",
             pos = vec(perso:GetLocation()), yaw = perso:GetRotation().Yaw })
-        local p = { id = cid, perso = perso, player = o.player, ancien = o.ancien, niveau = o.niveau,
-            memoire = {}, prochain_pas = 0 }
+        local p = { id = cid, perso = perso, player = o.player, ancien = o.ancien, niveau = o.niveau, memoire = {} }
         P[cid] = p
         configurer(perso, cid)
         -- Le client distingue allies et ennemis (indicateurs, relever, achever).
@@ -247,15 +247,16 @@ return function(Log, Characters, Combat, Armes, config)
             local f = w.combattants[p.id]
             local lacet = G.lacet_vers(f.pos, dec.regard)
             c:SetRotation(Rotator(0, lacet, 0))
-            if w.t >= p.prochain_pas and dec.aller_vers then
-                p.prochain_pas = w.t + 0.4
+            -- Pas de NavMesh dans la map (MoveTo ne marche pas, cf. le bot du
+            -- duel) : le bot glisse vers sa distance de combat, a sa vitesse.
+            if dec.aller_vers then
                 local vers = G.moins(dec.aller_vers, f.pos)
                 local dist = math.sqrt(vers.x * vers.x + vers.y * vers.y)
-                if dist > (dec.distance or 0) + 30 then
-                    local k = (dist - (dec.distance or 0)) / dist
-                    c:MoveTo(Vector(f.pos.x + vers.x * k, f.pos.y + vers.y * k, f.pos.z), 20)
-                else
-                    c:StopMovement(false)
+                local reste = dist - (dec.distance or 0)
+                if reste > 10 and dist > 0 then
+                    local pas = math.min(reste, VITESSE_BOT * Combat.vitesse(w, p.id) * TICK)
+                    local loc = c:GetLocation()
+                    c:SetLocation(Vector(loc.X + vers.x / dist * pas, loc.Y + vers.y / dist * pas, loc.Z))
                 end
             end
         end
