@@ -103,7 +103,7 @@ return function(Log, Characters, Combat, Armes, config)
             end
         end
         -- Tout le monde voit : indicateurs d'attaque, garde, impacts, projectiles.
-        Events.BroadcastRemote("pvp:fx", fx)
+        Events.BroadcastRemote("pvp:fx", Reliability.Reliable, fx)
     end
 
     ---------------------------------------------------------------- personnages
@@ -184,7 +184,7 @@ return function(Log, Characters, Combat, Armes, config)
         player:Possess(perso)
         par_joueur[pid] = perso:GetID()
         inscrire(perso, { player = player, ancien = ancien, arme = arme })
-        Events.CallRemote("pvp:entree", player, perso:GetID())
+        Events.CallRemote("pvp:entree", player, Reliability.Reliable, perso:GetID())
         return true
     end
 
@@ -199,7 +199,7 @@ return function(Log, Characters, Combat, Armes, config)
             pcall(function() ancien:SetCollision(CollisionType.Auto) end)
             player:Possess(ancien)
         end
-        Events.CallRemote("pvp:sortie", player, cid)
+        Events.CallRemote("pvp:sortie", player, Reliability.Reliable, cid)
         return true
     end
 
@@ -212,7 +212,7 @@ return function(Log, Characters, Combat, Armes, config)
         Combat.reinitialiser(w, cid, vec(p.perso:GetLocation()), rot.Yaw)
         p.perso:SetHealth(p.perso:GetMaxHealth())
         equiper(p, w.combattants[cid].arme)
-        Events.BroadcastRemote("pvp:fx", { { kind = "reapparition", id = cid } })
+        Events.BroadcastRemote("pvp:fx", Reliability.Reliable, { { kind = "reapparition", id = cid } })
     end
 
     local niveau_bot = 0
@@ -289,7 +289,7 @@ return function(Log, Characters, Combat, Armes, config)
         if compteur_hud % 2 == 0 then
             for cid, p in pairs(P) do
                 if p.player and p.player:IsValid() then
-                    Events.CallRemote("pvp:etat", p.player, Combat.etat(w, cid))
+                    Events.CallRemote("pvp:etat", p.player, Reliability.Unreliable, Combat.etat(w, cid))
                 end
             end
         end
@@ -303,7 +303,7 @@ return function(Log, Characters, Combat, Armes, config)
             if not p then return end
             local ok, fx, raison = pcall(fn, cid, ...)
             if not ok then return Log.Warn("pvp", ("%s : %s"):format(nom, tostring(fx))) end
-            if fx then appliquer(fx) elseif raison then Events.CallRemote("pvp:refus", player, nom, raison) end
+            if fx then appliquer(fx) elseif raison then Events.CallRemote("pvp:refus", player, Reliability.Reliable, nom, raison) end
         end)
     end
 
