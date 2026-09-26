@@ -61,7 +61,7 @@ return function()
 
     ---------------------------------------------------------------- HUD
 
-    local page = WebUI("pvp", "file://pvp/hud.html", WidgetVisibility.Hidden, true, false)
+    local page = WebUI("pvp", "file://pvp/hud.html", WidgetVisibility.Hidden, true, true)
     local pret = false
     local file_page = {}
     local function hud(evenement, ...)
