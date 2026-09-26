@@ -10,9 +10,10 @@ attribution secrète des rôles, déroulement des phases, vote, conditions de vi
 Il ne couvre pas la carte, les animations, ni l'interface — cette dernière se limitant, par choix de
 design, à l'invite d'interaction et à une zone de message transitoire.
 
-**Rôles de cette version : loups, villageois, voyante.** Le gardien, la sorcière et le chasseur ne
-sont pas implémentés, mais l'architecture est conçue pour qu'ils s'ajoutent sans refonte — c'est la
-contrainte principale qui a guidé le découpage.
+**Rôles de cette version (mis à jour le 26/09/26) : loups, villageois, voyante, chasseur, gardien,
+loup blanc, cupidon**, et une composition réglable dans le salon. Voir « Rôles ajoutés et réglages du
+salon » plus bas. La sorcière reste hors de cette version ; l'architecture doit toujours permettre
+d'ajouter un rôle sans refonte — c'est la contrainte principale qui a guidé le découpage.
 
 ---
 
@@ -223,14 +224,32 @@ traduction uniquement. Tout ce qui juge reste dans le moteur.
 
 ---
 
+## Rôles ajoutés et réglages du salon (26/09/26)
+
+Décidés après la maquette du HUD (`Client/loup_garou/hud.lua`, qui les affiche déjà). Identifiants
+du moteur entre parenthèses ; chacun est une entrée du registre des rôles plus, s'il agit, une phase.
+
+| Rôle | Phase et ordre | Règle |
+| --- | --- | --- |
+| Cupidon (`cupid`) | `night_cupid`, 1re nuit seulement, ordre 5 | désigne deux joueurs, liés : si l'un meurt, l'autre meurt aussi. Chacun reçoit `ww:amoureux` avec l'autre. |
+| Gardien (`guard`) | `night_guard`, chaque nuit, ordre 8 | protège un joueur de l'attaque des loups ; pas deux nuits de suite le même. |
+| Loups (`wolf`) | `night_wolves`, ordre 10 | inchangé ; le loup blanc vote avec eux. |
+| Loup blanc (`white_wolf`) | `night_white_wolf`, une nuit sur deux, ordre 12 | loup pour les autres loups ; peut dévorer un loup. Gagne seul s'il est le dernier vivant. |
+| Voyante (`seer`) | `night_seer`, ordre 20 | inchangé. |
+| Chasseur (`hunter`) | `hunter_shot`, empilée par son `on_death` | en mourant, désigne un joueur qui meurt avec lui (la pile de phases, prévue plus haut). |
+
+Victoire, en plus des règles existantes : le **loup blanc** gagne seul s'il reste le dernier vivant ;
+deux **amoureux** de camps opposés gagnent ensemble s'ils sont les deux derniers vivants.
+
+**Salon.** Le premier arrivé est le créateur ; lui seul règle, les autres voient. Réglages : nombre de
+joueurs maximum (4 à 12), nombre de loups (1 à 4), loup blanc, voyante, chasseur, gardien, cupidon
+(0 ou 1 chacun), durée du débat (60 à 300 s, pas de 30). Les villageois complètent au lancement. Le
+serveur refuse une composition impossible (plus de rôles spéciaux que de joueurs, aucun loup).
+Événements : le client envoie `ww:reglage(cle, +1 | -1)` et `ww:pret` ; le serveur renvoie
+`ww:salon(vue)` à chaque changement.
+
 ## Hors de cette version
 
-Le gardien, la sorcière et le chasseur. Chacun s'ajoutera comme une entrée du registre des rôles
-plus un résolveur, sans toucher au moteur. Deux points à retenir quand leur tour viendra :
-
-* le **chasseur** exige la pile de phases, prévue ici, et un `on_death` qui empile son tir ;
-* la **sorcière** exige une révélation ciblée de la victime des loups — même mécanisme que la
-  voyante, d'où l'intérêt d'en faire une brique réutilisable dès maintenant.
-
-À huit joueurs et plus, ces trois rôles deviennent pertinents. En dessous, la composition doit
-dégrader proprement.
+La sorcière : elle exige une révélation ciblée de la victime des loups, même mécanisme que la
+voyante, d'où l'intérêt d'en faire une brique réutilisable. Elle s'ajoutera comme les autres, une
+entrée du registre plus une phase.

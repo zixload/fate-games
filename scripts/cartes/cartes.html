@@ -13,7 +13,7 @@
 @font-face { font-family: "Lilita One"; src: url("../../Packages/fate-games/Client/vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
 :root { --encre: #1c2123; --papier: #efe6d2; --laiton: #d9b56a; --laiton-fonce: #8a6d3b; }
 html, body { margin: 0; background: transparent; }
-body.planche { background: #2c3b2f; display: flex; flex-wrap: wrap; gap: 50px; padding: 50px; align-items: center; justify-content: center; min-height: 100vh; box-sizing: border-box; }
+body.planche { background: #2c3b2f; display: flex; flex-wrap: wrap; gap: 40px; padding: 40px; align-items: center; justify-content: center; min-height: 100vh; box-sizing: border-box; }
 body.planche svg.carte { width: 357px; height: 537px; filter: drop-shadow(8px 10px 0 rgba(7, 10, 11, .55)); }
 body.seule svg.carte { display: block; width: 357px; height: 537px; }
 </style>
@@ -26,6 +26,7 @@ const ENCRE = "#1c2123", PAPIER = "#efe6d2", LAITON = "#d9b56a", LAITON_FONCE = 
 const SAUGE = "#9fbcb4", SAUGE_FONCE = "#5d7d76";
 const ARDOISE = "#9db0c6", ARDOISE_FONCE = "#5b728c";
 const GRIS_LOUP = "#8e979b", GRIS_LOUP_FONCE = "#5a6468";
+const ROSE = "#d98b8b", ROSE_FONCE = "#b8332d";
 
 // Trait d'encre en deux passages, comme les contours des HUD : le trait
 // plein, puis un second plus fin, decale, a moitie efface.
@@ -104,19 +105,28 @@ const SYMBOLES = {
 // loups, villageois, voyante.
 Object.assign(SYMBOLES, {
   // Tete de loup de profil, gris, oeil laiton.
-  loup: () => {
+  loup: () => teteLoup(GRIS_LOUP, LAITON),
+  // Le Loup Blanc : la meme tete, blanche, oeil rouge.
+  loup_blanc: () => teteLoup("#f4f0e6", ROSE_FONCE),
+});
+
+function teteLoup(pelage, oeil) {
+  {
     const t = "M236 142 L250 214 Q276 250 270 300 Q262 334 236 344 L214 332 L200 346 L184 330 L168 340 "
       + "Q150 318 146 300 L100 290 Q84 286 86 272 L88 262 Q84 248 98 246 L150 234 Q164 214 180 202 "
       + "L196 140 L214 188 Z";
-    return encre(t, { fill: GRIS_LOUP })
+    return encre(t, { fill: pelage })
       + hachures("M236 142 L250 214 Q276 250 270 300 Q262 334 236 344 L214 332 L214 188 Z", 214, 142, 276, 346)
       + encre("M204 168 L212 196", { w: 4 })
-      + encre("M170 238 Q184 224 200 232 Q186 248 170 238 Z", { fill: LAITON, w: 4 })
+      + encre("M170 238 Q184 224 200 232 Q186 248 170 238 Z", { fill: oeil, w: 4 })
       + encre("M182 234m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0", { fill: ENCRE, w: 2 })
       + encre("M86 262 Q80 252 92 250 L100 252 Q98 262 86 262 Z", { fill: ENCRE, w: 3 })
       + encre("M100 280 Q124 286 148 282", { w: 4 })
       + encre("M112 281 L116 290 L120 282 M130 283 L134 292 L138 283", { fill: PAPIER, w: 2.5 });
-  },
+  }
+}
+
+Object.assign(SYMBOLES, {
   // Chaumiere : toit laiton, murs sauge, porte et fenetre.
   villageois: () => {
     const toit = "M78 256 L178 158 L278 256 Z";
@@ -145,6 +155,38 @@ Object.assign(SYMBOLES, {
       + encre("M126 116 Q138 98 158 90", { w: 4 })
       + `</g>`;
   },
+  // Fusil de chasse en travers, crosse laiton, dans une mire.
+  chasseur: () => {
+    const canon = "M266 146 L280 160 L170 270 L156 256 Z";
+    const crosse = "M176 264 L150 238 L128 262 L86 300 L78 330 L106 338 L132 312 L150 296 Z";
+    return encre("M178 246m-96 0a96 96 0 1 0 192 0a96 96 0 1 0 -192 0", { w: 3.5 })
+      + encre("M178 140 L178 160 M178 332 L178 352 M72 246 L92 246 M264 246 L284 246", { w: 4 })
+      + encre(canon, { fill: ARDOISE_FONCE })
+      + encre(crosse, { fill: LAITON_FONCE })
+      + hachures("M128 262 L86 300 L78 330 L106 338 L132 312 Z", 78, 262, 134, 340)
+      + encre("M150 296 Q156 316 140 322 Q128 322 128 310", { w: 4 })
+      + encre("M150 296 L144 304", { w: 3.5 })
+      + encre("M206 216 L220 230 M232 190 L246 204", { w: 4 })
+      + encre("M258 154 L276 136", { w: 5 });
+  },
+  // Bouclier sauge, une etoile laiton : le Gardien protege.
+  gardien: () => {
+    const b = "M178 146 Q226 168 264 160 Q270 282 178 346 Q86 282 92 160 Q130 168 178 146 Z";
+    return encre(b, { fill: SAUGE })
+      + hachures("M178 146 Q226 168 264 160 Q270 282 178 346 Z", 178, 146, 270, 346)
+      + encre("M178 176 L178 318 M118 214 L238 214", { w: 5 })
+      + encre("M178 196 L188 222 L216 224 L194 240 L202 268 L178 252 L154 268 L162 240 L140 224 L168 222 Z", { fill: LAITON, w: 4 });
+  },
+  // Coeur traverse d'une fleche : Cupidon.
+  cupidon: () => {
+    const coeur = "M178 330 C104 276 80 236 100 198 C120 162 164 166 178 202 C192 166 236 162 256 198 C276 236 252 276 178 330 Z";
+    return encre("M84 312 L278 170", { w: 6 })
+      + encre(coeur, { fill: ROSE })
+      + hachures("M178 202 C192 166 236 162 256 198 C276 236 252 276 178 330 Z", 178, 162, 276, 330)
+      + encre("M120 286 L84 312", { w: 6 })
+      + encre("M84 312 L70 300 M84 312 L74 326 M96 304 L82 292 M96 304 L86 318", { w: 4 })
+      + encre("M262 162 L290 158 L276 184 Z", { fill: LAITON, w: 4 });
+  },
 });
 
 const CARTES = {
@@ -157,6 +199,10 @@ const CARTES = {
   loup:       { nom: "Loup-Garou", symbole: SYMBOLES.loup,       graine: 41, jeu: "loup" },
   villageois: { nom: "Villageois", symbole: SYMBOLES.villageois, graine: 43, jeu: "loup" },
   voyante:    { nom: "Voyante",    symbole: SYMBOLES.voyante,    graine: 47, jeu: "loup" },
+  chasseur:   { nom: "Chasseur",   symbole: SYMBOLES.chasseur,   graine: 53, jeu: "loup" },
+  gardien:    { nom: "Gardien",    symbole: SYMBOLES.gardien,    graine: 59, jeu: "loup" },
+  loup_blanc: { nom: "Loup Blanc", symbole: SYMBOLES.loup_blanc, graine: 61, jeu: "loup" },
+  cupidon:    { nom: "Cupidon",    symbole: SYMBOLES.cupidon,    graine: 67, jeu: "loup" },
 };
 
 // Le dos : encre pleine, cadre laiton trace a la main, un barillet de

@@ -64,8 +64,15 @@ body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); 
     display: flex; flex-direction: column; gap: 12px; }
 #salon .ligne { display: flex; align-items: center; gap: 10px; font-size: 26px; }
 #salon .compte { font-size: 18px; color: var(--laiton-fonce); }
-#salon .compo { display: flex; gap: 10px; font-size: 17px; color: var(--laiton-fonce); align-items: center; }
-#salon .compo img { width: 26px; }
+#reglages { display: flex; flex-direction: column; gap: 3px; }
+.reglage { display: flex; align-items: center; gap: 8px; font-size: 17px; padding: 3px 8px; border-radius: 8px; }
+.reglage img { width: 20px; }
+.reglage .nom { flex: 1; }
+.reglage .val { display: inline-flex; align-items: center; gap: 6px; min-width: 64px; justify-content: flex-end; }
+.reglage .fl { color: var(--laiton-fonce); visibility: hidden; }
+.reglage.choisie { background: var(--laiton); }
+.reglage.choisie .fl { visibility: visible; color: var(--encre); }
+.reglage.villageois { color: var(--laiton-fonce); }
 #places { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .place { display: flex; align-items: center; gap: 6px; font-size: 16px; padding: 5px 8px; border-radius: 8px; background: rgba(28, 33, 35, .07);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -101,13 +108,9 @@ body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); 
 
 <div id="salon" class="sk cache" data-graine="83" data-rayon="16">
   <div class="ligne"><svg width="34" height="34"><use href="#lune"/></svg><span>Loup-Garou</span><span style="flex: 1"></span><span class="compte" id="salon-compte"></span></div>
-  <div class="compo" id="salon-compo"></div>
   <div id="places"></div>
-  <div class="aide">
-    <span><span class="touche">R</span><svg width="18" height="18"><use href="#coche"/></svg></span>
-    <span><span class="touche">←</span><span class="touche">→</span><span id="salon-debat"></span></span>
-    <span><span class="touche">Espace</span>quitter</span>
-  </div>
+  <div id="reglages"></div>
+  <div class="aide" id="salon-aide"></div>
 </div>
 
 <script src="../ui/esquisse.js"></script>
@@ -182,13 +185,21 @@ function salon(v) {
   if (!v) { montrer("salon", false); return; }
   const joueurs = v.joueurs || [];
   $("salon-compte").textContent = `${joueurs.length}/${v.max || 12}`;
-  const c = v.compo || {};
-  $("salon-compo").innerHTML = `<img src="img/loup.png" alt="">${c.loups || 0} <img src="img/voyante.png" alt="">${c.voyante || 0} <img src="img/villageois.png" alt="">${c.villageois || 0}`;
+  // Reglages de la partie : le createur les change (fleches), les autres
+  // les voient. Les villageois completent.
+  const lignes = (v.lignes || []).map((l) => `<div class="reglage${l.choisie ? " choisie" : ""}">`
+    + (l.image ? `<img src="img/${l.image}.png" alt="">` : "")
+    + `<span class="nom">${nettoyer(l.nom)}</span><span class="val"><span class="fl">‹</span>${nettoyer(l.valeur)}<span class="fl">›</span></span></div>`);
+  lignes.push(`<div class="reglage villageois"><img src="img/villageois.png" alt=""><span class="nom">Villageois</span><span class="val">${v.villageois || 0}</span></div>`);
+  $("reglages").innerHTML = lignes.join("");
+  const T = (k) => `<span class="touche">${k}</span>`;
+  $("salon-aide").innerHTML = `<span>${T("R")}<svg width="18" height="18"><use href="#coche"/></svg></span>`
+    + (v.createur ? `<span>${T("↑")}${T("↓")}choisir</span><span>${T("←")}${T("→")}changer</span>` : "<span>le créateur règle la partie</span>")
+    + `<span>${T("Espace")}quitter</span>`;
   const cases = joueurs.map((j) => `<div class="place${j.pret ? " pret" : ""}${j.moi ? " moi" : ""}">`
     + `${j.pret ? '<svg width="14" height="14"><use href="#coche"/></svg>' : ""}${nettoyer(j.nom)}</div>`);
   while (cases.length < Math.max(8, joueurs.length + (joueurs.length % 2))) cases.push('<div class="place vide">…</div>');
   $("places").innerHTML = cases.join("");
-  $("salon-debat").textContent = `débat ${Math.round((v.debat || 180) / 60)} min`;
   montrer("salon", true);
   retracer();
 }
@@ -208,9 +219,18 @@ if (typeof Events !== "undefined") {
   Events.Call("pret");
 } else {
   document.body.classList.add("apercu");
+  if (location.hash === "#salon") {
+    salon({ max: 10, createur: true, villageois: 2,
+      joueurs: [{ nom: "Toi", pret: true, moi: true }, { nom: "Ana", pret: true }, { nom: "Ben" }, { nom: "Lou", pret: true }, { nom: "Max" }, { nom: "Inès" }],
+      lignes: [{ nom: "Joueurs", valeur: "10", choisie: false }, { nom: "Loups-Garous", image: "loup", valeur: "2", choisie: true },
+        { nom: "Loup Blanc", image: "loup_blanc", valeur: "0" }, { nom: "Voyante", image: "voyante", valeur: "1" },
+        { nom: "Chasseur", image: "chasseur", valeur: "1" }, { nom: "Gardien", image: "gardien", valeur: "0" },
+        { nom: "Cupidon", image: "cupidon", valeur: "0" }, { nom: "Débat", valeur: "3:00" }] });
+  } else {
   phase({ texte: "Nuit · Les loups choisissent", icone: "lune", duree: 45 });
   revelation({ image: "loup", nom: "Loup-Garou", article: "", allies: "Ton allié : Ana" });
   message("Regarde un joueur et appuie sur [E] pour le désigner", 0);
+  }
 }
 </script>
 </body>
