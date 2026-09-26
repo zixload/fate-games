@@ -574,7 +574,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         if not cible then return end
         local a, v = corps:GetLocation(), cc:GetLocation()
         local cap = math.deg(math.atan(v.Y - a.Y, v.X - a.X))
-        corps:SetRotation(Rotator(0, cap, 0))
+        b.cap_voulu = cap
 
         local t = maintenant()
         local r = config.bot
@@ -583,9 +583,10 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             local cote = (math.random() < 0.5 and -1 or 1) * r.pas
             local ang = math.rad(cap + 90)
             local depart = depart_de(A, id)
-            pcall(function()
-                corps:MoveTo(Vector(depart.X + math.cos(ang) * cote, depart.Y + math.sin(ang) * cote, depart.Z), 30)
-            end)
+            b.but = Vector(depart.X + math.cos(ang) * cote, depart.Y + math.sin(ang) * cote, depart.Z)
+            -- Avec une NavMesh dans l'arene, il marche (animation comprise) ;
+            -- sans, bouger_bots le fait glisser jusqu'au meme point.
+            pcall(function() corps:MoveTo(b.but, 30) end)
         end
         if t < b.tir or not vu then return end
         b.tir = t + math.random(r.tir_min_ms, r.tir_max_ms)
@@ -607,6 +608,38 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         end
     end
 
+    local function angle(a) return (a + 180) % 360 - 180 end
+
+    -- A chaque image serveur (33 ms) : le bot pivote vers son cap et, si
+    -- MoveTo ne le fait pas marcher (pas de NavMesh), glisse vers son but.
+    local function bouger_bots(delta)
+        local r = config.bot
+        for id, b in pairs(bots) do
+            local corps = personnage(id)
+            local j = b.arene.d.joueurs[id]
+            if corps and j and j.vivant and b.arene.d.phase == "combat" then
+                local rot = corps:GetRotation()
+                if b.cap_voulu then
+                    local ecart = angle(b.cap_voulu - rot.Yaw)
+                    local pas = r.virage * delta
+                    corps:SetRotation(Rotator(0, rot.Yaw + math.max(-pas, math.min(pas, ecart)), 0))
+                end
+                if b.but then
+                    local loc, vel = corps:GetLocation(), corps:GetVelocity()
+                    local dx, dy = b.but.X - loc.X, b.but.Y - loc.Y
+                    local reste = math.sqrt(dx * dx + dy * dy)
+                    local marche = vel.X * vel.X + vel.Y * vel.Y > 400
+                    if reste < 20 then
+                        b.but = nil
+                    elseif not marche then
+                        local pas = math.min(reste, r.vitesse * delta)
+                        corps:SetLocation(Vector(loc.X + dx / reste * pas, loc.Y + dy / reste * pas, loc.Z))
+                    end
+                end
+            end
+        end
+    end
+
     -- Ajoute un bot, pret, a l'arene ou attend le joueur. nil, raison sinon.
     function Adapter.AjouterBot(player)
         local A = arene_de[player:GetID()]
@@ -623,6 +656,10 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         end
         bots[id] = { corps = corps, arene = A, tir = 0, pas = 0, vu_par = {} }
         corps:SetValue("duel_bot", id, true)
+        -- Ni face a un controleur (il n'en a pas) ni tourne vers son mouvement :
+        -- son orientation vient seulement de bouger_bots. Sinon il tournait sur
+        -- lui-meme, tire entre les deux.
+        pcall(function() corps:SetRotationSettings(Rotator(0, 0, 0), false, false) end)
         noms[id] = "Bot " .. tostring(-id - 999)
         arene_de[id] = A
         Duel.Pret(A.d, id, true)
@@ -686,6 +723,11 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
                 if not ok_bot then Log.Warn("duel", "bot : " .. tostring(err_bot)) end
             end
         end, 250)
+
+        Server.Subscribe("Tick", function(delta)
+            local ok, err = pcall(bouger_bots, delta)
+            if not ok then Log.Warn("duel", "mouvement des bots : " .. tostring(err)) end
+        end)
 
         Events.SubscribeRemote("duel:mise", function(player, mise)
             local A = arene_de[player:GetID()]

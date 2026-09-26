@@ -42,7 +42,9 @@ return {
     },
 
     -- Bot de test (/botduel, mode dev) : cadence de tir et chance de toucher.
-    bot = { tir_min_ms = 900, tir_max_ms = 1500, precision = 0.35, pas_ms = 2500, pas = 220 },
+    -- vitesse : cm/s de ses pas de cote ; virage : degres/s pour se tourner.
+    bot = { tir_min_ms = 900, tir_max_ms = 1500, precision = 0.35, pas_ms = 2500, pas = 220,
+        vitesse = 160, virage = 360 },
 
     -- Camera du combat : premiere personne, yeux a cette hauteur (cm, depuis le
     -- bas du personnage), un peu en avant du visage. Valeurs validees en jeu
