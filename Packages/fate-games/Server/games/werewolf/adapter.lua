@@ -1005,6 +1005,15 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         if REFUS[raison] then envoyer(player:GetID(), "ww:annonce", REFUS[raison]) end
     end
 
+    -- La sorciere ne fait rien cette nuit ([3] sur son panneau).
+    function A.Renoncer(player)
+        if s.statut ~= "partie" then return end
+        local fx = Engine.renoncer(s, player:GetID())
+        if not fx then return end
+        noter("La sorcière garde ses potions.")
+        A.Appliquer(fx)
+    end
+
     function A.OnPlayerReady(player)
         if next(cartes) then publier_cartes() end
     end
@@ -1062,6 +1071,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
 
         Events.SubscribeRemote("ww:designer", function(p, cid) A.Designer(p, cid) end)
         Events.SubscribeRemote("ww:pret", function(p) A.Pret(p) end)
+        Events.SubscribeRemote("ww:renoncer", function(p) A.Renoncer(p) end)
         Events.SubscribeRemote("ww:reglage", function(p, cle, sens) A.Reglage(p, cle, sens) end)
         Events.SubscribeRemote("ww:centre", function(p, x, y, sol, debout, yaw)
             if config.bots then A.PoserCentre(p, x, y, sol, debout, yaw) end

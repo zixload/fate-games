@@ -99,6 +99,16 @@ body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); 
     text-shadow: 6px 7px 0 var(--ombre); opacity: 0; transition: opacity .3s; }
 #vcarte.tourne + #vtitre { opacity: 1; transition-delay: .5s; }
 
+/* Panneau de la sorciere : ses trois choix, a droite. */
+#sorciere { position: absolute; right: 40px; top: 50%; transform: translateY(-50%) rotate(1deg); width: 330px; padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 10px; }
+#sorciere .titre { font-size: 22px; }
+#sorciere .choix { display: flex; align-items: center; gap: 10px; font-size: 18px; padding: 6px 8px; border-radius: 8px; }
+#sorciere .choix.use { opacity: .38; text-decoration: line-through; }
+#sorciere .choix.arme { background: #c9a6f0; }
+#sorciere .choix small { display: block; font-size: 14px; color: var(--laiton-fonce); }
+#sorciere .vie { color: #2f7a35; } #sorciere .mort { color: #7a3fb0; }
+
 /* Un role dans un texte : sa couleur. */
 .role-villager { color: #e8d6a8; } .role-seer { color: #b58cf0; } .role-wolf { color: #e0564b; }
 .role-white_wolf { color: #e6f0ff; } .role-hunter { color: #8cc063; } .role-witch { color: #5fd0a8; }
@@ -174,6 +184,8 @@ body.apercu { background: radial-gradient(circle at 50% 35%, #3b4a5e, #11161f); 
     <div id="vtitre"></div>
   </div>
 </div>
+
+<div id="sorciere" class="sk cache" data-graine="71" data-rayon="16"></div>
 
 <div id="annonce" class="efface"></div>
 <div id="elimine" class="cache">Éliminé</div>
@@ -294,6 +306,21 @@ function salon(v) {
   retracer();
 }
 
+// ---------------------------------------------------------------- sorciere
+function sorciere(v) {
+  if (!v) { montrer("sorciere", false); return; }
+  const T = (k) => `<span class="touche">${k}</span>`;
+  const victime = v.victime ? nettoyer(v.victime) : null;
+  $("sorciere").innerHTML = `<div class="titre">${victime ? `Les loups ont choisi <b>${victime}</b>` : "Les loups n'ont choisi personne"}</div>`
+    + `<div class="choix${v.vie && victime ? "" : " use"}">${T("1")}<span><span class="vie">Potion de vie</span>`
+    + `<small>${victime ? `sauver ${victime}` : "personne à sauver"}</small></span></div>`
+    + `<div class="choix${v.mort ? "" : " use"}${v.arme ? " arme" : ""}">${T("2")}<span><span class="mort">Potion de mort</span>`
+    + `<small>${v.arme ? `vise un joueur puis ${T("E")}` : "puis vise un joueur"}</small></span></div>`
+    + `<div class="choix">${T("3")}<span>Ne rien faire<small>garder ses potions</small></span></div>`;
+  montrer("sorciere", true);
+  retracer();
+}
+
 // ---------------------------------------------------------------- vision
 let etapesVision = [];
 function vision(v) {
@@ -361,7 +388,7 @@ $("res-fermer").addEventListener("click", () => {
 });
 
 function tout_cacher() {
-  phase(null); rappel(null); salon(null); message(""); annonce(""); elimine(false);
+  phase(null); rappel(null); salon(null); message(""); annonce(""); elimine(false); sorciere(null);
   montrer("revelation", false);
 }
 
@@ -375,6 +402,7 @@ if (typeof Events !== "undefined") {
   Events.Subscribe("lg:cacher", tout_cacher);
   Events.Subscribe("lg:annonce", annonce);
   Events.Subscribe("lg:vision", vision);
+  Events.Subscribe("lg:sorciere", sorciere);
   Events.Subscribe("lg:elimine", elimine);
   Events.Subscribe("lg:resultat", resultat);
   Events.Call("pret");
@@ -387,6 +415,9 @@ if (typeof Events !== "undefined") {
         { nom: "Loup Blanc", image: "loup_blanc", valeur: "0" }, { nom: "Voyante", image: "voyante", valeur: "1" },
         { nom: "Chasseur", image: "chasseur", valeur: "1" }, { nom: "Gardien", image: "gardien", valeur: "0" },
         { nom: "Cupidon", image: "cupidon", valeur: "0" }, { nom: "Débat", valeur: "3:00" }] });
+  } else if (location.hash === "#sorciere") {
+    phase({ texte: "Nuit · La sorcière prépare ses potions", icone: "lune", duree: 25 });
+    sorciere({ victime: "Nino", vie: true, mort: true, arme: true });
   } else if (location.hash === "#annonce") {
     annonce("Le village élimine Ana. C'était : [[wolf|Loup-Garou]].", 60);
   } else if (location.hash === "#vision") {

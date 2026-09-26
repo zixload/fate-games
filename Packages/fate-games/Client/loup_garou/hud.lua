@@ -58,7 +58,7 @@ return function(config, Interaction)
         night_white_wolf = { texte = "Nuit · Le loup blanc rôde", icone = "lune", qui = { white_wolf = true },
             invite = "lg_designer", consigne = "Tu peux dévorer un loup : regarde-le et appuie sur [E]" },
         night_witch      = { texte = "Nuit · La sorcière prépare ses potions", icone = "lune", qui = { witch = true },
-            invite = "sorciere", consigne = "Regarde la victime et appuie sur [E] pour la sauver, ou un autre joueur pour l'empoisonner" },
+            invite = "sorciere", consigne = "[1] sauver la victime · [2] puis [E] sur un joueur pour l'empoisonner · [3] ne rien faire" },
         night_seer       = { texte = "Nuit · La voyante sonde", icone = "lune", qui = { seer = true },
             invite = "lg_sonder", consigne = "Regarde un joueur et appuie sur [E] pour découvrir son rôle" },
         dawn             = { texte = "Aube", icone = "soleil" },
@@ -259,13 +259,21 @@ return function(config, Interaction)
             petit = #noms > 0 and ("avec " .. table.concat(noms, ", ")) or "" })
     end
 
+    -- Le panneau de la sorciere (hud.html) : victime, potions, poison prepare.
+    local function panneau_sorciere()
+        if etat.phase ~= "night_witch" or etat.role ~= "witch" or etat.mort then return appeler("lg:sorciere", nil) end
+        appeler("lg:sorciere", { victime = etat.nom_victime, vie = etat.potions.vie, mort = etat.potions.mort,
+            arme = etat.poison })
+    end
+
     function H.phase(id, duree)
         -- Le vote du village court du debat a la fin du vote : on garde ses voix.
         if not (id == "day_vote" and etat.phase == "day_debate") then etat.votes, etat.choix = {}, {} end
         etat.phase = id
-        if id ~= "night_witch" then etat.victime = nil end
+        if id ~= "night_witch" then etat.victime, etat.nom_victime, etat.poison = nil, nil, false end
         local ph = PHASES[id]
         appeler("lg:phase", ph and { texte = ph.texte, icone = ph.icone, duree = duree } or nil)
+        panneau_sorciere()
         appeler("lg:message", peut_designer() and ph.consigne or "", 6)
         ambiance()
     end
@@ -332,12 +340,14 @@ return function(config, Interaction)
 
     -- La sorciere : la victime des loups (griffes au-dessus d'elle) et ses potions.
     function H.victime(id, nom)
-        etat.victime = id
-        appeler("lg:message", ("Les loups ont choisi %s."):format(tostring(nom)), 6)
+        etat.victime, etat.nom_victime = id, nom and tostring(nom) or nil
+        panneau_sorciere()
     end
 
     function H.potions(vie, mort)
         etat.potions = { vie = vie == true, mort = mort == true }
+        if not etat.potions.mort then etat.poison = false end
+        panneau_sorciere()
         local reste = (vie and mort) and "Il te reste : vie et mort"
             or (vie and "Il te reste : la potion de vie") or (mort and "Il te reste : la potion de mort")
             or "Plus de potion"
@@ -445,9 +455,8 @@ return function(config, Interaction)
     local function invite_pour(ph, id)
         local invite = ph and ph.invite
         if invite == "sorciere" then
-            -- La victime : la sauver ; un autre : l'empoisonner. Selon les potions.
-            if id == etat.victime then return etat.potions.vie and "lg_sauver" or nil end
-            return etat.potions.mort and "lg_empoisonner" or nil
+            -- Sauver passe par [1] ; viser ne sert qu'a empoisonner, poison prepare ([2]).
+            return etat.poison and etat.potions.mort and "lg_empoisonner" or nil
         end
         return invite
     end
@@ -604,6 +613,33 @@ return function(config, Interaction)
         if resultat_ouvert and touche == "Escape" then
             fermer_resultat()
             return false
+        end
+        -- La sorciere : [1] sauver, [2] preparer le poison, [3] ne rien faire.
+        if etat.phase == "night_witch" and etat.role == "witch" and peut_designer() then
+            if touche == "One" or touche == "NumPadOne" then
+                if etat.potions.vie and etat.victime then
+                    Events.CallRemote("ww:designer", Reliability.Reliable, etat.victime)
+                end
+                return false
+            elseif touche == "Two" or touche == "NumPadTwo" then
+                if etat.potions.mort then
+                    etat.poison = not etat.poison
+                    panneau_sorciere()
+                end
+                return false
+            elseif touche == "Three" or touche == "NumPadThree" then
+                Events.CallRemote("ww:renoncer", Reliability.Reliable)
+                return false
+            elseif touche == "E" then
+                if not etat.poison then
+                    appeler("lg:message", "Appuie d'abord sur [2] pour préparer la potion de mort", 3)
+                elseif etat.vise and etat.vise:IsValid() then
+                    Events.CallRemote("ww:designer", Reliability.Reliable, etat.vise:GetID())
+                    etat.poison = false
+                    panneau_sorciere()
+                end
+                return false
+            end
         end
         if touche == "E" and etat.vise and peut_designer() and etat.vise:IsValid() then
             Events.CallRemote("ww:designer", Reliability.Reliable, etat.vise:GetID())

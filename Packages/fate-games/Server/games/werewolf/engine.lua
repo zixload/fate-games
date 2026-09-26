@@ -358,6 +358,15 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         return fx
     end
 
+    -- La sorciere garde ses potions pour une autre nuit : son tour s'arrete.
+    function Engine.renoncer(s, acteur)
+        if s.statut ~= "partie" or s.phase ~= "night_witch" then return nil, "hors_phase" end
+        if Match.role(s.match, acteur) ~= "witch" or not Match.vivant(s.match, acteur) then return nil, "interdit" end
+        local fx = {}
+        terminer(s, fx)
+        return fx
+    end
+
     -- Un joueur quitte la partie : il est traite comme mort. Sous le minimum
     -- de joueurs, la partie s'arrete sans vainqueur (spec, "Pannes").
     function Engine.depart(s, joueur)
