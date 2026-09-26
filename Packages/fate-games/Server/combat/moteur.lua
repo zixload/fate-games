@@ -515,6 +515,26 @@ return function(R, A, S, G)
         return fx
     end
 
+    -- Une balle deja confirmee par le jeu (arme native de nanos : c'est elle
+    -- qui a trouve l'os touche). Le moteur n'y ajoute que ses regles : zone,
+    -- armure, baisse avec la distance, ralenti aux jambes. `distance` en cm.
+    function Combat.balle(w, id, cible, zone, distance)
+        local f, c = combattant(w, id), combattant(w, cible)
+        if not (en_vie(f) and c and en_vie(c)) then return nil, "hors_combat" end
+        if not ennemis(w, f, c) then return nil, "allie" end
+        local arme = A[f.arme]
+        if not (arme and arme.famille == "tir") then return nil, "pas_arme_a_feu" end
+        zone = w.R.zones[zone] and zone or "torse"
+        local fx = {}
+        local total = calculer(w, c, arme.degats * baisse(arme, distance or 0), arme.type, w.R.zones[zone], arme.penetration)
+        blesser(w, c, total, arme.type, zone, id, fx)
+        if en_vie(c) and zone == "jambes" then
+            local e = w.R.etats.jambes_ralenti
+            poser_statut(w, c, "ralenti", e.duree, fx, { vitesse = e.vitesse })
+        end
+        return fx
+    end
+
     ---------------------------------------------------------------- arc
 
     function Combat.bander(w, id)
