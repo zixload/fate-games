@@ -64,10 +64,12 @@ Timer.SetInterval(function()
         local regard_pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch * R.gain))
         if not perso:GetValue("liars_dead", false) then
             -- La tete ne doit pas suivre la camera pendant la chute figee.
+            -- Tangage inverse : dans le rig, un tangage positif baisse la tete
+            -- (regarder en l'air faisait regarder en bas chez les autres).
             perso:SetAnimationBlueprintPropertyValue("LookNeck",
-                Rotator(yaw * R.cou, 0, regard_pitch * R.cou))
+                Rotator(yaw * R.cou, 0, -regard_pitch * R.cou))
             perso:SetAnimationBlueprintPropertyValue("LookHead",
-                Rotator(yaw * R.tete, 0, regard_pitch * R.tete))
+                Rotator(yaw * R.tete, 0, -regard_pitch * R.tete))
 
             local maintenant = Client.GetTime()
             if maintenant - dernier_envoi >= 100 and (dernier_yaw == nil

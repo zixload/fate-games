@@ -25,13 +25,17 @@ local function cible(character, regard)
     }
 end
 
+-- pitch suit la camera (positif : vers le haut) ; dans le rig un tangage
+-- positif baisse la tete, d'ou le signe moins (26/09 : regarder en l'air
+-- faisait regarder en bas chez les autres, et les bots regardaient le ciel
+-- au lieu de leurs cartes).
 local function appliquer(character, yaw, pitch)
     -- Neck/Head ont leur axe vertical local sur Y. Envoyer le regard lateral
     -- dans Yaw (axe Z) tordait la tete sur le cote au lieu de la tourner.
     character:SetAnimationBlueprintPropertyValue("LookNeck",
-        Rotator(yaw * R.cou, 0, pitch * R.cou))
+        Rotator(yaw * R.cou, 0, -pitch * R.cou))
     character:SetAnimationBlueprintPropertyValue("LookHead",
-        Rotator(yaw * R.tete, 0, pitch * R.tete))
+        Rotator(yaw * R.tete, 0, -pitch * R.tete))
 end
 
 CharacterSimple.Subscribe("ValueChange", function(self, key, value)
