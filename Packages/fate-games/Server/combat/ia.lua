@@ -62,7 +62,13 @@ function IA.decider(Combat, w, id, rng, memoire, niveau)
             if not memoire.vue[cle] then memoire.vue[cle] = { t = a.debut, lu = hasard(n.lecture) } end
             local vue = memoire.vue[cle]
             if vue.lu and w.t - vue.t >= n.reaction then
-                if a.force == "lourde" and f.endurance > 40 and hasard(0.35) then
+                if a.force == "bousculade" then
+                    -- Une bousculade ne se bloque pas : on l'esquive.
+                    if f.endurance > 25 and not memoire.esquive_bousculade then
+                        veut("esquiver", "arriere")
+                        memoire.esquive_bousculade = true
+                    end
+                elseif a.force == "lourde" and f.endurance > 40 and hasard(0.35) then
                     veut("esquiver", "arriere")
                 else
                     -- Parer, c'est poser la garde au dernier moment ; sinon bloquer.
@@ -77,6 +83,7 @@ function IA.decider(Combat, w, id, rng, memoire, niveau)
                 end
             end
         end
+        if not (a and a.force == "bousculade") then memoire.esquive_bousculade = nil end
         if memoire.parer and w.t >= memoire.parer.a then
             veut("garder", memoire.parer.dir)
             memoire.parer = nil
@@ -85,7 +92,10 @@ function IA.decider(Combat, w, id, rng, memoire, niveau)
         -- Attaquer quand on est a portee et libre.
         if not f.action and dist <= arme.portee and not (a and a.kind == "attaque") then
             if f.garde and hasard(0.5) then veut("lacher_garde") end
-            if hasard(n.agressivite * 0.12) then
+            -- Une garde tenue de pres : la bousculer.
+            if cible.garde and dist <= 120 and f.endurance > 30 and hasard(n.agressivite * 0.06) then
+                veut("bousculer")
+            elseif hasard(n.agressivite * 0.12) then
                 -- Contre un bouclier leve, les lourdes cassent la garde.
                 local arme_c = A[cible.arme]
                 local bouclier = cible.garde and arme_c and arme_c.famille == "melee" and arme_c.garde.bouclier

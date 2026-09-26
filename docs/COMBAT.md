@@ -72,6 +72,10 @@ Défenses :
 - **Esquive** : un pas vif, invulnérable pendant 250 ms, coûte de l'endurance, courte récupération.
 - **Feinte** : annuler son armement avant la frappe, contre de l'endurance. Punit les parades
   devinées.
+- **Bousculade** : un coup d'épaule rapide qui ne blesse pas et ne se bloque pas. Il fait perdre
+  de la posture et, sur une garde tenue, la fait tomber un instant (étourdi). C'est la réponse à
+  qui s'enferme derrière son bouclier ; on la contre en esquivant ou en frappant pendant son
+  armement.
 
 La portée et l'angle viennent de l'arme : une lance touche loin et étroit, une hache près et
 large. Le moteur trouve les cibles par la géométrie (distance, arc devant l'attaquant, hauteur) :
@@ -187,6 +191,7 @@ Commandes en combat :
 | clic molette ou F | attaque lourde | | |
 | clic droit tenu | garde ; la souris choisit le côté, la caméra suit l'ennemi | | visée (native) |
 | Q | feinte pendant l'armement | | |
+| V | bousculade (traverse la garde, sans dégâts) | | |
 | Alt gauche | esquive (direction : touches tenues) | esquive | esquive |
 | 1 à 7 | sorts : trait de feu, onde de choc, éclair, gel, soin, barrière, bond | | |
 | G | relever un allié à terre, achever un ennemi à terre | | |

@@ -9,6 +9,7 @@
 --   clic droit (tenu)    garde ; un geste de souris la change de cote, la camera
 --                        se cale sur l'ennemi le plus proche
 --   Q                    feinte (pendant l'armement)
+--   V                    bousculade (ne blesse pas, traverse la garde)
 --   Alt gauche           esquive (direction : Z Q S D ou W A S D tenues)
 -- Arc : clic gauche tenu pour bander, relache pour tirer.
 -- Armes a feu : les commandes natives (tir, visee, R pour recharger).
@@ -184,6 +185,9 @@ return function()
                     etincelles(c:GetLocation() + Vector(0, 0, 50))
                 end
                 if e.id == mon_id then hud("refus", "Parade !") end
+            elseif k == "bouscule" then
+                if c then son("nanos-world::A_Punch_Cue", c:GetLocation(), 1, 0.7) end
+                if e.id == mon_id then hud("refus", "Bousculé !") end
             elseif k == "bloque" then
                 if c then
                     son("nanos-world::A_MetalHeavy_Impact_MS", c:GetLocation(), 0.8, 1)
@@ -337,6 +341,7 @@ return function()
             if attaques[mon_id] then envoyer("pvp:feinte") return false end
         end
         if touche == "LeftAlt" then envoyer("pvp:esquive", direction_esquive()) return false end
+        if touche == "V" and fam == "melee" then envoyer("pvp:bousculer") return false end
         if SORTS[touche] then
             local cible = nil
             if SORTS[touche] == "soin" then
@@ -420,8 +425,10 @@ return function()
                 local e = Viewport.ProjectWorldToScreen(ch:GetLocation() + Vector(0, 0, 120))
                 if e and e.X > 0 and e.X < largeur and e.Y > 0 and e.Y < hauteur then
                     local reste = math.max(0, (a.fin - t) / math.max(0.01, a.fin - a.debut))
-                    local style = a.force == "lourde" and ROUGE or JAUNE
-                    Pseudo.Dessiner(c, SYMBOLE[MIROIR[a.dir]] or "?", e.X, e.Y, 1.6, style)
+                    local style = a.force == "legere" and JAUNE or ROUGE
+                    -- Une bousculade ne se bloque pas : "!!", a esquiver.
+                    local signe = a.force == "bousculade" and "!!" or SYMBOLE[MIROIR[a.dir]] or "?"
+                    Pseudo.Dessiner(c, signe, e.X, e.Y, 1.6, style)
                     c:DrawLine(Vector2D(e.X - 30, e.Y + 6), Vector2D(e.X - 30 + 60 * reste, e.Y + 6), 5, style.couleur)
                 end
             end

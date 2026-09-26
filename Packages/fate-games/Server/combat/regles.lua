@@ -51,6 +51,13 @@ R.defense = {
     parade_rendue = 10,            -- endurance rendue au defenseur qui pare
 }
 
+-- Bousculade : un coup d'epaule qui ne blesse pas et ne se bloque pas ; la
+-- reponse a une garde tenue trop longtemps. S'esquive ou s'interrompt.
+R.bousculade = {
+    armement = 0.3, frappe = 0.1, recuperation = 0.45, portee = 120, demi_angle = 50,
+    endurance = 15, posture = 35, etourdi_garde = 0.6,
+}
+
 R.etats = {
     garde_brisee_etourdi = 1.3,
     vulnerable = 3.0, vulnerable_mult = 1.5,

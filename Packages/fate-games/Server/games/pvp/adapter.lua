@@ -315,6 +315,7 @@ return function(Log, Characters, Combat, Armes, config)
 
         relayer("pvp:attaque", function(cid, force, dir) return Combat.attaquer(w, cid, force, dir) end)
         relayer("pvp:feinte", function(cid) return Combat.feinter(w, cid) end)
+        relayer("pvp:bousculer", function(cid) return Combat.bousculer(w, cid) end)
         relayer("pvp:garde", function(cid, dir)
             if dir then return Combat.garder(w, cid, dir) end
             return Combat.lacher_garde(w, cid)

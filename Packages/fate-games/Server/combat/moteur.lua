@@ -285,6 +285,24 @@ return function(R, A, S, G)
         return { { kind = "attaque", id = id, force = force, dir = dir, arme = f.arme, armement = att.armement } }
     end
 
+    function Combat.bousculer(w, id)
+        local f = combattant(w, id)
+        local ok, raison = peut_agir(w, f)
+        if not ok then return nil, raison end
+        if trop_tot(w, f, "bousculade") then return nil, "trop_tot" end
+        if f.action or f.bande or f.esquive and w.t < f.esquive.fin then return nil, "occupe" end
+        local b = w.R.bousculade
+        local cout = cout_endurance(w, f, b.endurance)
+        if f.endurance < cout then return nil, "epuise" end
+        depenser(w, f, cout)
+        f.garde = nil
+        local t = w.t
+        f.action = { kind = "attaque", force = "bousculade", dir = "haut", arme = f.arme, debut = t, phase = "armement",
+            fin_armement = t + b.armement, fin_frappe = t + b.armement + b.frappe,
+            fin = t + b.armement + b.frappe + b.recuperation, touches = {}, bousculade = true }
+        return { { kind = "attaque", id = id, force = "bousculade", dir = "haut", arme = f.arme, armement = b.armement } }
+    end
+
     function Combat.feinter(w, id)
         local f = combattant(w, id)
         if not en_vie(f) then return nil, "hors_combat" end
@@ -343,8 +361,27 @@ return function(R, A, S, G)
 
     local ZONES_MELEE = { tete = 1.4, torse = 1.0, bras = 0.8, jambes = 0.85 }
 
+    local function resoudre_bousculade(w, a, d, fx)
+        a.action.touches[d.id] = true
+        if d.esquive and w.t <= d.esquive.invulnerable then
+            fx[#fx + 1] = { kind = "esquive_reussie", id = d.id, source = a.id }
+            return
+        end
+        local b = w.R.bousculade
+        local garde = d.garde ~= nil
+        fx[#fx + 1] = { kind = "bouscule", id = d.id, source = a.id, garde = garde }
+        if garde then
+            d.garde = nil
+            fx[#fx + 1] = { kind = "garde", id = d.id, dir = nil }
+            poser_statut(w, d, "etourdi", b.etourdi_garde, fx)
+        end
+        interrompre(w, d, fx, "bouscule")
+        charger_posture(w, d, b.posture, fx)
+    end
+
     local function resoudre_coup(w, a, d, fx)
         local action = a.action
+        if action.bousculade then return resoudre_bousculade(w, a, d, fx) end
         local arme = A[action.arme]
         local att = arme[action.force]
         local arme_d = A[d.arme] or A.poings
@@ -402,13 +439,13 @@ return function(R, A, S, G)
         -- Un coup encaisse coupe une attaque legere en armement (une lourde
         -- aussi, si l'arme le permet : la dague).
         if d.action and d.action.kind == "attaque" and d.action.phase == "armement"
-            and (d.action.force == "legere" or arme.interrompt_lourdes) then
+            and (d.action.force ~= "lourde" or arme.interrompt_lourdes) then
             interrompre(w, d, fx, "touche")
         end
     end
 
     local function frapper(w, a, fx)
-        local arme = A[a.action.arme]
+        local arme = a.action.bousculade and w.R.bousculade or A[a.action.arme]
         local s = w.R.silhouette
         for _, d in pairs(w.combattants) do
             if not a.action then return end
