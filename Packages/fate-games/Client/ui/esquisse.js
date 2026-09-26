@@ -57,7 +57,10 @@ function contourTrace(w, h, r, graine, ampleur) {
 function habiller() {
   document.querySelectorAll(".sk").forEach((el) => {
     const w = el.offsetWidth, h = el.offsetHeight;
-    if (!w || !h || el.dataset.trace === `${w}x${h}`) return;
+    // Deja trace a cette taille et toujours la : rien a faire. Un bloc dont le
+    // contenu a ete remplace (innerHTML) a perdu son SVG : on le retrace.
+    const present = el.querySelector(":scope > .sk-svg");
+    if (!w || !h || (present && el.dataset.trace === `${w}x${h}`)) return;
     el.dataset.trace = `${w}x${h}`;
     const g = Number(el.dataset.graine || 1);
     const r = Math.min(Number(el.dataset.rayon || 12), w / 2, h / 2);
