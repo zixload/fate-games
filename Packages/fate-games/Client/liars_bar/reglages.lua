@@ -6,12 +6,15 @@
 --
 --   /fan                   affiche tous les reglages, a recopier tels quels
 --   /fan demo              main et tas factices hors partie (bascule)
---   /fan pos x y z         pivot de l'eventail, depuis l'os de la main
---   /fan rot p y r         rotation du pivot
---   /fan carte p y r       rotation de chaque carte dans sa fente
---   /fan table x y z       tas, depuis le centre du plateau
---   /fan dos p y r         carte face cachee sur la table
---   /fan face p y r        carte revelee sur la table
+--   /fan pos x -1          deplace petit a petit : un axe et un pas
+--   /fan rot p 5           (x, y, z pour pos et table ; p, ya, r pour les
+--                          rotations, ya = lacet)
+--   /fan pos x y z         ou trois valeurs absolues d'un coup :
+--   /fan rot p y r           pos (pivot de l'eventail, depuis l'os de la main),
+--   /fan carte p y r         rot (rotation du pivot), carte (chaque carte dans
+--   /fan table x y z         sa fente), table (tas, depuis le centre du
+--   /fan dos p y r           plateau), dos (carte face cachee sur la table),
+--   /fan face p y r          face (carte revelee sur la table)
 --   /fan os <nom>          os qui tient l'eventail (LeftHand, RightHand...)
 --   /fan <nombre> n        ecart, rayon, taille, levee, curseur, profondeur,
 --                          epaisseur, dispersion
@@ -66,6 +69,23 @@ return function(config, Rendu)
                 Rendu.Reconstruire()
             end
             Chat.AddMessage("/fan os " .. tostring(config.bone_simple))
+        elseif VECTEURS[cle] and mots[3] and not tonumber(mots[3]) then
+            -- Reglage relatif : /fan pos x -1, /fan rot ya 5.
+            local d = VECTEURS[cle]
+            local t = d[1][d[2]]
+            local axe = ({ x = "x", y = d[3][2], z = "z", p = "p", ya = "y", yaw = "y", r = "r" })[mots[3]]
+            local pas = tonumber(mots[4])
+            local connu = false
+            for _, k in ipairs(d[3]) do if k == axe then connu = true end end
+            if connu and pas then
+                t[axe] = (t[axe] or 0) + pas
+                Rendu.Reconstruire()
+                Chat.AddMessage(("/fan %s %s %s %s"):format(cle,
+                    tostring(t[d[3][1]]), tostring(t[d[3][2]]), tostring(t[d[3][3]])))
+            else
+                Chat.AddMessage(("/fan %s <axe> <pas> : axes %s"):format(cle,
+                    d[3][1] == "x" and "x, y, z" or "p, ya, r"))
+            end
         elseif VECTEURS[cle] then
             local a, b, c = tonumber(mots[3]), tonumber(mots[4]), tonumber(mots[5])
             if a and b and c then
