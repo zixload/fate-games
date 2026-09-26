@@ -56,13 +56,13 @@ Timer.SetInterval(function()
         end
 
         local orientation_chaise = perso:GetValue("seat_yaw", rotation.Yaw)
-        local yaw = math.max(-50, math.min(50, angle(rotation.Yaw - orientation_chaise)))
-        local regard_pitch = math.max(-25, math.min(25, pitch))
+        local yaw = math.max(-30, math.min(30, angle(rotation.Yaw - orientation_chaise)))
+        local regard_pitch = math.max(-15, math.min(15, pitch))
         -- La rotation du regard est repartie entre cou et tete dans le rig.
         perso:SetAnimationBlueprintPropertyValue("LookNeck",
-            Rotator(regard_pitch * 0.35, yaw * 0.35, 0))
+            Rotator(yaw * 0.35, 0, regard_pitch * 0.35))
         perso:SetAnimationBlueprintPropertyValue("LookHead",
-            Rotator(regard_pitch * 0.65, yaw * 0.65, 0))
+            Rotator(yaw * 0.65, 0, regard_pitch * 0.65))
 
         local maintenant = Client.GetTime()
         if maintenant - dernier_envoi >= 100 and (dernier_yaw == nil

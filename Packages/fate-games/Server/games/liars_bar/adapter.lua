@@ -72,6 +72,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     local shoot_timer_seat = nil   -- la place pour laquelle ce delai court
     local shot_sequence    = nil   -- resultat valide, en attente de la fin du geste
     local gun_raised       = nil   -- { seat, chair, ready } : arme prise, verdict encore secret
+    local debug_body       = nil   -- mannequin de reglage hors partie
+    local debug_gun        = nil   -- copie de l'arme ; ne touche pas au jeu
+    local debug_owner      = nil
 
     -- Un revolver par chaise. Le centre reste l'ancre du plateau et du tas de
     -- cartes ; chaque arme a sa propre position et son propre barillet moteur.
@@ -212,11 +215,19 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         end
     end
 
-    -- Le Nagant dans la main, selon config.revolver_prise.
+    -- Meme calage pour l'arme du jeu et celle du mannequin de reglage.
     local function poser_dans_la_main(prop)
         local g = config.revolver_prise or {}
         prop:SetRelativeLocation(Vector(g.x or 0, g.y or 0, g.z or 0))
         prop:SetRelativeRotation(Rotator(g.p or 0, g.ya or 0, g.r or 0))
+    end
+
+    local function attacher_a_la_main(prop, character)
+        local ok = prop:AttachTo(character, AttachmentRule.SnapToTarget, "RightHandProp", -1)
+        if not ok then return false end
+        poser_dans_la_main(prop)
+        prop:SetCollision(CollisionType.NoCollision)
+        return true
     end
 
     local function arreter_pose_revolver(preparation)
@@ -237,11 +248,94 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
                 poser_dans_la_main(prop)
             end
         end
+        if debug_gun and debug_gun:IsValid() and debug_gun:GetAttachedTo() then
+            poser_dans_la_main(debug_gun)
+        end
+        return prise
+    end
+
+    function Adapter.GetPrise()
+        return config.revolver_prise
+    end
+
+    function Adapter.AdjustPrise(axis, delta)
+        if not ({ x = true, y = true, z = true, p = true, ya = true, r = true })[axis]
+            or type(delta) ~= "number" or delta ~= delta
+            or math.abs(delta) > 90 then return nil end
+        local current = config.revolver_prise or {}
+        local prise = {
+            x = current.x or 0, y = current.y or 0, z = current.z or 0,
+            p = current.p or 0, ya = current.ya or 0, r = current.r or 0,
+        }
+        prise[axis] = prise[axis] + delta
+        return Adapter.SetPrise(prise)
+    end
+
+    function Adapter.StopPoseBot()
+        if debug_gun and debug_gun:IsValid() then debug_gun:Destroy() end
+        if debug_body and debug_body:IsValid() then debug_body:Destroy() end
+        debug_gun, debug_body, debug_owner = nil, nil, nil
+    end
+
+    -- Mannequin Creative independant des places et de l'etat de partie. Le
+    -- premier clip garde sa derniere pose indefiniment (blend_out = -1).
+    -- L'arme utilise exactement le meme socket et le meme calage que le jeu.
+    function Adapter.PoseBot(player, chair_n)
+        if state or gun_raised or shot_sequence then return false, "partie_en_cours" end
+        if not player then return false, "joueur_absent" end
+        local player_chair = seat_by_player[player:GetID()]
+        chair_n = chair_n or (player_chair and ((player_chair + 1) % 4 + 1)) or 1
+        if not config.layout.chairs[chair_n] then return false, "chaise_invalide" end
+        if player_by_seat[chair_n] then return false, "chaise_occupee" end
+        Adapter.StopPoseBot()
+
+        local x, y, z, yaw = position_assise(chair_n)
+        local body = Characters.CorpsAssis(x, y, z, yaw)
+        if not (body and body:IsValid() and body:IsA(CharacterSimple)) then
+            if body and body:IsValid() then body:Destroy() end
+            return false, "mannequin_creative_indisponible"
+        end
+        local home = devant_chaise[chair_n]
+        local rest = revolver_rotation[chair_n] or { p = 90, ya = 0, r = 0 }
+        local gun = Prop(home, Rotator(rest.p, rest.ya, rest.r), ASSETS.revolver,
+            CollisionType.NoCollision, false, GrabMode.Disabled)
+        if not (gun and gun:IsValid()) then
+            body:Destroy()
+            return false, "revolver_indisponible"
+        end
+        debug_body, debug_gun, debug_owner = body, gun, player:GetID()
+        gun:SetVisibility(false)
+        local ok, err = pcall(function()
+            body:PlayAnimation(ANIMATIONS.take, "DefaultSlot", false, 0.08, -1, 1.0, true)
+        end)
+        if not ok then
+            Log.Warn("liars", "posebot : animation impossible : " .. tostring(err))
+            Adapter.StopPoseBot()
+            return false, "animation_indisponible"
+        end
+        Timer.SetTimeout(function()
+            if debug_body ~= body or not body:IsValid() or not gun:IsValid() then return end
+            if attacher_a_la_main(gun, body) then
+                gun:SetVisibility(true)
+            else
+                Log.Warn("liars", "posebot : attache a RightHandProp refusee")
+                Adapter.StopPoseBot()
+            end
+        end, 300)
+        return true, chair_n
+    end
+
+    function Adapter.PoseBotLook(yaw, pitch)
+        if not (debug_body and debug_body:IsValid()) then return false end
+        debug_body:SetValue("liars_look", {
+            yaw = math.max(-30, math.min(30, yaw)),
+            pitch = math.max(-15, math.min(15, pitch)),
+        }, true)
         return true
     end
 
     -- Le premier clip s'arrete a la tempe et conserve sa derniere pose jusqu'au
-    -- clic. L'arme rejoint la main quand elle atteint le plateau (image 10).
+    -- clic. La meme attache que /posebot est appliquee a l'image 10.
     local function prendre_revolver(preparation, character)
         local chair_n = preparation.chair
         local prop = revolver_props[chair_n]
@@ -252,11 +346,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             Timer.SetTimeout(function()
                 if gun_raised ~= preparation
                     or not prop:IsValid() or not character:IsValid() then return end
-                local ok = prop:AttachTo(character, AttachmentRule.SnapToTarget, "RightHandProp", -1)
-                if ok then
-                    poser_dans_la_main(prop)
-                    prop:SetCollision(CollisionType.NoCollision)
-                else
+                if not attacher_a_la_main(prop, character) then
                     Log.Warn("liars", "revolver : attache a RightHandProp refusee")
                 end
             end, 300)
@@ -317,8 +407,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     local function regarder(entry, yaw, pitch)
         if not (entry.body and entry.body:IsValid()) then return end
         entry.body:SetValue("liars_look", {
-            yaw = math.max(-50, math.min(50, yaw)),
-            pitch = math.max(-25, math.min(25, pitch)),
+            yaw = math.max(-30, math.min(30, yaw)),
+            pitch = math.max(-15, math.min(15, pitch)),
         }, true)
     end
 
@@ -912,6 +1002,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     -- assoit n aux chaises libres, par ordre croissant. Hors partie seulement.
     function Adapter.SetBots(n)
         if state then return false, "partie_en_cours" end
+        if debug_body then Adapter.StopPoseBot() end
 
         for i = #seated, 1, -1 do
             local entry = seated[i]
@@ -942,6 +1033,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         if state then
             return false, "partie_en_cours"
         end
+        if debug_body then return false, "mode_reglage_actif" end
         -- Seul un joueur assis lance la partie : un passant qui touche le
         -- revolver ne la declenche pas pour les autres.
         if not (player and seat_by_player[player:GetID()]) then
@@ -1319,6 +1411,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     -- le tour l'atteint, puisqu'il n'y a pas de delai de tour.
     function Adapter.OnPlayerLeave(player)
         local player_id = player:GetID()
+        if debug_owner == player_id then Adapter.StopPoseBot() end
         local seat = seat_by_player[player_id]
         if not seat then return end
 

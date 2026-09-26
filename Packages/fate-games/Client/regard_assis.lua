@@ -18,16 +18,18 @@ local function cible(character, regard)
     local yaw, pitch = tonumber(regard.yaw), tonumber(regard.pitch)
     if not (yaw and pitch) then return end
     cibles[character] = {
-        yaw = math.max(-50, math.min(50, yaw)),
-        pitch = math.max(-25, math.min(25, pitch)),
+        yaw = math.max(-30, math.min(30, yaw)),
+        pitch = math.max(-15, math.min(15, pitch)),
     }
 end
 
 local function appliquer(character, yaw, pitch)
+    -- Neck/Head ont leur axe vertical local sur Y. Envoyer le regard lateral
+    -- dans Yaw (axe Z) tordait la tete sur le cote au lieu de la tourner.
     character:SetAnimationBlueprintPropertyValue("LookNeck",
-        Rotator(pitch * 0.35, yaw * 0.35, 0))
+        Rotator(yaw * 0.35, 0, pitch * 0.35))
     character:SetAnimationBlueprintPropertyValue("LookHead",
-        Rotator(pitch * 0.65, yaw * 0.65, 0))
+        Rotator(yaw * 0.65, 0, pitch * 0.65))
 end
 
 CharacterSimple.Subscribe("ValueChange", function(self, key, value)

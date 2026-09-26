@@ -33,8 +33,7 @@ return {
     -- rien de secret dans ces coordonnees.
     layout = Package.Require("Shared/liars_table.lua"),
 
-    -- Ajustement initial mesure sur le mannequin Creative dans Blender.
-    -- L'import Unreal peut changer le repere du socket : affiner en jeu avec
-    -- "/prise x y z tangage lacet roulis" si necessaire.
+    -- Decalage initial du Nagant par rapport a RightHandProp. /posebot fige
+    -- un mannequin hors partie et /prise permet d'affiner ces six valeurs.
     revolver_prise = { x = -1.8, y = 3.0, z = -9.0, p = 57.1, ya = -24.4, r = 160.8 },
 }

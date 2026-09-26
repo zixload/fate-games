@@ -110,19 +110,67 @@ if ServerConfig.dev and ServerConfig.dev.liars_bots then
     end)
     Log.Info("liars", "bots de test actifs : /bots N dans le chat")
 
-    -- Prise du revolver dans la main, "/prise x y z tangage lacet roulis"
-    -- (cm, degres), pendant que l'arme est tenue a la tempe.
+    -- Mannequin de reglage, hors partie : /posebot [chaise] puis /posebot stop.
     Chat.Subscribe("PlayerSubmit", function(message, player)
         local texte = tostring(message)
-        if not texte:match("^/prise") then return end
-        local v = {}
-        for n in texte:gmatch("%-?[%d%.]+") do v[#v + 1] = tonumber(n) end
-        if #v ~= 6 then
-            Chat.SendMessage(player, "usage : /prise x y z tangage lacet roulis")
+        if texte ~= "/posebot" and not texte:match("^/posebot%s+") then return end
+        local argument = texte:match("^/posebot%s+(%S+)%s*$")
+        if argument == "stop" then
+            LiarsBar.StopPoseBot()
+            Chat.SendMessage(player, "mannequin de prise retire")
             return false
         end
-        LiarsBar.SetPrise({ x = v[1], y = v[2], z = v[3], p = v[4], ya = v[5], r = v[6] })
-        Chat.SendMessage(player, ("prise : %g %g %g | %g %g %g"):format(table.unpack(v)))
+        local regard_yaw, regard_pitch = texte:match("^/posebot%s+regard%s+([%+%-]?[%d%.]+)%s+([%+%-]?[%d%.]+)%s*$")
+        if regard_yaw and tonumber(regard_yaw) and tonumber(regard_pitch) then
+            local ok = LiarsBar.PoseBotLook(tonumber(regard_yaw), tonumber(regard_pitch))
+            Chat.SendMessage(player, ok and "regard du mannequin regle" or "lance /posebot d'abord")
+            return false
+        end
+        if argument and not tonumber(argument) then
+            Chat.SendMessage(player, "usage : /posebot [chaise 1-4|stop|regard yaw pitch]")
+            return false
+        end
+        local chaise = argument and tonumber(argument) or nil
+        if chaise and (chaise % 1 ~= 0 or chaise < 1 or chaise > 4) then
+            Chat.SendMessage(player, "chaise attendue : 1 a 4")
+            return false
+        end
+        local ok, detail = LiarsBar.PoseBot(player, chaise)
+        Chat.SendMessage(player, ok and ("pose figee sur chaise " .. detail .. " ; /prise pour les valeurs")
+            or ("posebot : " .. tostring(detail)))
+        return false
+    end)
+
+    -- /prise affiche les valeurs ; /prise z -2 les ajuste ; six nombres
+    -- remplacent les valeurs. L'arme du mannequin bouge sans rejouer la pose.
+    Chat.Subscribe("PlayerSubmit", function(message, player)
+        local texte = tostring(message)
+        if texte ~= "/prise" and not texte:match("^/prise%s+") then return end
+        local v = {}
+        for token in texte:gmatch("%S+") do v[#v + 1] = token end
+        local prise
+        if #v == 1 then
+            prise = LiarsBar.GetPrise()
+        elseif #v == 3 then
+            prise = LiarsBar.AdjustPrise(v[2], tonumber(v[3]))
+        elseif #v == 7 then
+            local values = {}
+            local tous_valides = true
+            for i = 2, 7 do
+                values[i - 1] = tonumber(v[i])
+                if not values[i - 1] then tous_valides = false end
+            end
+            if tous_valides then
+                prise = LiarsBar.SetPrise({ x = values[1], y = values[2], z = values[3],
+                    p = values[4], ya = values[5], r = values[6] })
+            end
+        end
+        if prise then
+            Chat.SendMessage(player, ("prise : %g %g %g | %g %g %g"):format(
+                prise.x, prise.y, prise.z, prise.p, prise.ya, prise.r))
+        else
+            Chat.SendMessage(player, "usage : /prise [axe x,y,z,p,ya,r decalage | x y z p ya r]")
+        end
         return false
     end)
 end
@@ -218,8 +266,8 @@ if essai and essai.enabled then
         if maintenant - (dernier_regard[id] or 0) < 80 then return end
         dernier_regard[id] = maintenant
         character:SetValue("liars_look", {
-            yaw = math.max(-50, math.min(50, yaw)),
-            pitch = math.max(-25, math.min(25, pitch)),
+            yaw = math.max(-30, math.min(30, yaw)),
+            pitch = math.max(-15, math.min(15, pitch)),
         }, true)
     end)
 end

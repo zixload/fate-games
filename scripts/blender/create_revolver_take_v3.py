@@ -5,7 +5,7 @@ and forward to fit the full-size Nagant: its muzzle reaches the right temple
 without putting the cylinder inside the head. The index flexes on the shot.
 
   * an IK pole that swings the elbow out to the right side,
-  * a hand orientation at the temple: fingers toward the head, palm toward the weapon,
+  * a hand orientation at the temple: index above pinky around the handle,
   * a closed grip from the moment the hand reaches the gun until it lets go.
 
 The matching prop offset is measured in preview_revolver_fit.py. Verify the
@@ -32,9 +32,9 @@ FRAMES = 48
 # fired from there and the fire clip returns to idle.
 GRAB, TEMPLE_IN, TEMPLE_OUT, RELEASE = 10, 21, 31, 41
 
-# Revolver on the table, relative to the seated character (first pass value,
-# checked against the table then).
-TABLE = Vector((-0.24, -0.45, 0.88))
+# Wrist target at the table. With the Nagant attached, its centre is about
+# 0.94 m at frame 10 and its lower edge is near the 0.88 m tabletop.
+TABLE = Vector((-0.24, -0.45, 1.00))
 
 
 def smooth(t):
@@ -130,8 +130,8 @@ rest_wrist = wpos("RightForeArm", tail=True)
 
 # Wrist at the temple: out to the right of the head, a little behind and
 # below, so a gun held in the fist reaches the temple with its barrel.
-wrist_temple = temple + Vector((float(os.environ.get("REVOLVER_WRIST_X", "-0.26")),
-                                float(os.environ.get("REVOLVER_WRIST_Y", "-0.01")), -0.07))
+wrist_temple = temple + Vector((float(os.environ.get("REVOLVER_WRIST_X", "-0.31")),
+                                float(os.environ.get("REVOLVER_WRIST_Y", "-0.04")), -0.07))
 arc = lambda a, b: (a + b) / 2 + Vector((-0.06, 0.04, 0.0))
 
 wrist_keys = (
@@ -276,10 +276,10 @@ for frame in range(1, FRAMES + 1):
     if w > 0:
         fingers, thumb = hand_frame()
         current = basis(fingers, thumb)
-        # The palm must face the barrel/grip on the table side (-Y in this rig).
-        # Thumb-up here exposed the back of the hand to the gun.
+        # Keep index above pinky so the fingers line up along the Nagant grip.
+        # The hand stays further out; its knuckles surround the handle.
         wanted = basis(Vector((1, 0.15, 0)).normalized(),
-                       Vector((0, 0, float(os.environ.get("REVOLVER_THUMB_Z", "-1")))))
+                       Vector((0, 0, float(os.environ.get("REVOLVER_THUMB_Z", "1")))))
         full = wanted @ current.inverted()
         partial = Quaternion().slerp(full.to_quaternion(), w).to_matrix()
         set_world_rotation(pb["RightHand"], partial)

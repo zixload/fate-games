@@ -20,14 +20,14 @@ les joueurs voient et comprennent pendant une partie.
 
 ## Mouvement de la tête sur la chaise
 
-- [ ] Ajouter `LookYaw` et `LookPitch` dans `ABP_Creative` (ADK), puis modifier
-  `Neck` et `Head` de façon additive sur l'animation assise. Garder le buste
-  orienté vers la table ; borner et lisser la rotation de la tête.
-- [ ] Envoyer l'orientation du regard du joueur assis aux autres clients à une
-  fréquence limitée. Remettre les valeurs à zéro quand il se lève, quitte la
-  partie ou se déconnecte. Aucun envoi n'est nécessaire pour les bots immobiles.
-- [ ] Recuire `my-asset-pack` et vérifier en jeu que les autres voient bien le
-  mouvement, sans décaler la caméra du joueur local.
+- [x] `LookNeck` et `LookHead` sont branchés dans `ABP_Creative` et alimentés
+  par le client. Le regard horizontal utilise l'axe local vertical du rig ;
+  amplitude bornée à 30 degrés, hauteur à 15 degrés. Le buste reste face à la
+  table.
+- [x] Publier le regard du joueur assis aux autres clients à cadence limitée,
+  lisser leur affichage et remettre les valeurs à zéro quand il se lève.
+- [ ] Vérifier en jeu le nouvel axe avec `/posebot regard 30 0`, puis observer
+  un vrai joueur tourner la tête. Le correctif Lua ne nécessite pas de cook.
 
 ## Geste du revolver
 
@@ -41,14 +41,17 @@ les joueurs voient et comprennent pendant une partie.
   `my-asset-pack`. L'arme de la chaise s'attache à `RightHandProp` pendant le
   geste ; le coup est annoncé à 0,9 s, le prochain tour attend le retour.
 - [ ] Valider en client que `DefaultSlot` du Blueprint joue bien le geste.
-  Version Blender du 26/09 : paume corrigée vers la poignée, index qui se replie
-  au tir, canon à 0,97 cm de la tempe sur le mannequin Creative. L'orientation
-  du socket reste à confirmer après import Unreal et essai en jeu.
+  Version Blender du 26/09 : doigts recalés autour de la poignée, index qui se
+  replie au tir, canon à 0,97 cm de la tempe sur le mannequin Creative. Les deux
+  clips ont été réimportés ; l'orientation du socket reste à confirmer après
+  cook et essai en jeu.
+- [ ] Caler la prise avec `/posebot` hors partie et `/prise` en direct ; le
+  mannequin garde la pose à la tempe et emploie la même attache que la partie.
 - [ ] Valider en jeu le geste en deux temps : E prend l'arme, la pose est
   maintenue à la tempe, puis clic gauche valide le tir. Les deux FBX sont
-  exportés depuis `seated_revolver.blend` et le code du serveur/client est
-  branché ; il reste à importer les deux animations dans l'ADK, cuire le pack
-  et vérifier la prise. Le délai de sécurité résout toujours un joueur absent.
+  exportés depuis `seated_revolver.blend`, importés dans l'ADK et cuits ;
+  il reste à vérifier la prise en jeu. Le délai de sécurité résout toujours
+  un joueur absent.
 - [ ] Tester un tir à blanc, un tir fatal, un bot et une déconnexion au milieu
   du geste. Le résultat du jeu doit rester cohérent si l'animation échoue.
 

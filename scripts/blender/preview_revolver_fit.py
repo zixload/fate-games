@@ -10,6 +10,8 @@ from mathutils import Matrix, Vector
 
 root = Path("C:/Users/ingam/OneDrive/Documents/fate-games")
 out = root / "art/animations"
+preview_out = Path(os.environ.get("REVOLVER_PREVIEW_OUTPUT", str(out)))
+preview_out.mkdir(parents=True, exist_ok=True)
 bpy.ops.wm.open_mainfile(filepath=os.environ.get("REVOLVER_BLEND", str(out / "seated_revolver.blend")))
 body = next(o for o in bpy.data.objects if o.type == "ARMATURE")
 mesh = next(o for o in bpy.data.objects if o.type == "MESH")
@@ -34,8 +36,8 @@ grip = Vector((0, 6.5, -4.5))
 muzzle = Vector((0, -11.7, 7.0))
 knuckles = (pos("RightHandIndex1") + pos("RightHandPinky1")) / 2
 palm = (pos("RightHand") + knuckles) / 2
-gun_offset = Vector((float(os.environ.get("REVOLVER_GRIP_X", "0")),
-                     float(os.environ.get("REVOLVER_GRIP_Y", "0")),
+gun_offset = Vector((float(os.environ.get("REVOLVER_GRIP_X", "0.05")),
+                     float(os.environ.get("REVOLVER_GRIP_Y", "0.03")),
                      float(os.environ.get("REVOLVER_GRIP_Z", "0"))))
 gun.matrix_world = Matrix.Translation(palm + gun_offset - (rotate @ base @ grip)) @ rotate @ base
 print("FIT palm", tuple(round(v, 4) for v in palm))
@@ -90,6 +92,6 @@ for name, position in (("front", (0, -1.0, 1.57)),
                        ("top", (-0.15, -0.2, 2.2))):
     cam.location = position
     cam.rotation_euler = (Vector((-0.15, -0.2, 1.53)) - cam.location).to_track_quat("-Z", "Y").to_euler()
-    scene.render.filepath = str(out / f"fit_{name}.png")
+    scene.render.filepath = str(preview_out / f"fit_{name}.png")
     bpy.ops.render.render(write_still=True)
     print("RENDERED", scene.render.filepath)
