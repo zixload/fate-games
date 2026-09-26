@@ -304,10 +304,13 @@ return function(SharedConfig)
         if musique and musique:IsValid() then return end
         local ok, err = pcall(function()
             local boucle = SoundLoopMode and (SoundLoopMode.Forever or SoundLoopMode.Default) or nil
+            -- Le niveau de FadeIn multiplie le volume du son (doc Sound) : cree
+            -- a 0, il montait vers 0 et restait muet. Volume voulu a la
+            -- creation, fondu jusqu'a 1.
             musique = Sound(Vector(), "package://fate-games/Client/Sounds/musique_duel.ogg", true, false,
-                SoundType.Music, 0, 1, 400, 3600, AttenuationFunction and AttenuationFunction.Linear or nil,
+                SoundType.Music, mu.volume or 0.22, 1, 400, 3600, AttenuationFunction and AttenuationFunction.Linear or nil,
                 true, boucle, false)
-            musique:FadeIn(mu.fondu_entree or 3, mu.volume or 0.22)
+            musique:FadeIn(mu.fondu_entree or 3, 1)
         end)
         if not ok then Console.Error("[duel] musique : " .. tostring(err)) end
     end

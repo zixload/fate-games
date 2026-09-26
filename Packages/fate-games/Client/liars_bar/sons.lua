@@ -23,10 +23,12 @@ return function(disposition, reglage)
         if musique and musique:IsValid() then return end
         local ok, err = pcall(function()
             local boucle = SoundLoopMode and (SoundLoopMode.Forever or SoundLoopMode.Default) or nil
+            -- Le niveau de FadeIn multiplie le volume du son (doc Sound) :
+            -- volume voulu a la creation, fondu jusqu'a 1.
             musique = Sound(Vector(), "package://fate-games/Client/Sounds/" .. reglage.musique, true, false,
-                SoundType.Music, 0, 1, 400, 3600, AttenuationFunction and AttenuationFunction.Linear or nil,
-                true, boucle, false)
-            musique:FadeIn(reglage.fondu_entree or 4, reglage.volume_musique or 0.08)
+                SoundType.Music, reglage.volume_musique or 0.08, 1, 400, 3600,
+                AttenuationFunction and AttenuationFunction.Linear or nil, true, boucle, false)
+            musique:FadeIn(reglage.fondu_entree or 4, 1)
         end)
         if not ok then
             musique = nil
