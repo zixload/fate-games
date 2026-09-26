@@ -399,8 +399,10 @@ return function(R, A, S, G)
         if zone == "tete" and att.type == "contondant" and action.force == "lourde" then
             poser_statut(w, d, "etourdi", e.tete_etourdi, fx)
         end
-        -- Un coup encaisse coupe une attaque legere en armement (pas une lourde).
-        if d.action and d.action.kind == "attaque" and d.action.phase == "armement" and d.action.force == "legere" then
+        -- Un coup encaisse coupe une attaque legere en armement (une lourde
+        -- aussi, si l'arme le permet : la dague).
+        if d.action and d.action.kind == "attaque" and d.action.phase == "armement"
+            and (d.action.force == "legere" or arme.interrompt_lourdes) then
             interrompre(w, d, fx, "touche")
         end
     end
@@ -412,6 +414,7 @@ return function(R, A, S, G)
             if not a.action then return end
             if d ~= a and en_vie(d) and not a.action.touches[d.id] and ennemis(w, a, d)
                 and math.abs(d.pos.z - a.pos.z) < s.demi_hauteur * 1.6
+                and G.distance_plane(a.pos, d.pos) >= (arme.portee_min or 0)
                 and G.dans_arc(a.pos, a.yaw, d.pos, arme.portee, arme.demi_angle, s.rayon) then
                 resoudre_coup(w, a, d, fx)
             end
@@ -766,6 +769,8 @@ return function(R, A, S, G)
         if f.etat == "a_terre" then return 0.25 end
         if f.etat ~= "vivant" then return 0 end
         local v = (w.R.poids_armures[f.armure] or { vitesse = 1 }).vitesse
+        local arme = A[f.arme]
+        if arme and arme.mobilite then v = v * arme.mobilite end
         if a_statut(w, f, "etourdi") then return 0 end
         local r = f.statuts.ralenti
         if r and r.fin > w.t then v = v * r.vitesse end

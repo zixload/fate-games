@@ -128,6 +128,17 @@ se vide de son sang pendant un temps, un allié peut nous **relever** (quelques 
 touché), un ennemi peut nous **achever**. Les modes PvP arcade le désactivent : on meurt tout de
 suite.
 
+## Équilibre
+
+`lua scripts/combat/equilibrage.lua` fait s'affronter des bots (100 combats par affiche). Repères
+au 27/09/2026 : à armes égales le bot difficile bat le facile 92 fois sur 100, l'épée courte en
+miroir fait 56–44, le bouclier bat l'épée longue 65–35, la hache bat la lance 70–30, la dague
+reste l'arme la plus exigeante (20 % contre la masse). Les armements sont de 0,35 à 0,55 s pour
+une légère : assez pour lire le coup et le bloquer.
+
+En terrain ouvert, les armes à feu et l'arc battent toujours une arme de corps à corps : les modes
+regroupent donc les classes d'armes (arène de corps à corps, mode armes à feu, mode libre assumé).
+
 ## Équité et triche
 
 - Aucune valeur de dégâts ne vient du client ; les intentions trop rapprochées sont ignorées.

@@ -6,6 +6,11 @@
 -- son cout d'endurance et la posture qu'elle inflige. `portee` en cm (du
 -- centre de l'attaquant au bord de la cible), `demi_angle` en degres.
 -- `poids` : une attaque lourde ne se pare pas avec une arme legere.
+-- `portee_min` : en deca, l'arme ne touche pas (la lance a bout portant).
+-- `mobilite` : multiplicateur de vitesse de deplacement (lege, on bouge vite).
+-- `interrompt_lourdes` : ses coups coupent aussi les lourdes en armement.
+-- Les armements (0,35 a 0,55 s pour une legere) laissent le temps de lire le
+-- coup : un humain reagit en 0,25 s environ.
 -- `garde` : ce qui traverse une garde (part des degats), et combien de
 -- posture et d'endurance la garde coute (multiplicateurs).
 --
@@ -19,66 +24,68 @@ local A = {}
 local function melee(t) t.famille = "melee" return t end
 
 A.poings = melee {
-    nom = "Poings", mains = 2, poids = "leger", portee = 110, demi_angle = 40,
-    legere = { degats = 7, type = "contondant", armement = 0.22, frappe = 0.12, recuperation = 0.25, endurance = 6, posture = 10 },
-    lourde = { degats = 14, type = "contondant", armement = 0.55, frappe = 0.15, recuperation = 0.5, endurance = 14, posture = 28 },
+    mobilite = 1.12, nom = "Poings", mains = 2, poids = "leger", portee = 110, demi_angle = 40,
+    legere = { degats = 7, type = "contondant", armement = 0.35, frappe = 0.12, recuperation = 0.25, endurance = 6, posture = 10 },
+    lourde = { degats = 14, type = "contondant", armement = 0.7, frappe = 0.15, recuperation = 0.5, endurance = 14, posture = 28 },
     garde = { traverse = 0.5, posture = 1.3, endurance = 1.2 },
 }
 
 A.dague = melee {
-    nom = "Dague", mains = 1, poids = "leger", portee = 130, demi_angle = 35, penetration = 0.3,
-    legere = { degats = 12, type = "perforant", armement = 0.2, frappe = 0.1, recuperation = 0.25, endurance = 7, posture = 8 },
-    lourde = { degats = 26, type = "perforant", armement = 0.5, frappe = 0.12, recuperation = 0.5, endurance = 16, posture = 18, saignement = true },
+    mobilite = 1.1, nom = "Dague", mains = 1, poids = "leger", portee = 130, demi_angle = 35, penetration = 0.3,
+    interrompt_lourdes = true,       -- un coup d'estoc coupe meme un grand moulinet
+    legere = { degats = 14, type = "perforant", armement = 0.35, frappe = 0.1, recuperation = 0.2, endurance = 7, posture = 10 },
+    lourde = { degats = 28, type = "perforant", armement = 0.65, frappe = 0.12, recuperation = 0.5, endurance = 16, posture = 18, saignement = true },
     garde = { traverse = 0.35, posture = 1.2, endurance = 1.1 },
 }
 
 A.epee_courte = melee {
-    nom = "Épée courte", mains = 1, poids = "leger", portee = 160, demi_angle = 55,
-    legere = { degats = 16, type = "tranchant", armement = 0.3, frappe = 0.14, recuperation = 0.3, endurance = 9, posture = 14 },
-    lourde = { degats = 30, type = "tranchant", armement = 0.65, frappe = 0.16, recuperation = 0.55, endurance = 18, posture = 30, saignement = true },
+    mobilite = 1.03, nom = "Épée courte", mains = 1, poids = "leger", portee = 160, demi_angle = 55,
+    legere = { degats = 16, type = "tranchant", armement = 0.42, frappe = 0.14, recuperation = 0.3, endurance = 9, posture = 14 },
+    lourde = { degats = 30, type = "tranchant", armement = 0.8, frappe = 0.16, recuperation = 0.55, endurance = 18, posture = 30, saignement = true },
     garde = { traverse = 0.15, posture = 1.0, endurance = 1.0 },
 }
 
 A.epee_longue = melee {
-    nom = "Épée longue", mains = 2, poids = "moyen", portee = 200, demi_angle = 60,
-    legere = { degats = 20, type = "tranchant", armement = 0.38, frappe = 0.16, recuperation = 0.38, endurance = 12, posture = 18 },
-    lourde = { degats = 40, type = "tranchant", armement = 0.8, frappe = 0.18, recuperation = 0.7, endurance = 24, posture = 40, saignement = true },
+    mobilite = 0.97, nom = "Épée longue", mains = 2, poids = "moyen", portee = 200, demi_angle = 60,
+    legere = { degats = 20, type = "tranchant", armement = 0.5, frappe = 0.16, recuperation = 0.38, endurance = 12, posture = 18 },
+    lourde = { degats = 40, type = "tranchant", armement = 0.95, frappe = 0.18, recuperation = 0.7, endurance = 24, posture = 40, saignement = true },
     garde = { traverse = 0.1, posture = 0.9, endurance = 0.9 },
 }
 
 A.hache = melee {
-    nom = "Hache", mains = 2, poids = "lourd", portee = 175, demi_angle = 75, penetration = 0.15,
-    legere = { degats = 22, type = "tranchant", armement = 0.45, frappe = 0.16, recuperation = 0.45, endurance = 14, posture = 24 },
-    lourde = { degats = 46, type = "tranchant", armement = 0.95, frappe = 0.2, recuperation = 0.85, endurance = 28, posture = 55, saignement = true },
+    mobilite = 0.93, nom = "Hache", mains = 2, poids = "lourd", portee = 175, demi_angle = 75, penetration = 0.15,
+    legere = { degats = 22, type = "tranchant", armement = 0.55, frappe = 0.16, recuperation = 0.45, endurance = 14, posture = 24 },
+    lourde = { degats = 46, type = "tranchant", armement = 1.1, frappe = 0.2, recuperation = 0.85, endurance = 28, posture = 55, saignement = true },
     garde = { traverse = 0.2, posture = 1.1, endurance = 1.0 },
 }
 
 A.masse = melee {
-    nom = "Masse", mains = 1, poids = "lourd", portee = 165, demi_angle = 60,
-    legere = { degats = 20, type = "contondant", armement = 0.45, frappe = 0.16, recuperation = 0.45, endurance = 14, posture = 30 },
-    lourde = { degats = 42, type = "contondant", armement = 0.95, frappe = 0.2, recuperation = 0.85, endurance = 28, posture = 65 },
+    mobilite = 0.94, nom = "Masse", mains = 1, poids = "lourd", portee = 165, demi_angle = 60,
+    legere = { degats = 20, type = "contondant", armement = 0.55, frappe = 0.16, recuperation = 0.45, endurance = 14, posture = 26 },
+    lourde = { degats = 42, type = "contondant", armement = 1.1, frappe = 0.2, recuperation = 0.85, endurance = 28, posture = 65 },
     garde = { traverse = 0.2, posture = 1.1, endurance = 1.0 },
 }
 
 A.lance = melee {
-    nom = "Lance", mains = 2, poids = "moyen", portee = 290, demi_angle = 18, penetration = 0.35,
-    legere = { degats = 18, type = "perforant", armement = 0.35, frappe = 0.15, recuperation = 0.4, endurance = 11, posture = 14 },
-    lourde = { degats = 36, type = "perforant", armement = 0.75, frappe = 0.18, recuperation = 0.7, endurance = 22, posture = 30 },
+    -- Longue et etroite ; inutile a bout portant : rentrer dans sa garde la contre.
+    mobilite = 0.96, nom = "Lance", mains = 2, poids = "moyen", portee = 290, portee_min = 100, demi_angle = 18, penetration = 0.35,
+    legere = { degats = 16, type = "perforant", armement = 0.48, frappe = 0.15, recuperation = 0.4, endurance = 11, posture = 14 },
+    lourde = { degats = 36, type = "perforant", armement = 0.9, frappe = 0.18, recuperation = 0.7, endurance = 22, posture = 30 },
     garde = { traverse = 0.15, posture = 1.0, endurance = 1.0 },
 }
 
 A.epee_bouclier = melee {
-    nom = "Épée et bouclier", mains = 1, poids = "moyen", portee = 165, demi_angle = 55,
-    legere = { degats = 15, type = "tranchant", armement = 0.3, frappe = 0.14, recuperation = 0.32, endurance = 9, posture = 14 },
+    mobilite = 0.95, nom = "Épée et bouclier", mains = 1, poids = "moyen", portee = 175, demi_angle = 55,
+    legere = { degats = 16, type = "tranchant", armement = 0.42, frappe = 0.14, recuperation = 0.32, endurance = 9, posture = 14 },
     -- La lourde est un coup de bouclier : peu de degats, beaucoup de posture.
-    lourde = { degats = 22, type = "contondant", armement = 0.6, frappe = 0.16, recuperation = 0.5, endurance = 18, posture = 48 },
-    garde = { traverse = 0, posture = 0.6, endurance = 0.7, bouclier = true },
+    lourde = { degats = 22, type = "contondant", armement = 0.75, frappe = 0.16, recuperation = 0.5, endurance = 18, posture = 48 },
+    garde = { traverse = 0, posture = 0.8, endurance = 1.0, bouclier = true },
 }
 
 A.baton = melee {
-    nom = "Bâton", mains = 2, poids = "moyen", portee = 230, demi_angle = 70, focus = 0.8,
-    legere = { degats = 14, type = "contondant", armement = 0.3, frappe = 0.15, recuperation = 0.35, endurance = 10, posture = 20 },
-    lourde = { degats = 28, type = "contondant", armement = 0.7, frappe = 0.18, recuperation = 0.6, endurance = 20, posture = 45 },
+    mobilite = 1.0, nom = "Bâton", mains = 2, poids = "moyen", portee = 230, demi_angle = 70, focus = 0.8,
+    legere = { degats = 14, type = "contondant", armement = 0.45, frappe = 0.15, recuperation = 0.35, endurance = 10, posture = 20 },
+    lourde = { degats = 28, type = "contondant", armement = 0.85, frappe = 0.18, recuperation = 0.6, endurance = 20, posture = 45 },
     garde = { traverse = 0.15, posture = 0.9, endurance = 0.9 },
 }
 

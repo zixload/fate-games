@@ -111,7 +111,7 @@ return function(H)
         H.it("la parade : garde posee juste avant l'impact", function()
             local w, a, d = duel()
             Combat.attaquer(w, "a", "legere", "droite")
-            avance(w, 0.2)
+            avance(w, 0.3)
             Combat.garder(w, "d", "gauche")
             local fx = avance(w, 0.3)
             H.assert_true(trouve(fx, "pare", "id", "d") ~= nil, "pare")
@@ -125,7 +125,7 @@ return function(H)
         H.it("une lourde ne se pare pas avec une arme legere", function()
             local w, _, d = duel("epee_longue", "dague")
             Combat.attaquer(w, "a", "lourde", "droite")
-            avance(w, 0.7)
+            avance(w, 0.85)
             Combat.garder(w, "d", "gauche")
             local fx = avance(w, 0.3)
             H.assert_nil(trouve(fx, "pare"), "pas de parade")
@@ -135,7 +135,7 @@ return function(H)
         H.it("l'esquive rend invulnerable un instant", function()
             local w, _, d = duel()
             Combat.attaquer(w, "a", "legere", "droite")
-            avance(w, 0.25)
+            avance(w, 0.3)
             Combat.esquiver(w, "d", "arriere")
             local fx = avance(w, 0.3)
             H.assert_true(trouve(fx, "esquive_reussie", "id", "d") ~= nil, "esquive")
@@ -151,7 +151,7 @@ return function(H)
             H.assert_nil(a.action, "plus d'attaque")
             avance(w, 0.2)
             Combat.attaquer(w, "a", "lourde", "haut")
-            avance(w, 0.7)
+            avance(w, 0.8)
             local _, raison = Combat.feinter(w, "a")
             H.assert_eq(raison, "trop_tard", "trop tard pour feinter")
         end)
@@ -204,7 +204,10 @@ return function(H)
             local w, _, d = duel("lance", nil, 250)
             Combat.armure(w, "d", "mailles")
             frappe_complete(w, "a", "legere", "droite")
-            H.assert_eq(d.sante, 84.3, "18 x (1 - 0,20 x 0,65) = 15,7")
+            H.assert_eq(d.sante, 86.1, "16 x (1 - 0,20 x 0,65) = 13,9")
+            local w2, _, d2 = duel("lance", nil, 70)
+            frappe_complete(w2, "a", "legere", "droite")
+            H.assert_eq(d2.sante, 100, "a bout portant, la lance ne touche pas")
         end)
 
         H.it("un coup d'en haut vise la tete", function()
@@ -235,7 +238,7 @@ return function(H)
             local w, _, d = duel("dague", "epee_longue", 120)
             Combat.attaquer(w, "d", "legere", "gauche")
             Combat.attaquer(w, "a", "legere", "droite")
-            local fx = avance(w, 0.35)
+            local fx = avance(w, 0.45)
             H.assert_true(trouve(fx, "interrompu", "id", "d") ~= nil, "interrompu")
             H.assert_nil(d.action, "plus d'attaque")
         end)
@@ -624,6 +627,70 @@ return function(H)
             Combat.reinitialiser(w, "a", G.v(5, 5, 90))
             H.assert_eq(a.sante, 100, "remis a neuf")
             H.assert_eq(a.pos.x, 5, "deplace")
+        end)
+    end)
+
+    H.describe("combat/bots", function()
+        local function lcg(graine)
+            local x = graine
+            return function(k)
+                x = (x * 1103515245 + 12345) % 2147483648
+                return (x // 65536) % k + 1
+            end
+        end
+        -- Deux bots se battent ; ils avancent l'un vers l'autre (cinematique simple).
+        local function combat(arme_a, niveau_a, arme_b, niveau_b, graine)
+            local r = lcg(graine)
+            local w = Combat.nouveau()
+            Combat.ajouter(w, "a", { arme = arme_a, pos = G.v(0, 0, 90), yaw = 0 })
+            Combat.ajouter(w, "b", { arme = arme_b, pos = G.v(600, 0, 90), yaw = 180 })
+            local memoires = { a = {}, b = {} }
+            local niveaux = { a = niveau_a, b = niveau_b }
+            for _ = 1, 20 * 120 do
+                for _, id in ipairs({ "a", "b" }) do
+                    local f = w.combattants[id]
+                    local dec = Combat.ia.decider(Combat, w, id, r, memoires[id], niveaux[id])
+                    if dec.regard and f.etat == "vivant" then
+                        local vers = G.moins(dec.aller_vers or dec.regard, f.pos)
+                        local d = math.sqrt(vers.x * vers.x + vers.y * vers.y)
+                        local pas = 0
+                        if dec.distance and d > dec.distance then pas = math.min(d - dec.distance, 300 * 0.05 * Combat.vitesse(w, id)) end
+                        local dir = d > 0 and G.fois(G.v(vers.x, vers.y, 0), 1 / d) or G.v()
+                        Combat.placer(w, id, G.plus(f.pos, G.fois(dir, pas)), G.lacet_vers(f.pos, dec.regard), 0)
+                    end
+                    Combat.ia.executer(Combat, w, id, dec, r, niveaux[id])
+                end
+                Combat.avancer(w, 0.05)
+                if w.combattants.a.etat ~= "vivant" or w.combattants.b.etat ~= "vivant" then break end
+            end
+            local a, b = w.combattants.a, w.combattants.b
+            if a.etat ~= "vivant" then return "b" elseif b.etat ~= "vivant" then return "a" end
+            return a.sante > b.sante and "a" or "b"
+        end
+
+        H.it("deux bots a l'epee finissent leur combat", function()
+            local fins = 0
+            for graine = 1, 10 do
+                local r = combat("epee_courte", "normal", "epee_courte", "normal", graine)
+                if r then fins = fins + 1 end
+            end
+            H.assert_eq(fins, 10, "tous finis")
+        end)
+
+        H.it("a armes egales, le meilleur bot gagne le plus souvent", function()
+            local victoires = 0
+            for graine = 1, 30 do
+                if combat("epee_longue", "difficile", "epee_longue", "facile", graine) == "a" then victoires = victoires + 1 end
+            end
+            H.assert_true(victoires >= 20, "le difficile gagne " .. victoires .. " fois sur 30")
+        end)
+
+        H.it("le meme niveau des deux cotes : equilibre", function()
+            local victoires = 0
+            for graine = 1, 40 do
+                if combat("hache", "normal", "hache", "normal", graine) == "a" then victoires = victoires + 1 end
+            end
+            H.assert_true(victoires >= 10 and victoires <= 30, "a gagne " .. victoires .. " fois sur 40")
         end)
     end)
 

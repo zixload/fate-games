@@ -13,4 +13,5 @@ local G = Package.Require("combat/geometrie.lua")
 
 local Combat = Package.Require("combat/moteur.lua")(R, A, S, G)
 Combat.regles, Combat.armes, Combat.sorts, Combat.geometrie = R, A, S, G
+Combat.ia = Package.Require("combat/ia.lua")
 return Combat
