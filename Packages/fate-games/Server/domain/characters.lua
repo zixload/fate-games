@@ -113,9 +113,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
     -- squelette, anime par sa propre Animation Blueprint. CharacterSimple
     -- accepte n'importe quel maillage (doc CharacterSimple), Character exige
     -- le squelette UE4 Mannequin, que ce pack n'a pas.
-    -- La camera du jeu, reglee ici et publiee sur le personnage : un outil
-    -- de l'atelier la remplace chez son client (premiere personne, epaule),
-    -- puis la remet a l'identique (Client/camera_outil.lua).
+    -- La camera du jeu, reglee ici et publiee sur le personnage ("camera_jeu").
     -- `retard` : le retard de camera du moteur (actif par defaut, doc
     -- CharacterSimple). Coupe en premiere personne assise, sinon la camera
     -- glisse jusqu'a la tete au lieu d'y sauter.

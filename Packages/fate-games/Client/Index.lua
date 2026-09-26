@@ -28,8 +28,6 @@ if not ok_invite then Console.Error("[interaction] invite impossible : " .. tost
 
 -- Posture assise des personnages d'essai, publiee par le serveur.
 Package.Require("posture.lua")
--- Premiere personne ou vue epaule pendant un outil de l'atelier (F2).
-Package.Require("camera_outil.lua")
 Package.Require("vue_assise.lua")
 Package.Require("regard_assis.lua")
 
