@@ -16,6 +16,8 @@
 --   /fan dos p y r           plateau), dos (carte face cachee sur la table),
 --   /fan face p y r          face (carte revelee sur la table)
 --   /fan os <nom>          os qui tient l'eventail (LeftHand, RightHand...)
+--   /fan ecart -1          ajuste un nombre (avec signe), ou /fan ecart 3 le
+--                          remplace, ou /fan ecart l'affiche :
 --   /fan <nombre> n        ecart, rayon, taille, levee, curseur, profondeur,
 --                          epaisseur, dispersion
 
@@ -121,13 +123,20 @@ return function(config, Rendu)
                 Chat.AddMessage(("/fan %s attend trois nombres"):format(cle))
             end
         elseif NOMBRES[cle] then
-            local v = tonumber(mots[3])
+            -- Avec un signe (+1, -0.5) : ajoute a la valeur actuelle. Sans signe :
+            -- remplace. Ces reglages sont tous positifs, le signe ne prete pas a
+            -- confusion.
+            local brut = mots[3]
+            local v = tonumber(brut)
             if v then
-                NOMBRES[cle][cle] = v
+                local relatif = brut:sub(1, 1) == "+" or brut:sub(1, 1) == "-"
+                NOMBRES[cle][cle] = relatif and (NOMBRES[cle][cle] or 0) + v or v
                 Rendu.Reconstruire()
-                Chat.AddMessage(("/fan %s %s"):format(cle, mots[3]))
+                Chat.AddMessage(("/fan %s %s"):format(cle, tostring(NOMBRES[cle][cle])))
+            elseif not brut then
+                Chat.AddMessage(("/fan %s %s"):format(cle, tostring(NOMBRES[cle][cle])))
             else
-                Chat.AddMessage(("/fan %s attend un nombre"):format(cle))
+                Chat.AddMessage(("/fan %s attend un nombre (+1 ou -1 pour ajuster)"):format(cle))
             end
         else
             Chat.AddMessage("reglage inconnu : " .. cle .. " (taper /fan pour la liste)")
