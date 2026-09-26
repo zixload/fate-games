@@ -37,7 +37,9 @@ return function(config)
         local ok, objet = pcall(function()
             local o = StaticMesh(Vector(c.x, c.y, c.z), Rotator(0, (c.yaw or 0) + TOURNER, 0),
                 "nanos-world::SM_Plane", CollisionType.NoCollision)
-            o:SetScale(Vector(HAUTEUR / 100, LARGEUR / 100, 1))
+            -- Le dessin court en largeur le long de X et en hauteur le long de Y
+            -- (UV du SM_Plane) : l'inverse l'etirait et le couchait.
+            o:SetScale(Vector(LARGEUR / 100, HAUTEUR / 100, 1))
             pcall(function() o:SetCastShadow(false) end)
             return o
         end)
