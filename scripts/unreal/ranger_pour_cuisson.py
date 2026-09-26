@@ -5,7 +5,7 @@ A executer dans la console Python de l'editeur (NanosWorldADK), la map du jeu ou
     exec(open(r"C:\\Users\\ingam\\OneDrive\\Documents\\fate-games\\scripts\\unreal\\ranger_pour_cuisson.py", encoding="utf-8").read())
 
 1. Enregistre tout (map et assets).
-2. Cherche tout ce que la map utilise reellement : les maillages des acteurs
+2. Cherche tout ce que la map utilise reellement (plus les dossiers de EN_PLUS) : les maillages des acteurs
    poses, leurs materiaux (ceux du maillage et ceux changes sur l'acteur), les
    parents de ces materiaux et leurs textures, plus les dependances du
    registre. Les assets importes mais jamais poses ne comptent pas.
@@ -29,6 +29,9 @@ PACK = "/Game/MyAssetPack"
 RANGEMENT = "/Game/MyAssetPack/Imports"
 REPERE = "WW_REPERE_"
 APPLIQUER = True
+# Dossiers a ranger aussi, meme si rien n'en est pose dans la map (objets
+# crees par le code du jeu, comme le bouclier).
+EN_PLUS = ["/Game/Fab/Viking_Old_Shield_with_Runes"]
 # Racines deja fournies par nanos world ou le moteur : rien a deplacer ni copier.
 FOURNIES = ("/Engine", "/Script", "/NanosWorld", "/Game/NanosWorld", "/Temp", "/Memory")
 
@@ -126,6 +129,11 @@ for a in acteurs.get_all_level_actors():
         for m in changes:
             ajouter(m)
         composants.append(c)
+
+for dossier in EN_PLUS:
+    for chemin in bibli.list_assets(dossier, recursive=True, include_folder=False) or []:
+        ajouter(bibli.load_asset(chemin))
+        print("CUISSON_EN_PLUS", chemin)
 
 while a_voir:
     p = a_voir.pop()
