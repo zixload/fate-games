@@ -1,8 +1,8 @@
 -- Superposition de Liar's Bar :
 --   - au-dessus de chaque joueur, son pseudo et un petit barillet (aucune
 --     chance chiffree) ; le sien, en haut de l'ecran, quand on leve la tete ;
---   - au-dessus du joueur precedent, a mon tour, quand je le regarde :
---     l'invite "Menteur !" (E l'accuse, hud.lua lit journal.vise_menteur) ;
+--   - au-dessus du joueur precedent, a mon tour : l'invite "Menteur !"
+--     (R l'accuse, hud.lua) ;
 --   - au-dessus du tas : la derniere pose (+2), la carte de table, le total ;
 --   - les consignes, en bas, a mon tour.
 -- Ce qui suit la camera est dessine par le Canvas natif, dans la meme image
@@ -21,7 +21,6 @@ return function(journal, config)
     local PORTEE = 1200
     local HAUTEUR_AU_DESSUS_TETE = 34   -- 58 : trop haut (26/09)
     local reglage = config or {}
-    local cone_menteur = math.cos(math.rad(reglage.cone_menteur or 12))
     local tangage_barillet = reglage.tangage_barillet or 14
     local touches = reglage.keys or {}
     local IMG = "package://fate-games/Client/liars_bar/hud/"
@@ -83,20 +82,10 @@ return function(journal, config)
         return projected, distance
     end
 
-    -- Le regard passe-t-il sur ce point, a cone_menteur pres ?
-    local function vise(point, camera, forward)
-        local dx, dy, dz = point.X - camera.X, point.Y - camera.Y, point.Z - camera.Z
-        local d = math.sqrt(dx * dx + dy * dy + dz * dz)
-        if d < 1 then return false end
-        return (dx * forward.X + dy * forward.Y + dz * forward.Z) / d >= cone_menteur
-    end
-
     -- Je peux accuser : mon tour, personne ne tire, et quelqu'un d'autre vient
     -- de poser. Rend sa chaise.
     local function accusable()
         if not journal:IsMyTurn() or journal.designated ~= nil then return nil end
-        -- Des cartes choisies : E posera, l'accusation n'est pas proposee.
-        if #journal:Selection() > 0 then return nil end
         local derniere = journal.pile[#journal.pile]
         if not derniere or derniere.chair == journal.my_chair then return nil end
         return derniere.chair
@@ -141,11 +130,11 @@ return function(journal, config)
                     local fired = character:GetValue("liars_fired", nil)
                     if type(chair) == "number" and chair > 0 and type(fired) == "number"
                         and character:GetValue("liars_alive", false) == true then
-                        local point, tete = position_tete(character)
+                        local point = position_tete(character)
                         local p, distance = projeter(point, camera, forward, largeur, hauteur)
                         if p then
-                            local menteur = precedent == chair and vise(tete, camera, forward)
-                            if menteur then journal.vise_menteur = chair end
+                            -- R accuse sans viser : l'invite montre qui.
+                            local menteur = precedent == chair
                             barillet(c, p.X, p.Y, fired, (tireur or journal.turn) == chair, menteur,
                                 math.max(0.80, math.min(1, 700 / distance)), journal.names[chair])
                         end
@@ -188,7 +177,6 @@ return function(journal, config)
     end
 
     local function dessiner(c, largeur, hauteur)
-        journal.vise_menteur = nil
         local player = Client.GetLocalPlayer()
         if not player then return end
         local mon_perso = player:GetControlledCharacter()
@@ -218,10 +206,8 @@ return function(journal, config)
     local function aide()
         if not journal:IsMyTurn() or journal.designated ~= nil or #journal.hand == 0 then return "" end
         local texte = ("molette : parcourir · clic : choisir · [%s] poser"):format(touches.play or "E")
-        if #journal:Selection() > 0 then
-            texte = texte .. " · retire tes cartes pour accuser"
-        elseif accusable() then
-            texte = texte .. " · regarde le joueur précédent + [" .. (touches.play or "E") .. "] : menteur"
+        if accusable() then
+            texte = texte .. (" · [%s] menteur"):format(touches.accuse or "R")
         end
         return texte
     end

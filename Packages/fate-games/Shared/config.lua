@@ -79,14 +79,13 @@ return {
             -- d'apres le caractere qu'elle tape, et en AZERTY la touche 1 tape
             -- "&". Une lettre porte le meme nom sur tous les claviers.
             select = { { "W" }, { "X" }, { "C" }, { "V" }, { "B" } },
-            -- E pose ; en regardant le joueur precedent, E l'accuse.
+            -- E pose les cartes choisies, R accuse le joueur precedent (26/09 :
+            -- une seule touche pour les deux prenait l'un pour l'autre).
             play   = "E",
-            accuse = "M",   -- accuser sans viser, en secours
+            accuse = "R",
         },
-        -- Demi-angle (degres) autour de la tete du joueur precedent ou l'invite
-        -- "Menteur !" apparait, et tangage de la camera au-dela duquel son
-        -- propre barillet s'affiche en haut de l'ecran.
-        cone_menteur = 12,
+        -- Tangage de la camera au-dela duquel son propre barillet s'affiche en
+        -- haut de l'ecran.
         tangage_barillet = 14,
         -- Revolver de celui qui doit tirer (liars_bar/surbrillance.lua) :
         -- couleur laiton, intensite (x5 et plus : ca brille, doc Client), slot.
