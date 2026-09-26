@@ -18,6 +18,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     local noms = {}              -- player_id -> nom, pour le HUD
     local spectateurs = {}       -- player_id -> { arene, cible }
     local dehors = {}            -- player_id -> derniere position hors de toute arene
+    local choix_arme = {}        -- player_id -> arme choisie pour le duel
 
     local function maintenant() return Server.GetTime() end
 
@@ -137,7 +138,8 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     local function vue(A)
         local d = A.d
         local v = {
-            arene = A.nom, phase = d.phase, format = d.format, mise = d.mise, createur = d.createur,
+            arene = A.nom, phase = d.phase, mise = d.mise, createur = d.createur,
+            format = d.phase == "attente" and Duel.FormatAttendu(d) or d.format,
             scores = d.scores, manche = d.manche, capacite = Duel.Capacite(d),
             paliers = config.paliers, joueurs = {},
         }
@@ -176,16 +178,41 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         armes[id] = nil
     end
 
-    -- L'arme equipee au vestiaire, dans la main. Une arme sans modele 3D fiable
-    -- (Catalogue.en_3d) prend celle de base : son modele faisait planter le jeu.
+    -- Les armes qu'un joueur peut prendre en duel : achetees (ou gratuites) et
+    -- avec un modele 3D fiable. Le pistolet a glace faisait planter le jeu.
+    local function armes_de(id)
+        local s = Characters.SessionByPlayer(id)
+        local etat = s and s.account and Boutique.Etat(s.account)
+        local liste = {}
+        for _, article in ipairs(Catalogue.armes) do
+            if etat and Boutique.Possede(etat, "armes", article.id) and Catalogue.en_3d(article.id) then
+                liste[#liste + 1] = { id = article.id, rendu = article.rendu }
+            end
+        end
+        return liste, etat
+    end
+
+    local function arme_de(id)
+        local liste, etat = armes_de(id)
+        local voulue = choix_arme[id] or (etat and etat.arme)
+        for _, a in ipairs(liste) do
+            if a.id == voulue then return voulue end
+        end
+        return Catalogue.arme_de_base
+    end
+
+    local function envoyer_armes(id)
+        local p = joueur(id)
+        if p then Events.CallRemote("duel:mes_armes", p, Reliability.Reliable, (armes_de(id)), arme_de(id)) end
+    end
+
+    -- L'arme choisie, dans la main : vue par les autres. Le joueur, lui, voit
+    -- la sienne devant sa camera (Client/duel/duel.lua).
     local function donner_arme(id)
         retirer_arme(id)
         local c = personnage(id)
-        local account = comptes[id]
-        if not (c and account) then return end
-        local etat = Boutique.Etat(account)
-        local choix = etat and etat.arme or Catalogue.arme_de_base
-        if not Catalogue.en_3d(choix) then choix = Catalogue.arme_de_base end
+        if not c then return end
+        local choix = arme_de(id)
         local article = Catalogue.article("armes", choix)
         local ok, err = pcall(function()
             local m = StaticMesh(c:GetLocation(), Rotator(0, 0, 0), article.mesh, CollisionType.NoCollision)
@@ -195,6 +222,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             m:AttachTo(c, AttachmentRule.SnapToTarget, r.os, -1, false)
             m:SetRelativeLocation(Vector(r.position.x, r.position.y, r.position.z))
             m:SetRelativeRotation(Rotator(r.rotation.p, r.rotation.y, r.rotation.r))
+            m:SetValue("duel_proprio", id, true)
             armes[id] = m
         end)
         if not ok then Log.Warn("duel", "arme en main impossible : " .. tostring(err)) end
@@ -220,6 +248,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             c:SetHealth(c:GetMaxHealth())
             c:SetValue("duel", nil, true)
         end)
+        Characters.VuePremiere(id, false)
     end
 
     local function arreter_spectateurs(A)
@@ -238,7 +267,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         for id in pairs(A.d.joueurs) do
             retirer_arme(id)
             remettre_en_etat(id)
-            arene_de[id], tir[id], comptes[id] = nil, nil, nil
+            arene_de[id], tir[id], comptes[id], choix_arme[id] = nil, nil, nil, nil
         end
         arreter_spectateurs(A)
         A.d = Duel.Nouveau()
@@ -256,11 +285,12 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
                         if c:IsDead() then c:Respawn(pos, rot) else c:SetLocation(pos); c:SetRotation(rot) end
                         c:SetMaxHealth(config.sante)
                         c:SetHealth(config.sante)
-                        c:SetValue("duel", { camp = j.camp, combat = true }, true)
+                        c:SetValue("duel", { camp = j.camp, combat = true, arme = arme_de(id) }, true)
                     end)
+                    Characters.VuePremiere(id, true, config.camera)
                 end
                 tir[id] = { balles = config.chargeur, dernier = 0 }
-                if not armes[id] then donner_arme(id) end
+                donner_arme(id)
                 local p = joueur(id)
                 if p then
                     p:SetCameraRotation(rot)
@@ -375,6 +405,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
                         if Duel.Entrer(ici.d, id) then
                             arene_de[id] = ici
                             changees[ici] = true
+                            envoyer_armes(id)
                         end
                     end
                 end
@@ -388,7 +419,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
 
     ---------------------------------------------------------------- tirs
 
-    local function tirer(id, cible_entite, os_touche)
+    local function tirer(id, cible_entite, os_touche, point)
         local A = arene_de[id]
         if not A then return end
         local d = A.d
@@ -404,11 +435,21 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         local c = personnage(id)
         local p = joueur(id)
         if p then Events.CallRemote("duel:munitions", p, Reliability.Reliable, etat.balles) end
-        -- Le son du tir, chez tout le monde autour, sauf le tireur qui l'a deja.
+        -- Le son et la trainee du tir chez tout le monde autour, sauf le tireur
+        -- qui les a deja dessines chez lui. La trainee part de l'arme en main.
         if c then
+            local arme = armes[id]
+            local depart = (arme and arme:IsValid()) and arme:GetLocation() or (c:GetLocation() + Vector(0, 0, 60))
+            local fin = nil
+            if point ~= nil and type(point.X) == "number" then
+                local dx, dy, dz = point.X - depart.X, point.Y - depart.Y, point.Z - depart.Z
+                local n = math.sqrt(dx * dx + dy * dy + dz * dz)
+                if n > config.portee then point = depart + Vector(dx, dy, dz) * (config.portee / n) end
+                fin = point
+            end
             for _, autre in pairs(Player.GetPairs()) do
                 if autre:GetID() ~= id then
-                    Events.CallRemote("duel:coup", autre, Reliability.Unreliable, c:GetLocation())
+                    Events.CallRemote("duel:coup", autre, Reliability.Unreliable, depart, fin)
                 end
             end
         end
@@ -440,6 +481,8 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         local etat = tir[id]
         if not (A and A.d.phase == "combat" and etat) or etat.recharge or etat.balles == config.chargeur then return end
         etat.recharge = true
+        local p = joueur(id)
+        if p then Events.CallRemote("duel:recharge", p, Reliability.Reliable, config.recharge_ms) end
         Timer.SetTimeout(function()
             if tir[id] ~= etat then return end
             etat.recharge = nil
@@ -501,9 +544,22 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             if not ok then Log.Warn("duel", "surveillance : " .. tostring(err)) end
         end, 250)
 
-        Events.SubscribeRemote("duel:choisir", function(player, format, mise)
+        Events.SubscribeRemote("duel:mise", function(player, mise)
             local A = arene_de[player:GetID()]
-            if A and Duel.Choisir(A.d, player:GetID(), tonumber(format), tonumber(mise)) then diffuser(A) end
+            if A and Duel.ChoisirMise(A.d, player:GetID(), tonumber(mise)) then diffuser(A) end
+        end)
+        -- Choix de l'arme : dans l'arene, hors combat. Prise a la manche suivante.
+        Events.SubscribeRemote("duel:arme", function(player, arme)
+            local id = player:GetID()
+            local A = arene_de[id]
+            if not A or A.d.phase == "combat" or type(arme) ~= "string" then return end
+            for _, a in ipairs((armes_de(id))) do
+                if a.id == arme then
+                    choix_arme[id] = arme
+                    envoyer_armes(id)
+                    return
+                end
+            end
         end)
         Events.SubscribeRemote("duel:pret", function(player, pret)
             local A = arene_de[player:GetID()]
@@ -512,8 +568,8 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
                 verifier_depart(A)
             end
         end)
-        Events.SubscribeRemote("duel:tir", function(player, cible, os_touche)
-            local ok, err = pcall(tirer, player:GetID(), cible, os_touche)
+        Events.SubscribeRemote("duel:tir", function(player, cible, os_touche, point)
+            local ok, err = pcall(tirer, player:GetID(), cible, os_touche, point)
             if not ok then Log.Warn("duel", "tir : " .. tostring(err)) end
         end)
         Events.SubscribeRemote("duel:recharger", function(player)
@@ -553,7 +609,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
 
     function Adapter.OnPlayerLeave(player)
         local id = player:GetID()
-        spectateurs[id], dehors[id] = nil, nil
+        spectateurs[id], dehors[id], choix_arme[id] = nil, nil, nil
         local A = arene_de[id]
         if not A then return end
         arene_de[id] = nil

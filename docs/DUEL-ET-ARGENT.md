@@ -26,21 +26,25 @@ Une seule arène, derrière les trois portes du temple de MapEgypt : un cube nom
 sous ses pieds.
 
 1. On entre dans l'arène : le panneau du duel s'ouvre. Le premier arrivé
-   choisit le format (1v1 ou 2v2) et la mise, parmi 0, 50, 100 et 250.
-2. Les autres voient format et mise avant d'entrer. Les camps se remplissent
-   dans l'ordre d'arrivée.
-3. Quand l'arène est pleine et que tout le monde est prêt, la mise est prélevée,
-   puis décompte de 3 secondes. Un joueur sans assez d'argent bloque le départ
-   et est signalé.
-4. Pendant le combat, l'arène est fermée : un joueur extérieur qui entre est
+   choisit la mise, parmi 0, 50, 100 et 250 (← →).
+2. Le format suit le nombre de joueurs présents : deux font un 1v1, quatre un
+   2v2, un cinquième ne peut pas entrer, un nombre impair attend. Les camps se
+   remplissent dans l'ordre d'arrivée.
+3. Chacun choisit son arme à la molette parmi celles qu'il possède, jusqu'au
+   décompte et entre les manches.
+4. Quand tout le monde est prêt (R), la mise est prélevée, puis décompte de 5
+   secondes. Un joueur sans assez d'argent bloque le départ et est signalé.
+5. Pendant le combat, l'arène est fermée : un joueur extérieur qui entre est
    renvoyé là où il était avant d'entrer, un combattant qui sort est ramené à
    son départ.
-5. Manches : chacun réapparaît à son bout de l'arène avec 100 points de vie. Une
+6. Manches : chacun réapparaît à son bout de l'arène avec 100 points de vie. Une
    manche se gagne quand tout le camp adverse est mort. Premier à deux manches.
-6. Les spectateurs qui s'approchent peuvent suivre la vue d'un combattant.
+7. Les spectateurs qui s'approchent peuvent suivre la vue d'un combattant.
 
-Armes : chacun porte l'arme équipée au vestiaire. Toutes font les mêmes dégâts,
-on achète le look, pas un avantage.
+Armes : toutes font les mêmes dégâts, on achète le look, pas un avantage. Le
+combat se joue en première personne : le tireur voit son arme devant sa caméra
+(le personnage n'a pas encore de pose de visée), les autres la voient dans sa
+main. Chaque tir laisse une traînée du canon au point touché, visible de tous.
 
 Tir : la détection d'un tir par rayon n'existe que chez le client (doc Trace).
 Le client annonce sa cible, le serveur vérifie la cadence, les balles, la

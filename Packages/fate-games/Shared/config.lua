@@ -13,6 +13,16 @@ return {
         arme = { distance = 150, hauteur = 30, echelle = 1.05, vitesse = 35, inclinaison = -8 },
     },
 
+    -- Arme vue par le tireur en premiere personne (Client/duel/duel.lua) :
+    -- posee devant la camera, en cm (avant, droite, bas) ; `rotation` corrige
+    -- l'orientation du modele (le canon est le long de -X a l'export).
+    duel_arme = {
+        avant = 38, droite = 16, bas = 15,
+        rotation = { p = 0, y = 180, r = 0 },
+        recul = 6, retour_ms = 90,
+        recul_camera = 1.4,           -- degres de tangage par tir
+    },
+
     -- Contour au sol des arenes de duel (Client/duel/contour.lua) : des
     -- decalques projetes vers le bas depuis `hauteur` cm au-dessus du sol de
     -- l'arene, sur `profondeur` cm, pour epouser les dunes. La doc Decal ne

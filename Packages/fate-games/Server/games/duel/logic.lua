@@ -18,7 +18,7 @@ return function(config)
             phase    = "vide",
             joueurs  = {},     -- id -> { camp, pret, vivant, parti }
             ordre    = {},     -- ids dans l'ordre d'arrivee
-            format   = config.formats[1],
+            format   = 1,      -- fixe au lancement : effectif / 2
             mise     = config.paliers[1],
             createur = nil,
             scores   = { 0, 0 },
@@ -26,7 +26,7 @@ return function(config)
         }
     end
 
-    function Duel.Capacite(d) return 2 * d.format end
+    function Duel.Capacite() return config.max_joueurs end
 
     function Duel.Effectif(d) return #d.ordre end
 
@@ -56,15 +56,18 @@ return function(config)
         return true
     end
 
-    -- Format et mise : le createur seul, pendant l'attente. Changer de regles
-    -- remet tout le monde en "pas pret".
-    function Duel.Choisir(d, id, format, mise)
+    -- Format attendu d'apres le nombre de joueurs presents (1v1 ou 2v2).
+    function Duel.FormatAttendu(d)
+        return Duel.Effectif(d) >= 3 and 2 or 1
+    end
+
+    -- La mise : le createur seul, pendant l'attente. La changer remet tout le
+    -- monde en "pas pret".
+    function Duel.ChoisirMise(d, id, mise)
         if d.phase ~= "attente" then return false, "en_cours" end
         if id ~= d.createur then return false, "pas_createur" end
-        if not contient(config.formats, format) then return false, "format" end
         if not contient(config.paliers, mise) then return false, "mise" end
-        if 2 * format < Duel.Effectif(d) then return false, "trop_nombreux" end
-        d.format, d.mise = format, mise
+        d.mise = mise
         for _, j in pairs(d.joueurs) do j.pret = false end
         return true
     end
@@ -78,7 +81,8 @@ return function(config)
     end
 
     function Duel.ToutPret(d)
-        if d.phase ~= "attente" or Duel.Effectif(d) < Duel.Capacite(d) then return false end
+        local n = Duel.Effectif(d)
+        if d.phase ~= "attente" or (n ~= 2 and n ~= 4) then return false end
         for _, id in ipairs(d.ordre) do
             if not d.joueurs[id].pret then return false end
         end
@@ -86,6 +90,7 @@ return function(config)
     end
 
     function Duel.Lancer(d)
+        d.format = Duel.Effectif(d) // 2
         d.phase = "decompte"
         d.scores = { 0, 0 }
         d.manche = 0

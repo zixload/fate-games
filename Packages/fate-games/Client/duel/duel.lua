@@ -1,8 +1,12 @@
--- Duel cote client : le HUD, les touches, le tir. Presentation seule (R1) :
--- le client dit ce qu'il vise, le serveur tranche (games/duel/adapter.lua).
+-- Duel cote client : le HUD, les touches, le choix de l'arme et le tir en
+-- premiere personne. Presentation seule (R1) : le client dit ce qu'il vise,
+-- le serveur tranche (games/duel/adapter.lua).
 
 return function(SharedConfig)
-    Package.Require("duel/contour.lua")((SharedConfig or {}).duel_contour)
+    SharedConfig = SharedConfig or {}
+    Package.Require("duel/contour.lua")(SharedConfig.duel_contour)
+    local Catalogue = Package.Require("Shared/catalogue.lua")
+    local vm = SharedConfig.duel_arme or {}
 
     local page = WebUI("duel", "file://duel/hud.html", WidgetVisibility.VisibleNotHitTestable, true, true)
     local pret_page = false
@@ -13,6 +17,7 @@ return function(SharedConfig)
     local balles = 6
     local pv_affiches = nil
     local regarde = false
+    local mes_armes, arme_choisie = {}, nil
 
     local PALIERS_REPLI = { 0, 50, 100, 250 }
     local CADENCE_MS = 330           -- un peu sous celle du serveur (350), qui fait foi
@@ -64,14 +69,122 @@ return function(SharedConfig)
         end)
     end
 
+    ------------------------------------------------------------ effets du tir
+
+    -- Trainee de balle : un trait fin laiton, du canon au point touche, qui
+    -- s'efface aussitot. Un petit eclat marque l'impact.
+    local function trainee(depart, fin)
+        if not (depart and fin) then return end
+        pcall(function()
+            local dx, dy, dz = fin.X - depart.X, fin.Y - depart.Y, fin.Z - depart.Z
+            local n = math.sqrt(dx * dx + dy * dy + dz * dz)
+            if n < 1 then return end
+            local milieu = Vector(depart.X + dx / 2, depart.Y + dy / 2, depart.Z + dz / 2)
+            local rot = Vector(dx, dy, dz):ToOrientationRotator()
+            local trait = StaticMesh(milieu, rot, "nanos-world::SM_Cube", CollisionType.NoCollision)
+            trait:SetScale(Vector(n / 100, 0.015, 0.015))
+            trait:SetMaterial("nanos-world::M_Default_Masked_Unlit")
+            trait:SetMaterialColorParameter("Tint", Color(1.0, 0.85, 0.45))
+            local eclat = StaticMesh(fin, rot, "nanos-world::SM_Cube", CollisionType.NoCollision)
+            eclat:SetScale(Vector(0.08, 0.08, 0.08))
+            eclat:SetMaterial("nanos-world::M_Default_Masked_Unlit")
+            eclat:SetMaterialColorParameter("Tint", Color(0.95, 0.9, 0.75))
+            Timer.SetTimeout(function() if trait:IsValid() then trait:Destroy() end end, 60)
+            Timer.SetTimeout(function() if eclat:IsValid() then eclat:Destroy() end end, 140)
+        end)
+    end
+
+    ------------------------------------------------------------ arme en premiere personne
+
+    -- Le personnage n'a pas de pose de visee : sa main pend. Le tireur voit
+    -- donc un modele de son arme pose devant sa camera ; les autres voient
+    -- celle que le serveur met dans la main (et on cache celle-la chez soi).
+    local vue_arme, vue_id, recul = nil, nil, 0
+
+    local function retirer_vue_arme()
+        if vue_arme and vue_arme:IsValid() then vue_arme:Destroy() end
+        vue_arme, vue_id = nil, nil
+    end
+
+    local function poser_vue_arme(id)
+        if vue_id == id and vue_arme and vue_arme:IsValid() then return end
+        retirer_vue_arme()
+        local article = Catalogue.article("armes", id)
+        if not (article and Catalogue.en_3d(id)) then return end
+        pcall(function()
+            vue_arme = StaticMesh(Vector(0, 0, -100000), Rotator(0, 0, 0), article.mesh, CollisionType.NoCollision)
+            local s = (article.taille or 30) / 100
+            vue_arme:SetScale(Vector(s, s, s))
+            vue_id = id
+        end)
+    end
+
+    local function bout_du_canon()
+        local p = Client.GetLocalPlayer()
+        local loc, rot = p:GetCameraLocation(), p:GetCameraRotation()
+        return loc + rot:GetForwardVector() * ((vm.avant or 38) + 20) + rot:GetRightVector() * (vm.droite or 16)
+            - rot:GetUpVector() * ((vm.bas or 15) - 3)
+    end
+
+    -- Tete cachee chez soi en premiere personne, et l'arme en main (vue des
+    -- autres) aussi.
+    local function masquer_soi(oui)
+        local perso = mon_perso()
+        if not (perso and perso:IsValid()) then return end
+        pcall(function()
+            if oui then perso:HideBone("Head"); perso:HideBone("Neck")
+            else perso:UnHideBone("Head"); perso:UnHideBone("Neck") end
+        end)
+        for _, m in pairs(StaticMesh.GetPairs()) do
+            if m:IsValid() and m:GetValue("duel_proprio", nil) == moi() then m:SetVisibility(not oui) end
+        end
+    end
+
+    Client.Subscribe("Tick", function(delta)
+        local perso = mon_perso()
+        local d = perso and perso:IsValid() and perso:GetValue("duel", nil)
+        local combat = type(d) == "table" and d.combat == true and en_combat()
+        if not combat then
+            if vue_arme then retirer_vue_arme(); masquer_soi(false) end
+        else
+            if not vue_arme or vue_id ~= d.arme then poser_vue_arme(d.arme); masquer_soi(true) end
+            if vue_arme and vue_arme:IsValid() then
+                local p = Client.GetLocalPlayer()
+                local loc, rot = p:GetCameraLocation(), p:GetCameraRotation()
+                recul = math.max(0, recul - delta * 1000 / (vm.retour_ms or 90) * (vm.recul or 6))
+                local pos = loc + rot:GetForwardVector() * ((vm.avant or 38) - recul)
+                    + rot:GetRightVector() * (vm.droite or 16) - rot:GetUpVector() * (vm.bas or 15)
+                local r = vm.rotation or { p = 0, y = 180, r = 0 }
+                vue_arme:SetLocation(pos)
+                vue_arme:SetRotation(Rotator(rot.Pitch + r.p, rot.Yaw + r.y, rot.Roll + r.r))
+            end
+        end
+
+        -- La barre de vie suit la sante du personnage, lue chez soi ; une baisse
+        -- assombrit l'ecran un instant.
+        local j = mon_joueur()
+        if j and etat and etat.phase ~= "attente" and perso and perso:IsValid() then
+            local pv = perso:GetHealth()
+            if pv ~= pv_affiches then
+                if pv_affiches and pv < pv_affiches then appeler("blesse") end
+                pv_affiches = pv
+                appeler("vie", pv, perso:GetMaxHealth())
+            end
+        end
+    end)
+
     ------------------------------------------------------------ evenements
 
     Events.SubscribeRemote("duel:etat", function(e)
         etat = e
         appeler("etat", e, moi())
     end)
+    Events.SubscribeRemote("duel:mes_armes", function(liste, choisie)
+        mes_armes, arme_choisie = liste or {}, choisie
+        appeler("armes", mes_armes, choisie)
+    end)
     Events.SubscribeRemote("duel:decompte", function(ms) appeler("decompte", ms) end)
-    Events.SubscribeRemote("duel:manche", function(n) appeler("manche", n) end)
+    Events.SubscribeRemote("duel:manche", function(n) appeler("manche", n); pv_affiches = nil end)
     Events.SubscribeRemote("duel:manche_gagnee", function(camp) appeler("mancheGagnee", camp) end)
     Events.SubscribeRemote("duel:fin", function(camp, cagnotte)
         local j = mon_joueur()
@@ -83,8 +196,12 @@ return function(SharedConfig)
         balles = n
         appeler("munitions", n, 6)
     end)
+    Events.SubscribeRemote("duel:recharge", function(ms) appeler("recharge", ms) end)
     Events.SubscribeRemote("duel:touche", function() appeler("touche") end)
-    Events.SubscribeRemote("duel:coup", function(position) son(position) end)
+    Events.SubscribeRemote("duel:coup", function(depart, fin)
+        son(depart)
+        trainee(depart, fin)
+    end)
 
     ------------------------------------------------------------ touches
 
@@ -99,15 +216,11 @@ return function(SharedConfig)
         if etat.phase == "attente" and j then
             if touche == "R" then
                 Events.CallRemote("duel:pret", Reliability.Reliable, not j.pret)
-            elseif etat.createur == moi() then
+            elseif etat.createur == moi() and (touche == "Right" or touche == "Left") then
                 local paliers = etat.paliers or PALIERS_REPLI
-                if touche == "Right" or touche == "Left" then
-                    local i = index_de(paliers, etat.mise) + (touche == "Right" and 1 or -1)
-                    i = math.max(1, math.min(#paliers, i))
-                    Events.CallRemote("duel:choisir", Reliability.Reliable, etat.format, paliers[i])
-                elseif touche == "Up" or touche == "Down" then
-                    Events.CallRemote("duel:choisir", Reliability.Reliable, touche == "Up" and 2 or 1, etat.mise)
-                end
+                local i = index_de(paliers, etat.mise) + (touche == "Right" and 1 or -1)
+                i = math.max(1, math.min(#paliers, i))
+                Events.CallRemote("duel:mise", Reliability.Reliable, paliers[i])
             end
         elseif en_combat() and touche == "R" then
             Events.CallRemote("duel:recharger", Reliability.Reliable)
@@ -122,6 +235,18 @@ return function(SharedConfig)
                 appeler("regarde", false)
             end
         end
+    end)
+
+    -- Molette : l'arme suivante ou precedente, dans l'arene et hors combat.
+    Input.Subscribe("MouseScroll", function(_, _, sens)
+        local j = mon_joueur()
+        if chat_ouvert or not (etat and j) or etat.phase == "combat" or #mes_armes < 2 then return end
+        local i = 1
+        for k, a in ipairs(mes_armes) do if a.id == arme_choisie then i = k end end
+        i = (i - 1 + (sens > 0 and -1 or 1)) % #mes_armes + 1
+        arme_choisie = mes_armes[i].id
+        appeler("armes", mes_armes, arme_choisie)
+        Events.CallRemote("duel:arme", Reliability.Reliable, arme_choisie)
     end)
 
     ------------------------------------------------------------ tir
@@ -141,28 +266,23 @@ return function(SharedConfig)
             local fin = Vector(origine.X + avant.X * PORTEE, origine.Y + avant.Y * PORTEE, origine.Z + avant.Z * PORTEE)
             local canaux = CollisionChannel.WorldStatic | CollisionChannel.WorldDynamic
                 | CollisionChannel.PhysicsBody | CollisionChannel.Pawn
-            local hit = Trace.LineSingle(origine, fin, canaux, TraceMode.ReturnEntity | TraceMode.ReturnNames,
-                perso and { perso } or {})
-            local cible, os_touche = nil, nil
-            if hit and hit.Success and hit.Entity and hit.Entity:IsValid() and hit.Entity:IsA(CharacterSimple) then
-                cible, os_touche = hit.Entity:GetID(), hit.BoneName
+            local ignores = { perso }
+            if vue_arme and vue_arme:IsValid() then ignores[#ignores + 1] = vue_arme end
+            local hit = Trace.LineSingle(origine, fin, canaux, TraceMode.ReturnEntity | TraceMode.ReturnNames, ignores)
+            local cible, os_touche, point = nil, nil, fin
+            if hit and hit.Success then
+                point = hit.Location
+                if hit.Entity and hit.Entity:IsValid() and hit.Entity:IsA(CharacterSimple) then
+                    cible, os_touche = hit.Entity:GetID(), hit.BoneName
+                end
             end
-            Events.CallRemote("duel:tir", Reliability.Reliable, cible, os_touche)
-            if perso then son(perso:GetLocation()) end
+            Events.CallRemote("duel:tir", Reliability.Reliable, cible, os_touche, point)
+            -- Chez soi, tout de suite : son, trainee depuis le canon, recul.
+            son(origine)
+            trainee(bout_du_canon(), point)
+            recul = vm.recul or 6
+            player:SetCameraRotation(Rotator(regard.Pitch + (vm.recul_camera or 1.4), regard.Yaw, regard.Roll))
         end)
         if not ok then Console.Error("[duel] tir : " .. tostring(err)) end
-    end)
-
-    -- La barre de vie suit la sante du personnage, lue chez soi.
-    Client.Subscribe("Tick", function()
-        local j = mon_joueur()
-        if not (j and etat and etat.phase ~= "attente") then return end
-        local perso = mon_perso()
-        if not (perso and perso:IsValid()) then return end
-        local pv = perso:GetHealth()
-        if pv ~= pv_affiches then
-            pv_affiches = pv
-            appeler("vie", pv, perso:GetMaxHealth())
-        end
     end)
 end

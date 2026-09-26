@@ -518,6 +518,23 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
         if session.essai and session.character then habiller(session.character, look_id) end
     end
 
+    -- Premiere personne debout (duel) : les yeux a hauteur, sans bras de camera
+    -- ni retard. active = false remet la camera debout habituelle.
+    function Characters.VuePremiere(player_id, active, reglage)
+        local session = sessions[player_id]
+        if not (session and session.essai and session.character) or session.assis then return false end
+        local c, essai = session.character, session.essai
+        if active then
+            reglage = reglage or {}
+            regler_camera(c, Vector(reglage.avant or 10, 0, reglage.hauteur or 155), 0, false)
+            bras_immediat(session, 0)
+        else
+            regler_camera(c, Vector(0, 0, essai.eye_height), essai.arm_length)
+            bras_immediat(session, essai.arm_length)
+        end
+        return true
+    end
+
     local function load_state(session, callback)
         DB.Select(
             "SELECT pos_x, pos_y, pos_z, yaw FROM character_state WHERE character_id = :0",

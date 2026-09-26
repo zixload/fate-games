@@ -57,6 +57,25 @@ body.apercu-navigateur { background: radial-gradient(circle at 50% 30%, #6d8aa6,
 #bandeau { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%) rotate(-1.5deg); padding: 14px 30px;
     display: flex; align-items: center; gap: 14px; font-size: 38px; }
 
+/* Rangee des armes possedees, choix a la molette (hors combat). */
+#armes { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); display: flex; align-items: center;
+    gap: 12px; padding: 10px 16px; }
+#armes .arme { width: 92px; height: 58px; display: grid; place-items: center; border-radius: 10px;
+    border: 2.5px solid transparent; opacity: .55; }
+#armes .arme img { max-width: 84px; max-height: 50px; }
+#armes .arme.choisie { border-color: var(--accent); background: rgba(217, 181, 106, .25); opacity: 1; }
+#armes .molette { width: 22px; height: 32px; border: 2.5px solid var(--encre); border-radius: 11px; position: relative; margin-left: 4px; }
+#armes .molette::after { content: ""; position: absolute; left: 50%; top: 6px; width: 4px; height: 8px; margin-left: -2px;
+    border-radius: 2px; background: var(--encre); }
+
+#recharge { position: absolute; right: 40px; bottom: 96px; width: 150px; height: 10px; border-radius: 5px;
+    background: rgba(28, 33, 35, .45); overflow: hidden; }
+#recharge i { display: block; height: 100%; width: 0; background: var(--laiton); }
+#voile { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(7, 10, 11, .75) 100%); }
+#voile.coup { animation: voile .45s ease-out; }
+@keyframes voile { from { opacity: 1; } to { opacity: 0; } }
+
 #spectateur { position: absolute; right: 40px; top: 40%; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; font-size: 16px; }
 #spectateur span { display: inline-flex; gap: 8px; align-items: center; }
 </style>
@@ -88,6 +107,9 @@ body.apercu-navigateur { background: radial-gradient(circle at 50% 30%, #6d8aa6,
 <div id="vie" class="sk cache" data-graine="19" data-rayon="12"><div class="barre" id="barre" style="width: 100%"></div></div>
 <div id="balles" class="sk cache" data-graine="29" data-rayon="14"></div>
 
+<div id="armes" class="sk cache" data-graine="53" data-rayon="16"></div>
+<div id="recharge" class="cache"><i id="recharge-barre"></i></div>
+<div id="voile"></div>
 <div id="grand" class="cache"></div>
 <div id="bandeau" class="sk cache" data-graine="31" data-rayon="18"></div>
 
@@ -100,6 +122,7 @@ body.apercu-navigateur { background: radial-gradient(circle at 50% 30%, #6d8aa6,
 <script>
 const $ = (id) => document.getElementById(id);
 let etat = null, moi = null, balles = 6, chargeur = 6, spectateur = false, regarde = false;
+let armes = [], choisie = null;
 
 function montrer(id, oui) { $(id).classList.toggle("cache", !oui); }
 function bonhommes(n) { return Array.from({ length: n }, () => '<svg width="16" height="26" aria-hidden="true"><use href="#bonhomme"/></svg>').join(""); }
@@ -126,8 +149,7 @@ function dessinerPanneau() {
   const createur = e.createur === moi;
   $("aide").innerHTML =
     '<span><span class="touche">R</span><svg width="18" height="18"><use href="#coche"/></svg></span>' +
-    (createur ? '<span><span class="touche">←</span><span class="touche">→</span><svg width="22" height="22"><use href="#pile"/></svg></span>' +
-                '<span><span class="touche">↑</span><span class="touche">↓</span>' + bonhommes(1) + '</span>' : "");
+    (createur ? '<span><span class="touche">←</span><span class="touche">→</span><svg width="22" height="22"><use href="#pile"/></svg></span>' : "");
   requestAnimationFrame(habiller);
 }
 
@@ -149,6 +171,18 @@ function dessinerCombat() {
   montrer("spectateur", spectateur);
   montrer("spect-stop", regarde);
   dessinerBalles();
+  requestAnimationFrame(habiller);
+}
+
+function dessinerArmes() {
+  const e = etat;
+  const dedans = e && e.joueurs.some((j) => j.id === moi && !j.parti);
+  const hors_combat = e && (e.phase === "attente" || e.phase === "decompte" || e.phase === "entre_manches");
+  montrer("armes", !!(dedans && hors_combat && armes.length));
+  if (!(dedans && hors_combat)) return;
+  $("armes").innerHTML = armes.map((a) =>
+    `<div class="arme${a.id === choisie ? " choisie" : ""}"><img src="../vestiaire/img/armes/encre_${a.rendu}.png" alt=""></div>`).join("") +
+    (armes.length > 1 ? '<span class="molette" aria-hidden="true"></span>' : "");
   requestAnimationFrame(habiller);
 }
 
@@ -180,7 +214,18 @@ function decompte(ms) {
 }
 
 const api = {
-  etat(e, id) { etat = e; moi = id; dessinerPanneau(); dessinerCombat(); },
+  etat(e, id) { etat = e; moi = id; dessinerPanneau(); dessinerCombat(); dessinerArmes(); },
+  armes(liste, id) { armes = liste || []; choisie = id; dessinerArmes(); },
+  recharge(ms) {
+    const b = $("recharge-barre");
+    montrer("recharge", true);
+    b.style.transition = "none"; b.style.width = "0";
+    void b.offsetWidth;
+    b.style.transition = `width ${ms}ms linear`; b.style.width = "100%";
+    clearTimeout(api.recharge.t);
+    api.recharge.t = setTimeout(() => montrer("recharge", false), ms);
+  },
+  blesse() { const v = $("voile"); v.classList.remove("coup"); void v.offsetWidth; v.classList.add("coup"); },
   decompte,
   manche(n) { bandeau(`<span class="touche" style="font-size: 26px; height: 40px; min-width: 40px">${n}</span>`, 1500); },
   mancheGagnee(camp) { bandeau(`${bonhommes(1)}<span>${camp === 1 ? "◀" : "▶"}</span>`, 2500); },
@@ -211,6 +256,7 @@ if (window.Events) {
     joueurs: [{ id: 1, nom: "zixload", camp: 1, pret: true, vivant: true }, { id: 2, nom: "Bob", camp: 2, pret: false, vivant: true },
               { id: 3, nom: "Alice", camp: 1, pret: true, vivant: true }] }, 1);
   if (combat) { api.munitions(4, 6); api.vie(66, 100); }
+  else api.armes([{ id: "revolver", rendu: "revolver" }, { id: "canon", rendu: "old" }, { id: "duel", rendu: "lawgiver" }], "canon");
 }
 </script>
 </body>
