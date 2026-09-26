@@ -36,6 +36,7 @@ return function()
     local chat_ouvert = false
     local direction, inverser = "droite", false
     local en_garde, bande = false, false
+    local verrou = nil          -- l'ennemi que la camera suit en garde
     local mouvements = {}
     local attaques, gardes, a_terre, camps = {}, {}, {}, {}
     local nombres, traits, projectiles = {}, {}, {}
@@ -251,8 +252,9 @@ return function()
                 if en_garde then envoyer("pvp:garde", d) end
             end
         end
-        -- En garde, la souris choisit le cote : la camera, elle, suit l'ennemi.
-        if en_garde then return false end
+        -- En garde, la souris choisit le cote : la camera, elle, suit l'ennemi
+        -- (s'il y en a un a portee ; sinon on garde la main sur la camera).
+        if en_garde and verrou then return false end
     end)
 
     local function ennemi_proche(portee, cone)
@@ -399,8 +401,10 @@ return function()
             end
         end
         -- En garde : la camera se cale sur l'ennemi le plus proche.
+        verrou = nil
         if actif and en_garde then
             local e = ennemi_proche(1500, 0.2)
+            verrou = e
             local p = Client.GetLocalPlayer()
             if e and p then
                 local cam = p:GetCameraLocation()
