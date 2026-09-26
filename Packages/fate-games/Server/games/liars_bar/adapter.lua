@@ -302,9 +302,63 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         end
     end
 
+    ---------------------------------------------------------------- regard des bots
+
+    -- Les bots tournent la tete vers la chaise qui compte : celle dont c'est
+    -- le tour, celle designee pour tirer, celle qu'on accuse. La valeur
+    -- "liars_look" est celle des joueurs assis ; chaque client l'interpole
+    -- (Client/regard_assis.lua), bornee a 50 degres de cote et 25 en hauteur.
+    local chaise_regardee = nil
+
+    local function angle(degres)
+        return (degres + 180) % 360 - 180
+    end
+
+    local function regarder(entry, yaw, pitch)
+        if not (entry.body and entry.body:IsValid()) then return end
+        entry.body:SetValue("liars_look", {
+            yaw = math.max(-50, math.min(50, yaw)),
+            pitch = math.max(-25, math.min(25, pitch)),
+        }, true)
+    end
+
+    local function regards_bots()
+        for _, entry in ipairs(seated) do
+            if entry.bot then
+                local bx, by, _, face = position_assise(entry.chair)
+                if not chaise_regardee then
+                    regarder(entry, 0, 0)
+                elseif chaise_regardee == entry.chair then
+                    -- A lui de jouer : il regarde ses cartes, sur la table.
+                    regarder(entry, 0, -20)
+                else
+                    local tx, ty = position_assise(chaise_regardee)
+                    regarder(entry, angle(math.deg(math.atan(ty - by, tx - bx)) - face), 0)
+                end
+            end
+        end
+    end
+
+    local function viser_chaise(c)
+        chaise_regardee = c
+        regards_bots()
+    end
+
+    -- Hors partie, un coup d'oeil au hasard de temps en temps, pour qu'ils
+    -- ne restent pas figes face a la table.
+    local function coups_d_oeil()
+        if state then return end
+        for _, entry in ipairs(seated) do
+            if entry.bot and math.random() < 0.4 then
+                regarder(entry, math.random(-40, 40), math.random(-10, 5))
+            end
+        end
+    end
+
     ---------------------------------------------------------------- remise a zero
 
     local function remettre_a_zero()
+        chaise_regardee = nil
         -- Detacher avant de detruire un corps de bot porteur du revolver.
         arreter_pose_revolver(gun_raised)
         ranger_revolvers(true)
@@ -392,6 +446,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
     TRANSLATORS.turn = function(e)
         send(e.audience, "liars:turn", chair(e.seat))
+        viser_chaise(chair(e.seat))
     end
 
     TRANSLATORS.round_ended = function(e)
@@ -402,6 +457,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     TRANSLATORS.designated = function(e)
         local c = chair(e.seat)
         send(e.audience, "liars:designated", c)
+        viser_chaise(c)
     end
 
     TRANSLATORS.shoot = function(e)
@@ -416,6 +472,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
 
     TRANSLATORS.accuse = function(e)
         send(e.audience, "liars:accuse", chair(e.accuser), chair(e.target))
+        viser_chaise(chair(e.target))
 
         if ANIMATIONS.accuse ~= "" then
             local character = character_of(e.accuser)
@@ -1090,6 +1147,10 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     ---------------------------------------------------------------- init
 
     function Adapter.Init()
+        Timer.SetInterval(function()
+            local ok, err = pcall(coups_d_oeil)
+            if not ok then Log.Warn("liars", "regard des bots : " .. tostring(err)) end
+        end, 2500)
         local layout = config.layout
         local home = layout.revolver_home
         revolver_home = Vector(home.x, home.y, home.z + POSE_REVOLVER.lever)
