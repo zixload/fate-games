@@ -46,7 +46,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         or { lever = 0, rot = Rotator(0, 0, 0) }
 
     local ANIMATIONS = {
-        accuse = "",   -- bras tendu, slot UpperBody, pour garder la posture assise
+        accuse = {
+            left = "my-asset-pack::ANIM_Seated_Accuse_Left",
+            center = "my-asset-pack::ANIM_Seated_Accuse_Center",
+            right = "my-asset-pack::ANIM_Seated_Accuse_Right",
+        },
         take = "my-asset-pack::ANIM_Seated_Revolver_Take",
         fire = "my-asset-pack::ANIM_Seated_Revolver_Fire",
         fatal = "my-asset-pack::ANIM_Seated_Revolver_Fatal",
@@ -599,14 +603,25 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
     end
 
     TRANSLATORS.accuse = function(e)
-        send(e.audience, "liars:accuse", chair(e.accuser), chair(e.target))
-        viser_chaise(chair(e.target))
+        local accuser_chair, target_chair = chair(e.accuser), chair(e.target)
+        send(e.audience, "liars:accuse", accuser_chair, target_chair)
+        viser_chaise(target_chair)
 
-        if ANIMATIONS.accuse ~= "" then
-            local character = character_of(e.accuser)
-            if character then
-                character:PlayAnimation(ANIMATIONS.accuse, AnimationSlotType.UpperBody)
-            end
+        local character = character_of(e.accuser)
+        if character and character:IsValid() and character:IsA(CharacterSimple) then
+            local origin = config.layout.chairs[accuser_chair].location
+            local target = config.layout.chairs[target_chair].location
+            local _, _, _, facing = position_assise(accuser_chair)
+            local yaw = math.rad(facing)
+            -- (-sin, cos) est la gauche du personnage dans le plan XY.
+            local lateral = (target.x - origin.x) * -math.sin(yaw)
+                + (target.y - origin.y) * math.cos(yaw)
+            local side = lateral > 40 and "left" or lateral < -40 and "right" or "center"
+            local ok, err = pcall(function()
+                character:PlayAnimation(ANIMATIONS.accuse[side], "DefaultSlot", false,
+                    0.08, 0.15, 1.0, true)
+            end)
+            if not ok then Log.Warn("liars", "geste d'accusation : " .. tostring(err)) end
         end
     end
 

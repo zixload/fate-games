@@ -1,12 +1,13 @@
-# Animations assises : chute et pose des cartes
+# Animations assises : chute, cartes et accusation
 
-Deux nouveaux clips Blender utilisent le squelette Creative déjà présent dans
+Les clips Blender utilisent le squelette Creative déjà présent dans
 `my-asset-pack` :
 
 | Clip | Fichier source | Asset Unreal | Durée | Déclencheur |
 | --- | --- | --- | --- | --- |
 | Chute fatale | `art/animations/seated_revolver_fatal.fbx` | `ANIM_Seated_Revolver_Fatal` | 0,8 s | tir fatal |
 | Pose de cartes | `art/animations/seated_card_play.fbx` | `ANIM_Seated_Card_Play` | 1,0 s | pose de 1, 2 ou 3 cartes |
+| Accusation | `art/animations/seated_accuse_{left,center,right}.fbx` | `ANIM_Seated_Accuse_{Left,Center,Right}` | 1,37 s | pointe la chaise accusée |
 
 La chute démarre après l'image du tir, part vers la gauche (à l'opposé du
 revolver contre la tempe droite), relâche les bras et garde le bassin sur la
@@ -34,3 +35,14 @@ Les captures `fatal_front_*.png`, `fatal_side_*.png` et
 `seated_card_play_*_*.png` dans `art/animations` servent à inspecter le geste
 avant l'import. La réaction doit rester visible sur les autres clients et ne
 pas gêner la caméra libre du joueur éliminé.
+
+Pour les trois variantes de l'accusation, lancer séparément dans la console
+Python de l'ADK :
+
+```text
+exec(open("C:/Users/ingam/OneDrive/Documents/fate-games/scripts/unreal/import_seated_accuse.py", encoding="utf-8").read())
+```
+
+Le serveur choisit gauche, face ou droite selon la chaise visée. Les FBX et
+les fichiers Blender éditables sont dans `art/animations`. Cuire ensuite
+`my-asset-pack` dans l'éditeur avant le test en jeu.
