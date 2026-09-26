@@ -140,12 +140,24 @@ return function(config, Interaction)
     local COULEUR_NUIT = Color(0.02, 0.03, 0.07)
     local endormi = false
 
+    local erreurs_sommeil = {}
+    local function essayer(nom, f, ...)
+        local ok, err = pcall(f, ...)
+        if not ok then
+            erreurs_sommeil[#erreurs_sommeil + 1] = nom .. " : " .. tostring(err)
+            Console.Error("[loup-garou nuit] " .. nom .. " : " .. tostring(err))
+        end
+    end
+
     local function sommeil(oui)
         if oui == endormi then return end
         endormi = oui
-        pcall(Sky.SetFog, oui and NUIT.brume or NUIT.brume_jour)
-        pcall(PostProcess.SetImageEffects, oui and NUIT.vignette or 0.6, oui and NUIT.grain or 0)
-        pcall(PostProcess.SetGlobalSaturation, Color(1, 1, 1, oui and NUIT.couleur or 1))
+        erreurs_sommeil = {}
+        essayer("Sky.SetFog", Sky.SetFog, oui and NUIT.brume or NUIT.brume_jour)
+        essayer("PostProcess.SetImageEffects", PostProcess.SetImageEffects,
+            oui and NUIT.vignette or 0.6, oui and NUIT.grain or 0)
+        essayer("PostProcess.SetGlobalSaturation", PostProcess.SetGlobalSaturation,
+            Color(1, 1, 1, oui and NUIT.couleur or 1))
     end
 
     local function ambiance()
@@ -186,8 +198,9 @@ return function(config, Interaction)
             etat.voile = nil
             ambiance()
         end
-        Chat.AddMessage(("nuit : brume %s | voile %s | vignette %s | grain %s | couleur %s"):format(
-            NUIT.brume, NUIT.dort, NUIT.vignette, NUIT.grain, NUIT.couleur))
+        Chat.AddMessage(("nuit : brume %s | voile %s | vignette %s | grain %s | couleur %s | endormi %s | voile actuel %s"):format(
+            NUIT.brume, NUIT.dort, NUIT.vignette, NUIT.grain, NUIT.couleur, tostring(endormi), tostring(etat.voile)))
+        for _, e in ipairs(erreurs_sommeil) do Chat.AddMessage("nuit : erreur " .. e) end
         return false
     end)
 
