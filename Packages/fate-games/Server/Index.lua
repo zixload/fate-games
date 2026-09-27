@@ -42,6 +42,7 @@ local Intents   = Package.Require("intents/init.lua")(Log)
 
 local Appearances   = Package.Require("Shared/appearances.lua")
 local Catalogue     = Package.Require("Shared/catalogue.lua")
+local Cosmetiques   = Package.Require("Shared/cosmetiques.lua")
 
 local Accounts      = Package.Require("domain/accounts.lua")(Log, DB, Ids, ServerConfig)
 local Characters    = Package.Require("domain/characters.lua")(Log, DB, Ids, Scheduler, Accounts, ServerConfig, Appearances)
@@ -456,11 +457,22 @@ do
         end)
     end)
 
-    -- Boutique du tailleur : E sur lui (PNJ, SharedConfig.pnj). Le joueur lache
-    -- son personnage le temps des achats ; la camera cadre la tete du tailleur,
-    -- a gauche de l'ecran, la grille des pieces s'ouvre a droite (Client/tailleur).
+    -- Boutique du tailleur, cabine d'essayage : E sur lui (PNJ, SharedConfig.pnj).
+    -- Le joueur lache son personnage, qui se tourne dos au tailleur ; la camera
+    -- le filme de face, en pied, a gauche de l'ecran, la grille des pieces
+    -- s'ouvre a droite (Client/tailleur). Une piece pas encore achetee se porte
+    -- a l'essai ; en sortant sans l'acheter, elle est retiree.
     local chez_tailleur = {}   -- player_id -> personnage laisse
-    local CAM = (SharedConfig.tailleur and SharedConfig.tailleur.camera) or { avant = 150, cote = 55, haut = 62 }
+    local essais = {}          -- player_id -> { emplacement = id essaye }
+    local CAM = (SharedConfig.tailleur and SharedConfig.tailleur.camera) or { avant = 300, cote = 190, haut = 0 }
+
+    -- La tenue portee, avec les pieces a l'essai par-dessus.
+    local function habiller_essai(player, etat)
+        local tenue = {}
+        for e, id in pairs(etat.tenue or {}) do tenue[e] = id end
+        for e, id in pairs(essais[player:GetID()] or {}) do tenue[e] = id end
+        Characters.Habiller(player:GetID(), Appearances.DepuisTenue(tenue, etat.perso))
+    end
 
     local function vue_tailleur(player, etat, refus)
         Events.CallRemote("tailleur:etat", player, Reliability.Reliable, Boutique.VueTailleur(etat), refus)
@@ -482,15 +494,20 @@ do
             if not etat or not player:IsValid() then return end
             local p = pnj and pnj.place
             if not p then return end
-            chez_tailleur[player:GetID()] = session.character
+            local perso = session.character
+            chez_tailleur[player:GetID()] = perso
+            essais[player:GetID()] = {}
             player:UnPossess()
-            -- Devant le tailleur, decale vers sa gauche : il tombe a gauche de l'ecran.
+            -- Le personnage se tourne dans le sens du tailleur (dos a lui) ; la
+            -- camera se place devant lui, decalee : il tombe a gauche de l'ecran,
+            -- le tailleur en arriere-plan.
+            perso:SetRotation(Rotator(0, p.yaw, 0))
             local r = math.rad(p.yaw)
             local avant = Vector(math.cos(r), math.sin(r), 0)
             local gauche = Vector(math.cos(r - math.pi / 2), math.sin(r - math.pi / 2), 0)
-            local cam = Vector(p.x, p.y, p.z) + avant * CAM.avant + gauche * CAM.cote + Vector(0, 0, CAM.haut)
+            local cam = perso:GetLocation() + avant * CAM.avant + gauche * CAM.cote + Vector(0, 0, CAM.haut)
             player:SetCameraLocation(cam)
-            player:SetCameraRotation(Rotator(-4, p.yaw + 180, 0))
+            player:SetCameraRotation(Rotator(-2, p.yaw + 180, 0))
             Events.CallRemote("tailleur:ouvrir", player, Reliability.Reliable, Boutique.VueTailleur(etat))
         end)
     end
@@ -501,15 +518,52 @@ do
         local propres = {}
         for _, id in ipairs(ids) do if type(id) == "string" then propres[#propres + 1] = id end end
         Boutique.AcheterPanier(session.account, propres, nil, function(ok, raison)
-            vue_tailleur(player, etat, not ok and raison or nil)
+            if not ok then return vue_tailleur(player, etat, raison) end
+            -- Achete, donc porte : chaque piece du panier passe dans la tenue
+            -- (la derniere l'emporte dans une meme categorie), l'essai s'efface.
+            local i = 0
+            local function suivant()
+                i = i + 1
+                local piece = Cosmetiques.par_id[propres[i] or ""]
+                if not propres[i] then
+                    -- Sorti entre-temps : quitter_tailleur a deja remis la tenue.
+                    if not (player:IsValid() and chez_tailleur[player:GetID()]) then return end
+                    essais[player:GetID()] = {}
+                    habiller_essai(player, etat)
+                    return vue_tailleur(player, etat, nil)
+                end
+                if not piece then return suivant() end
+                Boutique.Porter(session.account, piece.emplacement, piece.id, function() suivant() end)
+            end
+            suivant()
         end)
+    end)
+
+    -- Essayer une piece (pas besoin de l'avoir) : id vide pour retirer l'essai
+    -- de cette categorie.
+    Events.SubscribeRemote("tailleur:essayer", function(player, emplacement, id)
+        local session, etat = session_tailleur(player)
+        if not session or type(emplacement) ~= "string" or type(id) ~= "string" then return end
+        local e = essais[player:GetID()]
+        if id == "" then
+            e[emplacement] = nil
+        else
+            local piece = Cosmetiques.par_id[id]
+            if not (piece and piece.emplacement == emplacement) then return end
+            e[emplacement] = id
+        end
+        habiller_essai(player, etat)
     end)
 
     Events.SubscribeRemote("tailleur:porter", function(player, emplacement, id)
         local session, etat = session_tailleur(player)
         if not session or type(emplacement) ~= "string" or type(id) ~= "string" then return end
         Boutique.Porter(session.account, emplacement, id, function(ok, raison)
-            if ok then Characters.Habiller(player:GetID(), look_de(etat)) end
+            local e = player:IsValid() and essais[player:GetID()]
+            if ok and e then
+                e[emplacement] = nil
+                habiller_essai(player, etat)
+            end
             vue_tailleur(player, etat, not ok and raison or nil)
         end)
     end)
@@ -517,7 +571,13 @@ do
     local function quitter_tailleur(player)
         local perso = chez_tailleur[player:GetID()]
         chez_tailleur[player:GetID()] = nil
-        if perso and perso:IsValid() and player:IsValid() then player:Possess(perso) end
+        essais[player:GetID()] = nil
+        if not (perso and perso:IsValid() and player:IsValid()) then return end
+        -- Ce qui etait a l'essai et pas achete s'en va : la tenue portee revient.
+        local session = Characters.SessionByPlayer(player:GetID())
+        local etat = session and session.account and Boutique.Etat(session.account)
+        if etat then Characters.Habiller(player:GetID(), look_de(etat)) end
+        player:Possess(perso)
     end
 
     Events.SubscribeRemote("tailleur:fermer", function(player)
@@ -526,7 +586,10 @@ do
         Events.CallRemote("tailleur:fermer", player, Reliability.Reliable)
     end)
 
-    Player.Subscribe("Destroy", function(player) chez_tailleur[player:GetID()] = nil end)
+    Player.Subscribe("Destroy", function(player)
+        chez_tailleur[player:GetID()] = nil
+        essais[player:GetID()] = nil
+    end)
 
     -- Argent de test : "/argent <n>" dans le chat, en mode dev seulement.
     if DEV then

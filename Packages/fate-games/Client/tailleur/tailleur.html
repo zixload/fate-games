@@ -153,7 +153,7 @@ function dessinerPanier() {
   const total = ids.reduce((s, id) => s + article(id).prix, 0);
   $("puces").innerHTML = ids.length ? ids.map((id) =>
     `<span class="puce">${nettoyer(article(id).nom)} · ${article(id).prix}<button data-retirer="${id}" aria-label="Retirer">×</button></span>`).join("")
-    : '<span class="vide">Ton panier est vide : clique sur une pièce pour l\'ajouter.</span>';
+    : '<span class="vide">Clique sur une pièce pour l\'essayer. Ce que tu n\'achètes pas est retiré en sortant.</span>';
   $("total").textContent = total;
   $("acheter").disabled = ids.length === 0 || total > vue.solde;
   $("acheter").textContent = total > vue.solde ? "Solde insuffisant" : "Acheter";
@@ -163,6 +163,13 @@ function tout() {
   $("solde").textContent = vue.solde;
   dessinerOnglets(); dessinerGrille(); dessinerPanier();
   requestAnimationFrame(habiller);
+}
+
+// Essai : la piece de cette categorie qui reste dans le panier (la derniere
+// ajoutee), ou rien. Le serveur habille le personnage avec (tailleur:essayer).
+function essayerCategorie(emplacement) {
+  const restes = [...panier].map(article).filter((a) => a && a.emplacement === emplacement);
+  Bus.Call("essayer", emplacement, restes.length ? restes[restes.length - 1].id : "");
 }
 
 function message(texte, bon) { $("message").textContent = texte || ""; $("message").className = bon ? "bon" : ""; }
@@ -177,14 +184,23 @@ $("grille").addEventListener("click", (e) => {
   const a = article(b.dataset.id); if (!a) return;
   if (a.porte) { Bus.Call("porter", a.emplacement, "aucun"); return; }
   if (a.possede) { Bus.Call("porter", a.emplacement, a.id); return; }
+  // Pas encore a toi : dans le panier et sur toi, a l'essai.
   if (panier.has(a.id)) panier.delete(a.id); else panier.add(a.id);
+  essayerCategorie(a.emplacement);
   dessinerGrille(); dessinerPanier();
 });
 $("puces").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-retirer]"); if (!b) return;
-  panier.delete(b.dataset.retirer); dessinerGrille(); dessinerPanier();
+  const a = article(b.dataset.retirer);
+  panier.delete(b.dataset.retirer);
+  if (a) essayerCategorie(a.emplacement);
+  dessinerGrille(); dessinerPanier();
 });
-$("vider").addEventListener("click", () => { panier.clear(); dessinerGrille(); dessinerPanier(); });
+$("vider").addEventListener("click", () => {
+  const cats = new Set([...panier].map(article).filter(Boolean).map((a) => a.emplacement));
+  panier.clear(); cats.forEach(essayerCategorie);
+  dessinerGrille(); dessinerPanier();
+});
 $("acheter").addEventListener("click", () => {
   if (!panier.size) return;
   Bus.Call("acheter", [...panier]); message("Achat en cours…", true);
