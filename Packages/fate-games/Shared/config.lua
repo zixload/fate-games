@@ -123,7 +123,7 @@ return {
             crieur   = { nom = "Le crieur", look = "chapeau", phrases = {} },
             -- E sur le tailleur : le vestiaire (plus de touche I).
             tailleur = { nom = "Le tailleur", look = "etudiant", phrases = {},
-                interaction = { label = "Vestiaire", kind = "pickup", action = "vestiaire" } },
+                interaction = { label = "Vestiaire", kind = "vestiaire", action = "vestiaire" } },
             forain   = { nom = "Le forain", look = "clown", phrases = {} },
             barman   = { nom = "Le barman", look = "ronchon", phrases = {} },
             conteuse = { nom = "La conteuse", look = "casque", phrases = {},

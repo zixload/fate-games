@@ -63,7 +63,7 @@ return function(Log, Characters, dev_pour, Interactables)
                 repere:SetScale(Vector(0.6, 0.6, 1.4))
                 repere:SetVisibility(false)
                 inter = Interactables.Register(repere, {
-                    label = "Essayer", kind = "pickup", max_distance = 300,
+                    label = "Essayer", kind = "vestiaire", max_distance = 300,
                     on_interact = function(pl) if dev_pour(pl) and corps and corps:IsValid() then ouvrir(pl) end end,
                 })
             end)
