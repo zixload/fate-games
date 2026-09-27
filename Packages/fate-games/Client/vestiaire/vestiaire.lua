@@ -185,16 +185,8 @@ return function(SharedConfig)
 
     Events.SubscribeRemote("vestiaire:etat", envoyer)
 
-    -- I : remonter au vestiaire, debout et hors du chat. Le serveur refuse si
-    -- l'on est assis. Pendant le choix, le clavier va a la page, donc cette
-    -- touche ne se declenche pas deux fois.
-    local chat_ouvert = false
-    Chat.Subscribe("Open", function() chat_ouvert = true end)
-    Chat.Subscribe("Close", function() chat_ouvert = false end)
-    Input.Subscribe("KeyPress", function(key_name)
-        if key_name ~= "I" or chat_ouvert then return end
-        Events.CallRemote("vestiaire:retour", Reliability.Reliable)
-    end)
+    -- Le vestiaire s'ouvre par E sur le tailleur, un PNJ de la place
+    -- (Server/domain/pnj.lua) : plus de touche I.
 
     Events.SubscribeRemote("vestiaire:fermer", function()
         cacher_vitrine()

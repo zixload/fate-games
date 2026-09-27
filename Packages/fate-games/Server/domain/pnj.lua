@@ -12,8 +12,12 @@
 -- loup-garou. Quand un joueur passe pres de lui, il dit une de ses repliques
 -- (sons de my-asset-pack, entendus en 3D par tous, Client/pnj.lua), puis se
 -- tait un moment. Le regard vers les passants est calcule par chaque client.
+--
+-- Un type peut avoir une interaction (E, invite du client) : un repere
+-- invisible devant lui, enregistre dans Interactables, qui appelle
+-- actions[interaction.action](player). Le tailleur ouvre ainsi le vestiaire.
 
-return function(Log, Characters, config, dev_pour)
+return function(Log, Characters, config, dev_pour, Interactables, actions)
     local Pnj = {}
     config = config or {}
     local Apparences = Package.Require("Shared/appearances.lua")
@@ -70,13 +74,35 @@ return function(Log, Characters, config, dev_pour)
             pcall(function() corps:PlayAnimation(anim, "DefaultSlot", true, 0.2, 0.2, 1.0, true) end)
         end
         corps:SetValue("pnj", p.type, true)
+        -- Son interaction : un repere invisible a hauteur de buste (le client
+        -- ne vise que des Props, Client/interaction/init.lua).
+        local repere, inter
+        local it = def.interaction
+        if it and Interactables then
+            pcall(function()
+                repere = Prop(Vector(p.x, p.y, p.z + 10), Rotator(0, p.yaw, 0), "nanos-world::SM_Cube",
+                    CollisionType.IgnoreOnlyPawn, false, GrabMode.Disabled)
+                repere:SetScale(Vector(0.7, 0.7, 1.4))
+                repere:SetVisibility(false)
+                inter = Interactables.Register(repere, {
+                    label = it.label or "Parler", kind = it.kind or "pickup",
+                    max_distance = it.portee or 300,
+                    on_interact = function(player)
+                        local f = actions and actions[it.action]
+                        if f then f(player) end
+                    end,
+                })
+            end)
+        end
         -- Le nom au-dessus de la tete (Client/pseudos.lua).
         if def.nom then corps:SetValue("pseudo", def.nom, true) end
-        vivants[i] = { corps = corps, def = def, dernier = 0 }
+        vivants[i] = { corps = corps, def = def, dernier = 0, repere = repere, inter = inter }
     end
 
     local function tout_recreer()
         for _, v in pairs(vivants) do
+            if v.inter and Interactables then pcall(Interactables.Unregister, v.inter) end
+            if v.repere and v.repere:IsValid() then pcall(function() v.repere:Destroy() end) end
             if v.corps and v.corps:IsValid() then pcall(function() v.corps:Destroy() end) end
         end
         vivants = {}

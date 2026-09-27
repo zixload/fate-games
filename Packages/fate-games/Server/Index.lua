@@ -49,7 +49,10 @@ local Interactables = Package.Require("domain/interactables.lua")(Log, Intents, 
 local Boutique      = Package.Require("domain/boutique.lua")(Log, DB, Ids, Catalogue, ServerConfig)
 local Emotes        = Package.Require("domain/emotes.lua")(Log, Characters, SharedConfig.emotes)
 local Chutes        = Package.Require("domain/chutes.lua")(Log, Characters, SharedConfig.chutes)
-local Pnj           = Package.Require("domain/pnj.lua")(Log, Characters, SharedConfig.pnj, dev_pour)
+-- Ce que les PNJ declenchent (E sur eux), rempli plus bas : vestiaire...
+local PnjActions    = {}
+local Pnj           = Package.Require("domain/pnj.lua")(Log, Characters, SharedConfig.pnj, dev_pour,
+    Interactables, PnjActions)
 
 -- Liar's Bar. Le cablage est explicite et a plat : chaque module recoit ses
 -- dependances, aucune globale ne circule entre eux (R5).
@@ -447,8 +450,9 @@ do
         end)
     end)
 
-    -- Remonter au vestiaire en jeu (touche I du client), debout seulement.
-    Events.SubscribeRemote("vestiaire:retour", function(player)
+    -- Remonter au vestiaire en jeu : E sur le tailleur (PNJ, SharedConfig.pnj),
+    -- debout seulement. Plus de touche I : le serveur ne l'ecoute plus.
+    PnjActions.vestiaire = function(player)
         if not (ServerConfig.vestiaire and ServerConfig.vestiaire.enabled) then return end
         local session = Characters.SessionByPlayer(player:GetID())
         if not (session and session.account) then return end
@@ -461,7 +465,7 @@ do
             end
             Events.CallRemote("vestiaire:ouvrir", player, Reliability.Reliable, Boutique.Vue(etat))
         end)
-    end)
+    end
 
     -- Argent de test : "/argent <n>" dans le chat, en mode dev seulement.
     if DEV then
