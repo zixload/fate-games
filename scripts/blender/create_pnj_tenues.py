@@ -763,10 +763,16 @@ def poncho_motif(n):
     v, x, y, z = n.coords()
     u = n.mul(n.atan2(x, n.mul(y, -1.0)), 0.15)            # tour du corps, en m
     zig = n.mul(n.absv(n.sub(n.frac(n.mul(u, 18.0)), 0.5)), 0.022)
-    h = n.frac(n.mul(n.add(z, zig), 14.0))
-    c = n.rampe(h, [(0.0, "#a3262a"), (0.28, "#a3262a"), (0.30, "#1c1a1a"), (0.34, "#e2b33c"),
-                    (0.52, "#e2b33c"), (0.54, "#f1e6cf"), (0.64, "#f1e6cf"), (0.66, "#1f6f6a"),
-                    (0.90, "#1f6f6a"), (0.92, "#1c1a1a"), (1.0, "#1c1a1a")], True)
+    # Rythme 1 / 3 (27/09) : une bande de motif, puis trois fois sa hauteur en
+    # rouge uni, et ainsi de suite.
+    # Unite de 3,3 cm, periode de 4 unites, a partir du bas du poncho (1,17 m) :
+    # motif / rouge x3 / motif / rouge x3 / motif sur sa hauteur.
+    periode = n.frac(n.mul(n.add(n.sub(z, 1.17), zig), 7.5))
+    motif = n.lt(periode, 0.25)
+    h = n.mul(periode, 4.0)
+    bande = n.rampe(h, [(0.0, "#1c1a1a"), (0.08, "#e2b33c"), (0.34, "#1c1a1a"), (0.40, "#f1e6cf"),
+                        (0.58, "#1c1a1a"), (0.64, "#1f6f6a"), (0.92, "#1c1a1a"), (1.0, "#1c1a1a")], True)
+    c = n.melange(motif, "#a3262a", bande)
     # Maille tressee : petites cotes en V (chevrons), creuses et bosses.
     cu = n.absv(n.sub(n.frac(n.mul(u, 120.0)), 0.5))
     maille = n.absv(n.sub(n.frac(n.add(n.mul(z, 150.0), n.mul(cu, 1.2))), 0.5))
@@ -818,22 +824,38 @@ def poncho_depuis(chemise):
 
 
 def franges(poncho, mat):
-    """Franges de laine souples le long du bord du bas : brins ronds, courbes,
-    un tous les 1,3 cm."""
+    """Franges de laine : un brin tous les 9 mm, longueurs et ondulations
+    toutes differentes (pas de rangee uniforme), dans la texture du poncho.
+    Chaque brin ondule en descendant, avec beaucoup de segments."""
+    import random
+    hasard = random.Random(7)
     brut = list(poncho["bord_bas"])
     bas = [Vector(brut[i:i + 3]) for i in range(0, len(brut), 3)]
     bas.sort(key=lambda c: math.atan2(c.x, -c.y))
     brins = []
     dernier = None
     for c in bas:
-        if dernier is not None and (c - dernier).length < 0.013:
+        if dernier is not None and (c - dernier).length < 0.009:
             continue
         dernier = c
         dehors = Vector((c.x, c.y - 0.01, 0))
         dehors = dehors.normalized() if dehors.length > 1e-4 else Vector((0, -1, 0))
-        pts = [c + Vector((0, 0, 0.002)), c + dehors * 0.003 + Vector((0, 0, -0.012)),
-               c + dehors * 0.005 + Vector((0, 0, -0.028))]
-        brins.append(bride("Frange", pts, 0.0026, mat))
+        cote = Vector((0, 0, 1)).cross(dehors).normalized()
+        longueur = hasard.uniform(0.022, 0.048)
+        phase = hasard.uniform(0, 2 * math.pi)
+        amplitude = hasard.uniform(0.002, 0.005)
+        penche = hasard.uniform(-0.006, 0.006)
+        pts = []
+        for k in range(9):
+            t = k / 8
+            ondule = math.sin(phase + t * 2.6 * math.pi) * amplitude * t
+            pts.append(c + Vector((0, 0, 0.002 - longueur * t))
+                       + dehors * (0.004 * t + 0.002 * t * t)
+                       + cote * (ondule + penche * t))
+        brins.append(bride("Frange", pts, hasard.uniform(0.0021, 0.0031), mat))
+    for b in brins:
+        b.data.materials.clear()
+        b.data.materials.append(mat)
     return fusionner(brins, "Franges")
 
 
@@ -841,7 +863,7 @@ def musicien(corps):
     MAT_MUS.update({
         "chemise": materiau("Chemise musicien", tissu("#e6dcc4", "#cbbf a3".replace(" ", ""))),
         "poncho": materiau("Poncho", poncho_motif),
-        "franges": materiau("Franges", uni("#e2b33c")),
+        "franges": materiau("Franges", tissu("#efe5cf", "#d6c7a5", 260.0, 0.3)),
     })
     chemise, rayons = chemise_retroussee(corps)
     chemise.data.materials.clear()
@@ -851,6 +873,7 @@ def musicien(corps):
     poncho.data.materials.append(MAT_MUS["poncho"])
     bpy.context.view_layer.update()
     cacher_sous(chemise, BVHTree.FromObject(poncho, bpy.context.evaluated_depsgraph_get()))
+    # Franges en laine beige clair (27/09).
     pieces = [chemise, poncho, franges(poncho, MAT_MUS["franges"])]
     for cote in (1, -1):
         c = axe_bras(0.268, cote)
