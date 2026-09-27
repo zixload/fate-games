@@ -712,6 +712,19 @@ do
             end)
             return false
         end)
+
+        -- Essai des escaliers : "/capsule <rayon> <hauteur>" (cm) change la
+        -- capsule de son personnage, en direct (doc CharacterSimple,
+        -- SetCapsuleSize). Rien n'est garde : a la reconnexion, retour au defaut.
+        DevChat("PlayerSubmit", function(message, player)
+            local r, h = tostring(message):match("^/capsule%s+(%d+%.?%d*)%s+(%d+%.?%d*)%s*$")
+            if not r then return end
+            local c = player:GetControlledCharacter()
+            if not (c and c:IsValid()) then return false end
+            local ok, err = pcall(function() c:SetCapsuleSize(tonumber(r), tonumber(h)) end)
+            Chat.SendMessage(player, ok and ("capsule : rayon %s, hauteur %s"):format(r, h) or ("refuse : " .. tostring(err)))
+            return false
+        end)
     end
 end
 
