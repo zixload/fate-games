@@ -111,7 +111,7 @@ return {
     bruits = {
         musique = "musique_place",
         -- Pas discrets : trop forts et trop rapproches le 27/09.
-        volumes = { marche = 0.07, course = 0.11, cri = 0.4, reception = 0.25, musique = 0.06 },
+        volumes = { marche = 0.07, course = 0.11, cri = 0.15, reception = 0.25, musique = 0.06 },
         foulee_marche = 85, foulee_course = 170,   -- cm entre deux pas
         seuil_saut = 330,                          -- cm/s, le saut part a 400
     },

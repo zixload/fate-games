@@ -25,7 +25,7 @@ compléter quand elle n'est pas connue : elle sert aux crédits du jeu.
 | `lg_gardien.ogg` | `impactMetal_heavy_002.ogg` | Kenney, Impact Sounds, CC0 |
 | `lg_cupidon` | `dennish18-arrow-body-impact-146419.mp3` | Pixabay (dennish18), licence Pixabay |
 | `pas_1` à `pas_5` | `footstep_concrete_000` à `004.ogg` | Kenney, Impact Sounds, CC0 |
-| `reception` | `impactSoft_heavy_000` + `footstep_concrete_002`, `004` mélangés | Kenney, Impact Sounds, CC0 |
+| `reception` | `universfield-body-fall-259680.mp3` (0,45 premières secondes) | Pixabay (Universfield), licence Pixabay |
 | `saut_cri_1` | `floraphonic-cute-character-wee-1-188162.mp3` | Pixabay (floraphonic), licence Pixabay |
 | `saut_cri_2` | `universfield-cartoon-scream-323779.mp3` | Pixabay (Universfield), licence Pixabay |
 | `musique_place` | `desert_settlement.wav` (« Desert Settlement ») | OpenGameArt, vitalezzz, CC0 |
