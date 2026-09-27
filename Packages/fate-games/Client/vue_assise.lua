@@ -5,6 +5,11 @@
 local R = Package.Require("Shared/config.lua").regard_assis
 -- Nuit du loup-garou : qui dort garde la tete baissee (Ecran.baisse).
 local Ecran = Package.Require("loup_garou/ecran.lua")
+local Dev = Package.Require("dev.lua")
+-- Decalage du regard par pose du loup-garou (degres, positif : vers le haut) :
+-- chaque animation penche la tete a sa facon. /lg regard <degres> regle en
+-- direct la pose sur laquelle on est assis (mode dev), a reporter ensuite
+-- dans Shared/config.lua (regard_assis.poses_loup_garou).
 local baisse_faite = false
 local baisse_depuis = 0
 local vue = "jeu"
@@ -119,7 +124,12 @@ Timer.SetInterval(function()
             angle(rotation.Yaw - orientation_chaise) * R.gain))
         -- Les poses assises du loup-garou penchent deja la tete : sans ce
         -- decalage, regarder droit devant faisait regarder le sol (27/09).
-        local decalage = perso:GetValue("ww_pose", nil) and (R.decalage_loup_garou or 0) or 0
+        local pose = perso:GetValue("ww_pose", nil)
+        local decalage = 0
+        if pose then
+            local par_pose = R.poses_loup_garou or {}
+            decalage = par_pose[pose] or R.decalage_loup_garou or 0
+        end
         local regard_pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch * R.gain + decalage))
         if not perso:GetValue("liars_dead", false) then
             -- La tete ne doit pas suivre la camera pendant la chute figee.
@@ -147,3 +157,18 @@ Timer.SetInterval(function()
         erreur_signalee = false
     end
 end, 33)
+
+Chat.Subscribe("PlayerSubmit", function(message)
+    local valeur = tostring(message):match("^/lg regard%s*(%-?[%d%.]*)")
+    if not valeur then return end
+    if not Dev.actif then return end
+    local player = Client.GetLocalPlayer()
+    local perso = player and player:GetControlledCharacter()
+    local pose = perso and perso:GetValue("ww_pose", nil)
+    if not pose then Chat.AddMessage("/lg regard : assieds-toi au loup-garou d'abord") return false end
+    R.poses_loup_garou = R.poses_loup_garou or {}
+    if tonumber(valeur) then R.poses_loup_garou[pose] = tonumber(valeur) end
+    Chat.AddMessage(("regard %s : %s degres"):format((pose:gsub("^.*::", "")),
+        tostring(R.poses_loup_garou[pose] or R.decalage_loup_garou or 0)))
+    return false
+end)
