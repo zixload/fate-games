@@ -171,22 +171,29 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     -- (Lazy, Shift) sont rares, 2 fois sur 10 a elles deux (27/09).
     local POSES = D.poses or {
         { anim = "my-asset-pack::ANIM_WW_Sitting_Idle", z = 11.0, poids = 2 },
-        -- Sitting_Idle en miroir (scripts/blender/create_werewolf_mirror.py).
-        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Mirror", z = 11.0, poids = 2 },
+        -- Sitting_Idle en miroir (scripts/blender/create_werewolf_mirror.py) :
+        -- tiree seulement une fois importee et cuite (MIROIR_CUIT), sinon le
+        -- corps reste dans la pose de chaise de base (27/09).
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Mirror", z = 11.0, poids = 2, miroir = true },
         { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Glance", z = 11.0, poids = 2 },
         { anim = "my-asset-pack::ANIM_WW_Sitting_Dazed", z = 11.6, poids = 2 },
         { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Lazy", z = 12.8, poids = 1 },
         { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Shift", z = 12.8, poids = 1 },
     }
+    local MIROIR_CUIT = D.miroir_cuit or false
     local function tirer_pose()
-        local total = 0
-        for _, p in ipairs(POSES) do total = total + (p.poids or 1) end
-        local r = math.random() * total
+        local liste = {}
         for _, p in ipairs(POSES) do
+            if not p.miroir or MIROIR_CUIT then liste[#liste + 1] = p end
+        end
+        local total = 0
+        for _, p in ipairs(liste) do total = total + (p.poids or 1) end
+        local r = math.random() * total
+        for _, p in ipairs(liste) do
             r = r - (p.poids or 1)
             if r <= 0 then return p end
         end
-        return POSES[#POSES]
+        return liste[#liste]
     end
     -- Elimine : un geste agace (GESTES.mort), puis assis un peu en retrait.
     local MORT = D.mort or { anim = "my-asset-pack::ANIM_WW_Seated_Dead_Idle", z = 11.0 }
