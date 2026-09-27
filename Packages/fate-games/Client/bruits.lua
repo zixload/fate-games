@@ -23,6 +23,9 @@ return function(config)
     local FOULEE_COURSE = config.foulee_course or 170
     local COURSE = config.seuil_course or 300            -- cm/s : au-dela, on court
     local SEUIL_SAUT = config.seuil_saut or 330          -- cm/s vers le haut (saut : 400)
+    -- Le cri ne part que sur une vraie chute, pas sur un saut simple (qui
+    -- retombe vers 400 cm/s) : 800 cm/s, c'est environ 3,6 m de chute.
+    local SEUIL_CRI = config.seuil_cri or 800
     local SEUIL_CHUTE = config.seuil_chute or 280        -- cm/s vers le bas avant la reception
     local PORTEE = config.portee or 2500                 -- cm : au-dela, on n'entend rien
     local PAS_TEMPS = 0.04
@@ -67,18 +70,22 @@ return function(config)
                         local v = ch:GetVelocity()
                         local vitesse = math.sqrt(v.X * v.X + v.Y * v.Y)
                         if not e.en_l_air and v.Z > SEUIL_SAUT then
-                            e.en_l_air, e.chute = true, 0
-                            jouer(au_hasard(CRIS), pieds(ch), V.cri, 0.95 + math.random() * 0.1)
+                            e.en_l_air, e.chute, e.crie = true, 0, false
                         elseif v.Z < -60 then
                             e.en_l_air = true
                             e.chute = math.max(e.chute, -v.Z)
+                            -- Une fois par chute, des qu'elle devient une vraie chute.
+                            if not e.crie and e.chute >= SEUIL_CRI then
+                                e.crie = true
+                                jouer(au_hasard(CRIS), pieds(ch), V.cri, 0.95 + math.random() * 0.1)
+                            end
                         elseif e.en_l_air and math.abs(v.Z) < 30 then
                             -- Au sol : une reception seulement apres une vraie chute.
                             if e.chute >= SEUIL_CHUTE then
                                 local force = math.min(1, e.chute / 900)
                                 jouer("reception", pieds(ch), V.reception * (0.6 + 0.4 * force), 0.95 + math.random() * 0.1)
                             end
-                            e.en_l_air, e.chute, e.reste = false, 0, 0
+                            e.en_l_air, e.chute, e.reste, e.crie = false, 0, 0, false
                         end
                         if not e.en_l_air and math.abs(v.Z) < 60 and vitesse > 40 then
                             e.reste = e.reste + vitesse * dt

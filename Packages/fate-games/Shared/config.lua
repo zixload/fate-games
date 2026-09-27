@@ -114,6 +114,7 @@ return {
         volumes = { marche = 0.07, course = 0.11, cri = 0.15, reception = 0.25, musique = 0.06 },
         foulee_marche = 85, foulee_course = 170,   -- cm entre deux pas
         seuil_saut = 330,                          -- cm/s, le saut part a 400
+        seuil_cri = 800,                           -- cm/s de chute avant le cri (~3,6 m)
     },
 
     liars_sons = {
