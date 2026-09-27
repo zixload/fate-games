@@ -647,7 +647,8 @@ def tablier(arbre_devant):
             k = min(1.0, max(0.0, (z_taille + 0.08 - z) / 0.12))
             k = k * k * (3 - 2 * k)
             for p in rang:
-                p.y = p.y + (y_plat - p.y) * k
+                # Et 1,5 cm plus en avant : le pull ne depasse plus au bassin.
+                p.y = p.y + (y_plat - 0.015 - p.y) * k
     bm = bmesh.new()
     vs = [[bm.verts.new(p) for p in rang] for rang in grille]
     for j in range(rangs - 1):
@@ -731,28 +732,29 @@ def armurier(corps):
     poche = bmesh.new()
     bmesh.ops.create_cube(poche, size=1.0)
     for v in poche.verts:
-        v.co = Vector((v.co.x * 0.15, y_jupe - 0.006 + v.co.y * 0.012, grille[jp][0].z + v.co.z * 0.11))
+        # Poche profonde de 2,4 cm : les manches des outils tiennent dedans.
+        v.co = Vector((v.co.x * 0.15, y_jupe - 0.012 + v.co.y * 0.024, grille[jp][0].z + v.co.z * 0.11))
     bmesh.ops.bevel(poche, geom=list(poche.verts) + list(poche.edges), offset=0.004, segments=2, affect="EDGES")
     pieces.append(objet_depuis_bm(poche, "Poche", MAT_FORGE["cuir"]))
     for x in (-0.07, 0.07):
-        pieces.append(objet_depuis_bm(sphere(Vector((x, y_jupe - 0.013, grille[jp][0].z + 0.048)), 0.005,
+        pieces.append(objet_depuis_bm(sphere(Vector((x, y_jupe - 0.025, grille[jp][0].z + 0.048)), 0.005,
                                              Vector((1, 0.5, 1))), "Rivet", MAT_FORGE["laiton"]))
     # Pince et marteau qui depassent de la poche.
     # Outils plantes dans la poche (haut de la poche a z0 + 5,5 cm) : leur
     # bas est dedans, ils ne flottent plus au-dessus (27/09).
     z0 = grille[jp][0].z
     zp = z0 + 0.03
-    pieces.append(objet_depuis_bm(cylindre(Vector((0.035, y_jupe - 0.006, z0 - 0.03)),
-                                           Vector((0.042, y_jupe - 0.008, zp + 0.055)), 0.008), "Manche", MAT_FORGE["bois"]))
+    pieces.append(objet_depuis_bm(cylindre(Vector((0.035, y_jupe - 0.012, z0 - 0.03)),
+                                           Vector((0.042, y_jupe - 0.012, zp + 0.055)), 0.007), "Manche", MAT_FORGE["bois"]))
     tete = bmesh.new()
     bmesh.ops.create_cube(tete, size=1.0)
     for v in tete.verts:
-        v.co = Vector((0.042 + v.co.x * 0.075, y_jupe - 0.008 + v.co.y * 0.03, zp + 0.07 + v.co.z * 0.03))
+        v.co = Vector((0.042 + v.co.x * 0.075, y_jupe - 0.012 + v.co.y * 0.03, zp + 0.07 + v.co.z * 0.03))
     bmesh.ops.bevel(tete, geom=list(tete.verts) + list(tete.edges), offset=0.004, segments=2, affect="EDGES")
     pieces.append(objet_depuis_bm(tete, "Tete marteau", MAT_FORGE["fer"]))
     for dx in (-0.045, -0.03):
-        pieces.append(objet_depuis_bm(cylindre(Vector((dx, y_jupe - 0.006, z0 - 0.02)),
-                                               Vector((dx - 0.008, y_jupe - 0.008, z0 + 0.10)), 0.0045), "Pince", MAT_FORGE["fer"]))
+        pieces.append(objet_depuis_bm(cylindre(Vector((dx, y_jupe - 0.012, z0 - 0.02)),
+                                               Vector((dx - 0.008, y_jupe - 0.012, z0 + 0.10)), 0.0045), "Pince", MAT_FORGE["fer"]))
     # Rigide sur le bassin : la jupe du tablier et ce qui y pend (sinon elle
     # se tord avec les jambes croisees de sa pose, 27/09).
     for o in pieces:
