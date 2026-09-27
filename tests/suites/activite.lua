@@ -1,0 +1,67 @@
+return function(H)
+    local make = function() return Package.Require("domain/activite.lua")() end
+
+    H.describe("domain/activite", function()
+
+        H.it("rassemble les jeux inscrits dans l'ordre, avec leur nom affiche", function()
+            local A = make()
+            A.Inscrire("werewolf", function() return { { statut = "attente", joueurs = 3, bots = 2, max = 8, mise = 50 } } end)
+            A.Inscrire("duel", function() return { { statut = "en_cours", joueurs = 2, max = 4, detail = "1 – 0" } } end)
+            local r = A.Resume(12)
+            H.assert_eq(r.en_ligne, 12, "en ligne")
+            H.assert_count(r.lignes, 2, "deux lignes")
+            H.assert_eq(r.lignes[1].jeu, "Loup-garou", "nom du loup-garou")
+            H.assert_eq(r.lignes[1].bots, 2, "bots")
+            H.assert_eq(r.lignes[2].jeu, "Duel", "nom du duel")
+            H.assert_eq(r.lignes[2].bots, 0, "bots par defaut")
+            H.assert_eq(r.lignes[2].mise, 0, "mise par defaut")
+            H.assert_eq(r.lignes[2].detail, "1 – 0", "detail")
+        end)
+
+        H.it("un jeu qui plante n'empeche pas les autres", function()
+            local A = make()
+            A.Inscrire("liars", function() error("boum") end)
+            A.Inscrire("duel", function() return { { statut = "attente", joueurs = 1, max = 4 } } end)
+            local r = A.Resume(1)
+            H.assert_count(r.lignes, 1, "le duel reste")
+            H.assert_eq(r.lignes[1].jeu, "Duel", "duel")
+        end)
+
+        H.it("Changement ne rend le resume que s'il a change", function()
+            local A = make()
+            local n = 2
+            A.Inscrire("liars", function() return { { statut = "attente", joueurs = n, max = 4 } } end)
+            H.assert_true(A.Changement(5) ~= nil, "premier envoi")
+            H.assert_nil(A.Changement(5), "identique")
+            n = 3
+            H.assert_true(A.Changement(5) ~= nil, "un joueur de plus")
+            H.assert_true(A.Changement(6) ~= nil, "un joueur en ligne de plus")
+        end)
+
+        H.it("lit le jeu dans le prefixe de la partie", function()
+            local A = make()
+            H.assert_eq(A.JeuDePartie("werewolf:1727:3").nom, "Loup-garou", "loup-garou")
+            H.assert_eq(A.JeuDePartie("liars:1727:1").dans, "au Liar's Bar", "liar's bar")
+            H.assert_eq(A.JeuDePartie("duel:Est:2").dans, "en duel", "duel")
+            H.assert_nil(A.JeuDePartie("autre:1"), "inconnu")
+            H.assert_nil(A.JeuDePartie(nil), "nil")
+        end)
+
+        H.it("garde les 10 derniers gains, le plus recent d'abord", function()
+            local A = make()
+            for i = 1, 12 do A.AjouterGain("J" .. i, "liars:1:" .. i, 100 + i) end
+            local g = A.Gains()
+            H.assert_count(g, 10, "dix au plus")
+            H.assert_eq(g[1].nom, "J12", "plus recent en tete")
+            H.assert_eq(g[1].montant, 112, "montant")
+            H.assert_eq(g[10].nom, "J3", "les plus vieux sortent")
+        end)
+
+        H.it("ignore les gains sans jeu connu ou sans montant", function()
+            local A = make()
+            H.assert_nil(A.AjouterGain("Léo", "inconnu:1", 50), "partie inconnue")
+            H.assert_nil(A.AjouterGain("Léo", "duel:1", 0), "montant nul")
+            H.assert_eq(A.AjouterGain(nil, "duel:1", 20).nom, "Quelqu'un", "nom par defaut")
+        end)
+    end)
+end
