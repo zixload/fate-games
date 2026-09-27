@@ -342,6 +342,7 @@ return function(Log, Characters, Combat, Armes, config)
                 local mots = {}
                 for m in tostring(message):gmatch("%S+") do mots[#mots + 1] = m end
                 if mots[1] ~= "/pvp" then return end
+                if config.dev_pour and not config.dev_pour(player) then return end
                 local p = participant_de(player)
                 local quoi = mots[2]
                 if not quoi then

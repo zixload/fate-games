@@ -1111,8 +1111,13 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         Events.SubscribeRemote("ww:pret", function(p) A.Pret(p) end)
         Events.SubscribeRemote("ww:renoncer", function(p) A.Renoncer(p) end)
         Events.SubscribeRemote("ww:reglage", function(p, cle, sens) A.Reglage(p, cle, sens) end)
+        -- Outils de dev : mode dev du serveur, et seulement pour les devs.
+        local function dev_ok(p)
+            return config.bots and (config.dev_pour == nil or config.dev_pour(p))
+        end
+
         Events.SubscribeRemote("ww:centre", function(p, x, y, sol, debout, yaw)
-            if config.bots then A.PoserCentre(p, x, y, sol, debout, yaw) end
+            if dev_ok(p) then A.PoserCentre(p, x, y, sol, debout, yaw) end
         end)
 
         Chat.Subscribe("PlayerSubmit", function(message, player)
@@ -1121,9 +1126,9 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             if mots[1] ~= "/lg" then return end
             if mots[2] == "entrer" then A.Rejoindre(player)
             elseif mots[2] == "sortir" then A.Quitter(player)
-            elseif mots[2] == "bots" and config.bots then A.AjouterBots(player, mots[3])
-            elseif mots[2] == "passer" and config.bots then A.Passer(player)
-            elseif mots[2] == "brume" and config.bots then A.Brume(player, mots[3], mots[4], mots[5])
+            elseif mots[2] == "bots" and dev_ok(player) then A.AjouterBots(player, mots[3])
+            elseif mots[2] == "passer" and dev_ok(player) then A.Passer(player)
+            elseif mots[2] == "brume" and dev_ok(player) then A.Brume(player, mots[3], mots[4], mots[5])
             else return end
             return false
         end)

@@ -84,7 +84,9 @@ return function(journal, config)
         for _, class in ipairs({ CharacterSimple, Character }) do
             for _, character in pairs(class.GetAll()) do
                 if character:IsValid() and character:GetID() ~= mon_id and not a_la_table(character)
-                    and not adversaire(character, moi) then
+                    and not adversaire(character, moi)
+                    -- Admin invisible (Atelier) : pas de pseudo qui flotte seul.
+                    and character:GetValue("atelier_invisible", false) ~= true then
                     local nom = nom_de(character)
                     if nom and nom ~= "" then
                         local t = tete(character)

@@ -18,6 +18,22 @@ do
     DEV = ok and type(reglages) == "table" and (reglages.dev == true or reglages.dev == "true")
 end
 
+-- Meme en mode dev, les commandes de dev ne repondent qu'aux Steam ID de
+-- ServerConfig.devs : le serveur peut rester public pendant les essais.
+local function dev_pour(player)
+    if not DEV or not player then return false end
+    local ok, steam = pcall(function() return tostring(player:GetSteamID()) end)
+    return ok and (ServerConfig.devs or {})[steam] ~= nil
+end
+
+-- Chat.Subscribe pour une commande de dev : muette pour les autres joueurs.
+local function DevChat(evenement, fn)
+    Chat.Subscribe(evenement, function(message, player, ...)
+        if not dev_pour(player) then return end
+        return fn(message, player, ...)
+    end)
+end
+
 local Log       = Package.Require("core/log.lua")(ServerConfig)
 local Scheduler = Package.Require("core/scheduler.lua")(Log, SharedConfig)
 local DB        = Package.Require("db/init.lua")(Log, ServerConfig)
@@ -98,7 +114,7 @@ Scheduler.Start()
 LiarsBar.Init()
 DuelJeu.Init()
 local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, DB, Ids, Characters, Interactables, WwEngine, WwRoles, WwMatch,
-    { bots = DEV, volume = ServerConfig.voice.volume,
+    { bots = DEV, dev_pour = dev_pour, volume = ServerConfig.voice.volume,
       canaux = ServerConfig.voice.canaux_loup_garou, boutique = Boutique,
       bonus_participation = DuelConfig.bonus_participation })
 LoupGarou.Init()
@@ -109,12 +125,12 @@ Emotes.Init()
 local CombatSysteme = Package.Require("combat/init.lua")
 local PvP = Package.Require("games/pvp/adapter.lua")(Log, Characters, CombatSysteme,
     Package.Require("games/pvp/armes_nanos.lua")({}),
-    { dev = DEV })
+    { dev = DEV, dev_pour = dev_pour })
 PvP.Init()
 
 -- Poser l'arene du duel sous ses pieds : "/arene [rayon]", en mode dev.
 if DEV then
-    Chat.Subscribe("PlayerSubmit", function(message, player)
+    DevChat("PlayerSubmit", function(message, player)
         local texte = tostring(message)
         if not texte:match("^/arene") then return end
         local rayon = tonumber(texte:match("^/arene%s+(%d+)"))
@@ -126,7 +142,7 @@ if DEV then
     end)
 
     -- Un adversaire de test pour jouer seul : "/botduel", debout dans l'arene.
-    Chat.Subscribe("PlayerSubmit", function(message, player)
+    DevChat("PlayerSubmit", function(message, player)
         if not tostring(message):match("^/botduel") then return end
         local nom, err = DuelJeu.AjouterBot(player)
         Chat.SendMessage(player, nom and (nom .. " rejoint le duel, pret. R pour lancer.") or ("botduel : " .. tostring(err)))
@@ -137,7 +153,7 @@ end
 -- Bots de test : "/bots N" dans le chat, en mode dev seulement. Retourner
 -- false retient le message (doc Chat, PlayerSubmit).
 if DEV then
-    Chat.Subscribe("PlayerSubmit", function(message, player)
+    DevChat("PlayerSubmit", function(message, player)
         local n = tostring(message):match("^/bots%s+(%d+)%s*$")
         if not n then return end
 
@@ -152,7 +168,7 @@ if DEV then
     Log.Info("liars", "bots de test actifs : /bots N dans le chat")
 
     -- Mannequin de reglage, hors partie : /posebot [chaise] puis /posebot stop.
-    Chat.Subscribe("PlayerSubmit", function(message, player)
+    DevChat("PlayerSubmit", function(message, player)
         local texte = tostring(message)
         if texte ~= "/posebot" and not texte:match("^/posebot%s+") then return end
         local argument = texte:match("^/posebot%s+(%S+)%s*$")
@@ -184,7 +200,7 @@ if DEV then
 
     -- Voir le vrai geste d'accusation sur un bot assis, face a soi, avant de
     -- lancer la partie. /accusebot choisit le bot d'en face et sa propre chaise.
-    Chat.Subscribe("PlayerSubmit", function(message, player)
+    DevChat("PlayerSubmit", function(message, player)
         local texte = tostring(message)
         if texte ~= "/accusebot" and not texte:match("^/accusebot%s+") then return end
         local bot, cible = texte:match("^/accusebot%s+(%d+)%s+(%d+)%s*$")
@@ -203,7 +219,7 @@ if DEV then
 
     -- /prise affiche les valeurs ; /prise z -2 les ajuste ; six nombres
     -- remplacent les valeurs. L'arme du mannequin bouge sans rejouer la pose.
-    Chat.Subscribe("PlayerSubmit", function(message, player)
+    DevChat("PlayerSubmit", function(message, player)
         local texte = tostring(message)
         if texte ~= "/prise" and not texte:match("^/prise%s+") then return end
         local v = {}
@@ -250,7 +266,7 @@ if essai and essai.enabled then
             avant, haut = texte:match("^/cam%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s*$")
         end
         if not avant then return end
-        if not DEV then return end
+        if not dev_pour(player) then return end
 
         if Characters.SetSeatedCamera(player:GetID(), tonumber(avant), tonumber(haut), tonumber(cote or 0)) then
             Chat.SendMessage(player, ("camera assise : avant %s, haut %s, cote %s"):format(avant, haut, cote or 0))
@@ -272,7 +288,7 @@ if essai and essai.enabled then
             marche = texte:match(motif .. "([%d%.]+)%s*$")
         end
         if not marche then return end
-        if not DEV then return end
+        if not dev_pour(player) then return end
 
         local regler = arriere and Characters.SetVitessesArriere or Characters.SetVitesses
         if regler(player:GetID(), tonumber(marche), tonumber(course)) then
@@ -292,7 +308,7 @@ if essai and essai.enabled then
         local z, pesanteur = texte:match("^/saut%s+([%d%.]+)%s+([%d%.]+)%s*$")
         if not z then z = texte:match("^/saut%s+([%d%.]+)%s*$") end
         if not z then return end
-        if not DEV then return end
+        if not dev_pour(player) then return end
 
         if Characters.SetSaut(player:GetID(), tonumber(z), tonumber(pesanteur)) then
             local p = tonumber(pesanteur) or essai.gravity_scale
@@ -444,7 +460,7 @@ do
 
     -- Argent de test : "/argent <n>" dans le chat, en mode dev seulement.
     if DEV then
-        Chat.Subscribe("PlayerSubmit", function(message, player)
+        DevChat("PlayerSubmit", function(message, player)
             local n = tostring(message):match("^/argent%s+(%d+)%s*$")
             if not n then return end
             local session = Characters.SessionByPlayer(player:GetID())
@@ -463,6 +479,7 @@ end
 -- chaises, en mode dev seulement.
 if DEV then
     Events.SubscribeRemote("liars:fan_demo", function(player, actif)
+        if not dev_pour(player) then return end
         local ok, detail = LiarsBar.DemoCartes(actif == true)
         Chat.SendMessage(player, ok and (actif and ("demo : %d bot(s) assis"):format(detail) or "demo : bots partis")
             or ("demo impossible : " .. tostring(detail)))
@@ -480,7 +497,7 @@ end)
 
 Player.Subscribe("Ready", function(player)
     -- Le client n'ouvre ses commandes de reglage qu'en mode dev.
-    Events.CallRemote("fg:dev", player, Reliability.Reliable, DEV)
+    Events.CallRemote("fg:dev", player, Reliability.Reliable, dev_pour(player))
     Characters.OnPlayerReady(player)
     local ok_duel, err_duel = pcall(DuelJeu.OnPlayerReady, player)
     if not ok_duel then Log.Warn("duel", "arenes non envoyees : " .. tostring(err_duel)) end

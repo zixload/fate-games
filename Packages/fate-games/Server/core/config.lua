@@ -82,6 +82,13 @@ return {
     -- plus ici : il s'active dans le Config.toml du serveur, section
     -- [custom_settings], avec `dev = true`. Sans cela, le serveur est en mode
     -- sortie : aucune commande de dev, aucun bot (docs/SORTIE.md).
+    -- Qui peut se servir des commandes de dev quand le mode dev est actif,
+    -- par Steam ID : les autres joueurs d'un serveur public ne les ont pas.
+    devs = {
+        ["76561198282889037"] = "zix",
+        ["76561198209974672"] = "t1mts",
+    },
+
     dev = {
         -- Test d'integration au demarrage, sans client de jeu : fabrique un faux
         -- joueur et pousse la vraie chaine de connexion. Voir Server/dev/smoke.lua.
