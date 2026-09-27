@@ -125,6 +125,38 @@ function Apparences.Resolve(id)
     return { id = a.id, label = a.label, body = Apparences.body, head = head, worn = worn }
 end
 
+-- Une tenue au hasard pour un bot : la tete d'une apparence ordinaire (pas
+-- les costumes du clown ni de la souris), puis un haut, un bas et des
+-- chaussures tires du catalogue (Shared/cosmetiques.lua). rng(n) rend un
+-- entier de 1 a n (math.random par defaut).
+local CHAUSSURES = { "Shoe_Sneakers_009", "Shoe_Slippers_002", "Shoe_Slippers_005", "Socks_008" }
+local COSTUMES = { clown = true, souris = true }
+
+function Apparences.Aleatoire(rng)
+    rng = rng or math.random
+    local Cosmetiques = Package.Require("Shared/cosmetiques.lua")
+    local tetes = {}
+    for _, a in ipairs(Apparences.list) do
+        if not COSTUMES[a.id] then tetes[#tetes + 1] = a end
+    end
+    local tete = tetes[rng(#tetes)]
+    local function tirer(emplacement)
+        local choix = {}
+        for _, c in ipairs(Cosmetiques.par_emplacement[emplacement] or {}) do
+            if Cosmetiques.cuits or not c.piece:find("^SK_COS_") then choix[#choix + 1] = c end
+        end
+        return choix[rng(#choix)]
+    end
+    local haut, bas = tirer("haut"), tirer("bas")
+    local head = {}
+    for _, nom in ipairs(tete.head) do head[#head + 1] = ref(nom) end
+    return {
+        id = "aleatoire", label = tete.label, body = Apparences.body, head = head,
+        worn = { haut.piece_chemin, bas.piece_chemin, ref(CHAUSSURES[rng(#CHAUSSURES)]) },
+        materiaux = { haut.materiau_chemin, bas.materiau_chemin },
+    }
+end
+
 -- Identifiant par defaut, utilise quand un joueur n'a jamais choisi.
 Apparences.default_id = Apparences.list[1].id
 

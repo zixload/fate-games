@@ -525,7 +525,8 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             return
         end
 
-        local look = Appearances.Resolve(e.look)
+        -- Un bot recoit une tenue composee au hasard (Shared/appearances.lua).
+        local look = Appearances.Aleatoire()
         if not look then
             Log.Error("liars", "apparence inconnue : " .. tostring(e.look))
             return
@@ -540,18 +541,11 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             return
         end
 
-        character:SetMesh(look.body)
         character:RemoveAllStaticMeshesAttached()
-        character:RemoveAllSkeletalMeshesAttached()
-
         -- Tetes et vetements sont tous des maillages squelettiques du pack,
-        -- attaches en "master pose" : ils suivent les os du corps.
-        for i, mesh in ipairs(look.head) do
-            character:AddSkeletalMeshAttached("liars_head_" .. i, mesh)
-        end
-        for i, mesh in ipairs(look.worn) do
-            character:AddSkeletalMeshAttached("liars_worn_" .. i, mesh)
-        end
+        -- attaches en "master pose" : ils suivent les os du corps ; chaque
+        -- vetement recoit ensuite son materiau (motif).
+        Package.Require("Shared/cosmetiques.lua").Habiller(character, look, "liars")
 
         Log.Debug("liars", ("chaise %s habillee en %s (%d tete, %d vetements)")
             :format(tostring(chair(e.seat)), look.label, #look.head, #look.worn))

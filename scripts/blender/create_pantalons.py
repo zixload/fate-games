@@ -138,6 +138,8 @@ COUPES = {
     "Jogger": lambda t: 1.16 - 0.42 * lisse((0.24 - t) / 0.24),
     "Slim": lambda t: 0.97 - 0.05 * lisse((0.45 - t) / 0.45),
     "Cargo": lambda t: 1.16,
+    # La coupe du cargo, sur le pantalon sans poches (Pants_014).
+    "Ample": lambda t: 1.16,
 }
 
 
@@ -281,6 +283,55 @@ def tartan(n, reperes_):
     return bandes(n, x, z, base, "#12211b", reperes_)
 
 
+def uni(teinte, bord):
+    """Couleur unie, grain de tissu leger, ceinture et ourlets un ton plus fonces."""
+    def motif(n, reperes_):
+        v, x, y, z = n.coords()
+        grain = n.mul(n.sub(n.bruit(v, 70.0, 2.0), 0.5), 0.25)
+        base = n.melange(n.add(0.5, grain), bord, teinte)
+        base = n.melange(0.35, base, teinte)
+        return bandes(n, x, z, base, bord, reperes_)
+    return motif
+
+
+def pyjama(fond, fonce):
+    """Tartan de pyjama : carreaux et filets blancs sur un fond colore."""
+    def motif(n, reperes_):
+        v, x, y, z = n.coords()
+        uu = n.add(x, n.mul(y, 0.5))
+        fz, fu = n.frac(n.mul(z, 6.0)), n.frac(n.mul(uu, 6.0))
+        large_h, large_v = n.lt(fz, 0.2), n.lt(fu, 0.2)
+        fin_h = n.lt(n.absv(n.sub(fz, 0.6)), 0.022)
+        fin_v = n.lt(n.absv(n.sub(fu, 0.6)), 0.022)
+        sombre = n.mul(n.gt(fz, 0.4), n.lt(fz, 0.5))
+        base = n.melange(n.mul(n.maxv(sombre, n.mul(n.gt(fu, 0.4), n.lt(fu, 0.5))), 0.5), fond, fonce)
+        base = n.melange(n.mul(n.maxv(large_h, large_v), 0.6), base, "#f7f4ee")
+        base = n.melange(n.mul(large_h, large_v), base, "#fbfaf6")
+        base = n.melange(n.maxv(fin_h, fin_v), base, "#fbfaf6")
+        return bandes(n, x, z, base, fonce, reperes_)
+    return motif
+
+
+def repete(nom_tuile, fond, echelle=9.0, flancs=None):
+    """Une tuile dessinee (tuiles_motifs.py) repetee sur le vetement : projetee
+    de face sur le devant et le dos, de cote sur les flancs."""
+    def motif(n, reperes_):
+        v, x, y, z = n.coords()
+        geo = n.node("ShaderNodeNewGeometry")
+        nx, ny, nz = n.sep(geo.outputs["Normal"])
+        cote = n.gt(n.absv(nx), n.absv(ny))
+        u = n.add(n.mul(x, n.sub(1.0, cote)), n.mul(y, cote))
+        img = n.node("ShaderNodeTexImage", extension="REPEAT", interpolation="Cubic")
+        img.image = bpy.data.images.load(str(OUT / "tuiles" / (nom_tuile + ".png")), check_existing=True)
+        n.link(n.vecteur(n.mul(u, echelle), n.mul(z, echelle), 0), img.inputs["Vector"])
+        base = n.couleur(fond)
+        if flancs:
+            base = n.melange(cote_exterieur(n, x, 0.7), base, flancs)
+        base = n.melange(img.outputs["Alpha"], base, img.outputs["Color"])
+        return bandes(n, x, z, base, "#1c2123", reperes_)
+    return motif
+
+
 def repris(fonction):
     """Un motif de T-shirt, recale sur la hauteur du pantalon."""
     def motif(n, reperes_):
@@ -305,6 +356,28 @@ PANTALONS = [
     ("Leopard", "Pants_014", "Slim", repris(M.leopard), "epic", "Slim léopard"),
     ("Galaxie", "Pants_014", "PattesEph", repris(M.galaxie), "legendary", "Pattes d'eph galaxie"),
     ("Dark", "Pants_010", "Cargo", repris(M.dark), "legendary", "Cargo nuit noire"),
+    # Pyjamas : derives du tartan, carreaux blancs.
+    ("PyjamaBleu", "Pants_014", "Slim", pyjama("#7fb3e0", "#4d80b3"), "uncommon", "Pyjama bleu ciel"),
+    ("PyjamaRose", "Pants_014", "Slim", pyjama("#f2a0b8", "#c86b88"), "uncommon", "Pyjama rose"),
+    ("PyjamaVert", "Pants_014", "Slim", pyjama("#7cc49a", "#4a8f68"), "uncommon", "Pyjama menthe"),
+    ("PyjamaMarine", "Pants_014", "Slim", pyjama("#23355c", "#15223d"), "uncommon", "Pyjama marine"),
+    ("PyjamaRouge", "Pants_014", "Slim", pyjama("#c2303b", "#861c25"), "uncommon", "Pyjama rouge"),
+    ("PyjamaViolet", "Pants_014", "Slim", pyjama("#8e6cc4", "#5f4590"), "uncommon", "Pyjama violet"),
+    # Shorts droles : une tuile repetee.
+    ("ShortPoussins", "Shorts_003", "Droit", repete("poussins", "#9fd8ff"), "rare", "Short poussins"),
+    ("ShortChauvesSouris", "Shorts_003", "Droit", repete("chauves_souris", "#5a5f96"), "rare", "Short chauves-souris"),
+    ("ShortToile", "Shorts_003", "Droit", repete("toile", "#c8202b", 7.0, "#1f4fa8"), "rare", "Short toile"),
+    ("ShortBananes", "Shorts_003", "Droit", repete("bananes", "#ff9cc0"), "rare", "Short bananes"),
+    ("ShortPasteques", "Shorts_003", "Droit", repete("pasteques", "#9fe3c5"), "rare", "Short pastèques"),
+    ("ShortDonuts", "Shorts_003", "Droit", repete("donuts", "#c9b3f5"), "rare", "Short donuts"),
+    # Amples unis : la coupe du cargo sans les poches.
+    ("AmpleNoir", "Pants_014", "Ample", uni("#1e1e21", "#0e0e10"), "common", "Ample noir"),
+    ("AmpleBeige", "Pants_014", "Ample", uni("#cbb68f", "#a8936d"), "common", "Ample beige"),
+    ("AmpleMarron", "Pants_014", "Ample", uni("#5a3b24", "#3f2817"), "common", "Ample marron"),
+    ("AmpleGris", "Pants_014", "Ample", uni("#6e7176", "#4c4f53"), "common", "Ample gris"),
+    ("AmpleMarine", "Pants_014", "Ample", uni("#1f2a44", "#141c2f"), "common", "Ample marine"),
+    ("AmpleOlive", "Pants_014", "Ample", uni("#4f5a2c", "#384020"), "common", "Ample olive"),
+    ("AmpleCreme", "Pants_014", "Ample", uni("#ebe4d4", "#cfc6b2"), "common", "Ample crème"),
 ]
 
 
@@ -332,7 +405,17 @@ def cuire(obj, motif, reperes_, nom):
     bpy.ops.object.bake(type="EMIT", use_clear=True)
     img.filepath_raw = str(OUT / (img.name + ".png"))
     img.file_format = "PNG"
-    img.save()
+    # Le dossier est sous OneDrive : un fichier en cours de synchronisation
+    # peut refuser l'ecriture un instant.
+    import time
+    for essai in range(5):
+        try:
+            img.save()
+            break
+        except RuntimeError:
+            if essai == 4:
+                raise
+            time.sleep(1.5)
     return img
 
 

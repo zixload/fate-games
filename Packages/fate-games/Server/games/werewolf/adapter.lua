@@ -725,21 +725,10 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     local Apparences = Package.Require("Shared/appearances.lua")
     local function habiller_bot(corps)
         if not (corps and corps:IsValid() and corps:IsA(CharacterSimple)) then return end
-        local portees = {}
-        for _, b in pairs(bots) do if b.look then portees[b.look] = true end end
-        local libres = {}
-        for _, a in ipairs(Apparences.list) do if not portees[a.id] then libres[#libres + 1] = a.id end end
-        if #libres == 0 then for _, a in ipairs(Apparences.list) do libres[#libres + 1] = a.id end end
-        local id = libres[math.random(#libres)]
-        local look = Apparences.Resolve(id)
-        if not look then return end
-        pcall(function()
-            corps:SetMesh(look.body)
-            corps:RemoveAllSkeletalMeshesAttached()
-            for i, mesh in ipairs(look.head) do corps:AddSkeletalMeshAttached("ww_tete_" .. i, mesh) end
-            for i, mesh in ipairs(look.worn) do corps:AddSkeletalMeshAttached("ww_tenue_" .. i, mesh) end
-        end)
-        return id
+        -- Une tenue composee au hasard (tete, haut, bas, chaussures).
+        local look = Apparences.Aleatoire()
+        pcall(function() Package.Require("Shared/cosmetiques.lua").Habiller(corps, look, "ww") end)
+        return look.id
     end
 
     -- Des pseudos ordinaires pour les bots, tires sans doublon.

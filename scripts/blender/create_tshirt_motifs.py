@@ -271,7 +271,9 @@ def tie_dye(n):
     dz = n.sub(z, POITRINE_Z - 0.05)
     r = n.math("POWER", n.add(n.mul(x, x), n.mul(dz, dz)), 0.5)
     a = n.div(n.atan2(dz, x), 2 * math.pi)
-    tourbillon = n.add(n.add(n.mul(a, 3.0), n.mul(r, 7.0)), n.mul(n.bruit(v, 6.0, 3.0), 0.35))
+    # Volutes larges et fluides : peu de bras, une forte deformation par le
+    # bruit (27/09 : les bandes etaient trop nettes, trop "coupees").
+    tourbillon = n.add(n.add(n.mul(a, 2.0), n.mul(r, 4.5)), n.mul(n.bruit(v, 2.4, 4.0, 0.55), 1.15))
     t = n.frac(tourbillon)
     base = n.rampe(t, [(0.0, "#ff4f8b"), (0.2, "#ffb347"), (0.4, "#fff275"), (0.6, "#6ee7b7"),
                         (0.8, "#5b8cff"), (1.0, "#ff4f8b")])
