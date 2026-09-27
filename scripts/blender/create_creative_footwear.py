@@ -9,6 +9,7 @@ import json
 from math import atan2, pi
 from pathlib import Path
 
+import bmesh
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -87,41 +88,66 @@ def textile_image(name, base, stripes):
     return image
 
 
+HAUT_CHAUSSETTE = 0.22      # m : mi-mollet, au-dessus des rayures de la texture
+
+
+def surface_pieds(body):
+    """Les faces du pied et du bas de la jambe du corps Creative (sommets lies
+    aux os du pied, des orteils et de la jambe), sous HAUT_CHAUSSETTE, en
+    coordonnees du monde. 27/09 : l'ancienne chaussette collait une boule
+    etiree au bout de la chaussette du kit et n'enveloppait pas le pied."""
+    groupes = {g.index for g in body.vertex_groups
+               if g.name in ("LeftFoot", "RightFoot", "LeftToeBase", "RightToeBase", "LeftLeg", "RightLeg")}
+    mw = body.matrix_world
+    garder = set()
+    for v in body.data.vertices:
+        if (mw @ v.co).z < HAUT_CHAUSSETTE + 0.02 and sum(a.weight for a in v.groups if a.group in groupes) > 0.5:
+            garder.add(v.index)
+    bm = bmesh.new()
+    nouveaux = {}
+    for f in body.data.polygons:
+        if all(i in garder for i in f.vertices):
+            vs = []
+            for i in f.vertices:
+                if i not in nouveaux:
+                    nouveaux[i] = bm.verts.new(mw @ body.data.vertices[i].co)
+                vs.append(nouveaux[i])
+            try:
+                bm.faces.new(vs)
+            except ValueError:
+                pass
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0015)
+    # Bord du haut net : coupe a HAUT_CHAUSSETTE, le dessus retire.
+    geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
+    bmesh.ops.bisect_plane(bm, geom=geom, plane_co=Vector((0, 0, HAUT_CHAUSSETTE)),
+                           plane_no=Vector((0, 0, 1)), dist=0.0005)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z > HAUT_CHAUSSETTE + 0.0005], context="VERTS")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    bm.normal_update()
+    # Decollee de 7 mm : une maille qui epouse le pied sans le traverser (a
+    # 4 mm, lissee, la peau passait au travers sur les orteils).
+    bmesh.ops.smooth_vert(bm, verts=bm.verts, factor=0.25, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    bm.normal_update()
+    for v in bm.verts:
+        v.co += v.normal * 0.007
+    bm.normal_update()
+    return bm
+
+
 def socks(rig, body):
-    before = set(bpy.data.objects)
-    bpy.ops.wm.obj_import(filepath=str(SOURCE / "Socks_008.obj"))
-    original = next(obj for obj in bpy.data.objects if obj not in before and obj.type == "MESH")
-    # The kit's "sock" OBJ ends at the ankle. Complete it with smooth fitted
-    # foot sections so this is a full sock rather than two cut-off gaiters.
-    feet = []
-    for side in (-1, 1):
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=40, ring_count=24,
-                                             location=(side * .095, -.052, .061))
-        foot = bpy.context.object
-        foot.name = "Sock foot section"
-        foot.scale = (.076, .158, .058)
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-        for polygon in foot.data.polygons:
-            polygon.use_smooth = True
-        feet.append(foot)
-    bpy.ops.object.select_all(action="DESELECT")
-    original.select_set(True)
-    for foot in feet:
-        foot.select_set(True)
-    bpy.context.view_layer.objects.active = original
-    bpy.ops.object.join()
     result = []
     specs = (
         ("Ivory", (.79, .76, .66), ()),
         ("Charcoal", (.105, .11, .13), ()),
-        ("BlackStripe", (.79, .76, .66), (.29, .33)),
+        ("BlackStripe", (.79, .76, .66), (.16, .19)),   # sous le haut a 22 cm
     )
     for suffix, color, stripe_heights in specs:
-        obj = original.copy()
-        obj.data = original.data.copy()
+        bm = surface_pieds(body)
+        me = bpy.data.meshes.new("SK_COS_Socks_" + suffix)
+        bm.to_mesh(me)
+        bm.free()
+        obj = bpy.data.objects.new("SK_COS_Socks_" + suffix, me)
         bpy.context.collection.objects.link(obj)
-        obj.name = "SK_COS_Socks_" + suffix
-        obj.data.materials.clear()
         image = textile_image("T_COS_Socks_" + suffix, color, stripe_heights)
         mat = material("M_COS_Socks_" + suffix, color)
         texture = mat.node_tree.nodes.new("ShaderNodeTexImage")
@@ -129,25 +155,28 @@ def socks(rig, body):
         mat.node_tree.links.new(texture.outputs["Color"],
                                 mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
         obj.data.materials.append(mat)
+        # Epaisseur vers l'interieur, bord du haut visible comme un revers.
+        solid = obj.modifiers.new("Knit thickness", "SOLIDIFY")
+        solid.thickness = 0.0025
+        solid.offset = -1
+        solid.use_rim = True
+        bpy.ops.object.select_all(action="DESELECT")
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.modifier_apply(modifier=solid.name)
         uv = obj.data.uv_layers.new(name="Cloth_UV")
         for polygon in obj.data.polygons:
+            polygon.use_smooth = True
             for loop_index in polygon.loop_indices:
                 vert = obj.data.vertices[obj.data.loops[loop_index].vertex_index]
                 pos = obj.matrix_world @ vert.co
                 side = 1 if pos.x >= 0 else -1
-                u = (atan2(pos.y + .015, pos.x - side * .095) / (2 * pi)) % 1
+                u = (atan2(pos.y + .015, pos.x - side * .103) / (2 * pi)) % 1
                 uv.data[loop_index].uv = (u, max(0, min(1, pos.z / .5)))
-        for layer in list(obj.data.uv_layers):
-            if layer != uv:
-                obj.data.uv_layers.remove(layer)
         uv.active_render = True
-        subdiv = obj.modifiers.new("Smooth knitted surface", "SUBSURF")
-        subdiv.levels = 1
-        subdiv.render_levels = 1
         skin_from_body(obj, body, rig)
         export(rig, obj)
         result.append(obj)
-    bpy.data.objects.remove(original, do_unlink=True)
     return result
 
 
@@ -202,18 +231,22 @@ def geta(rig):
     endgrain = material("M_COS_Geta_Endgrain", (.28, .13, .065))
     fabric = material("M_COS_Geta_Fabric", (.095, .12, .14))
     pieces = []
-    for label, x in (("L", .095), ("R", -.095)):
-        pieces.append(rounded_box(label + " sole", (x, -.055, .046),
-                                  (.142, .295, .025), .014, amber))
+    for label, x in (("L", .103), ("R", -.103)):
+        # 27/09 : fines (2,2 cm) et posees sur le sol, le pied s'enfonce un peu
+        # dans le bois. L'ancienne version, prevue pour un personnage rehausse
+        # de 5,8 cm, passait sous le sol : invisible en jeu.
+        pieces.append(rounded_box(label + " sole", (x, -.055, .0165),
+                                  (.150, .300, .011), .004, amber))
         for index, y in enumerate((.045, -.155)):
-            pieces.append(rounded_box(label + f" ha {index}", (x, y, .021),
-                                      (.132, .024, .038), .006, endgrain))
+            pieces.append(rounded_box(label + f" ha {index}", (x, y, .0055),
+                                      (.140, .024, .011), .003, endgrain))
         # The V thong rises over the toes and lands on opposite side rims.
-        joint = (x, -.143, .068)
+        # Les brides passent au-dessus du pied (orteils a 7,7 cm de haut).
+        joint = (x, -.128, .086)
         pieces.append(fabric_strap(label + " inside thong", x,
-                                   (x - .06, -.002, .06), joint, fabric))
+                                   (x - .072, -.010, .024), joint, fabric))
         pieces.append(fabric_strap(label + " outside thong", x,
-                                   (x + .06, -.002, .06), joint, fabric))
+                                   (x + .072, -.010, .024), joint, fabric))
     bpy.ops.object.select_all(action="DESELECT")
     for piece in pieces:
         piece.select_set(True)
@@ -221,10 +254,6 @@ def geta(rig):
     bpy.ops.object.join()
     obj = pieces[0]
     obj.name = "SK_COS_Geta_Wood"
-    # Set the top of the timber at the Creative bare-foot ground plane. Raising
-    # the entire actor 5.8 cm then puts the geta teeth on the world floor.
-    for vertex in obj.data.vertices:
-        vertex.co.z -= .0585
     # Both sandals follow the respective feet rigidly. Toe articulation is
     # deliberately kept inside the sole instead of bending the timber.
     left = obj.vertex_groups.new(name="LeftFoot")
@@ -246,7 +275,7 @@ def render_previews(scene, body, items):
     scene.camera = camera
     scene.render.resolution_x = 900
     scene.render.resolution_y = 900
-    body.hide_render = True
+    # Le corps reste visible : on juge l'ajustement sur le pied.
     for item in items:
         for other in items:
             other.hide_render = other != item
@@ -266,7 +295,7 @@ def main():
     bpy.ops.wm.save_as_mainfile(filepath=str(OUT / "creative_footwear.blend"))
     (OUT / "manifest.json").write_text(json.dumps({
         "rig": "Creative 43 bones", "items": [item.name for item in items],
-        "geta_actor_z_offset_cm": 5.8,
+        "geta_actor_z_offset_cm": 0,
     }, indent=2), encoding="utf-8")
     print("FOOTWEAR_COMPLETE", [item.name for item in items])
 
