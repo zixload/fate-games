@@ -162,7 +162,10 @@ function Apparences.Aleatoire(rng)
 end
 
 -- Pieces des apparences de base absentes du catalogue, et leur categorie.
-local HORS_CATALOGUE = { Costume_10_001 = "haut", Costume_6_001 = "haut", Hat_049 = "chapeau", Gloves_014 = "accessoire" }
+local HORS_CATALOGUE = { Costume_10_001 = "haut", Costume_6_001 = "haut", Hat_049 = "chapeau", Gloves_014 = "accessoire",
+    -- Chaussettes du kit, retirees de la vente le 27/09 : toujours dans la case
+    -- chaussures, sinon d'autres chaussures se posaient par-dessus.
+    Socks_008 = "chaussures" }
 
 -- L'apparence d'un joueur : son personnage de base (perso_id), dont chaque
 -- categorie portee chez le tailleur (tenue = { emplacement = id | "aucun" })
