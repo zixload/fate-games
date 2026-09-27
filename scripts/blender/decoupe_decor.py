@@ -92,7 +92,7 @@ def exporter():
         for v in o.data.vertices:
             v.co -= bas
         o.data.update()
-        bpy.ops.export_scene.fbx(filepath=str(dossier / f"{nom}.fbx"), use_selection=True,
+        bpy.ops.export_scene.fbx(mesh_smooth_type="FACE", filepath=str(dossier / f"{nom}.fbx"), use_selection=True,
                                  apply_scale_options="FBX_SCALE_UNITS", object_types={"MESH"},
                                  path_mode="COPY", embed_textures=False)
         cles = {normaliser(s.material.name) for s in o.material_slots if s.material}

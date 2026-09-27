@@ -975,7 +975,7 @@ def pantalon_pnj(corps, rig, motif, nom):
     rig.select_set(True)
     bas.select_set(True)
     bpy.context.view_layer.objects.active = bas
-    bpy.ops.export_scene.fbx(filepath=str(OUT / (bas.name + ".fbx")), use_selection=True,
+    bpy.ops.export_scene.fbx(mesh_smooth_type="FACE", filepath=str(OUT / (bas.name + ".fbx")), use_selection=True,
                              object_types={"ARMATURE", "MESH"}, add_leaf_bones=False,
                              bake_anim=False, use_mesh_modifiers=True, armature_nodetype="NULL")
     return bas, img
@@ -1074,7 +1074,7 @@ def main(noms):
         rig.select_set(True)
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
-        bpy.ops.export_scene.fbx(filepath=str(OUT / (obj.name + ".fbx")), use_selection=True,
+        bpy.ops.export_scene.fbx(mesh_smooth_type="FACE", filepath=str(OUT / (obj.name + ".fbx")), use_selection=True,
                                  object_types={"ARMATURE", "MESH"}, add_leaf_bones=False,
                                  bake_anim=False, use_mesh_modifiers=True, armature_nodetype="NULL")
         # Apercus : la tenue avec son pantalon (ou un pantalon uni), et la tete du kit.

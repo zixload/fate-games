@@ -234,7 +234,7 @@ def bind_flute(scene, rig, flute):
     bpy.ops.object.select_all(action="DESELECT")
     export.select_set(True)
     bpy.context.view_layer.objects.active = export
-    bpy.ops.export_scene.fbx(filepath=str(OUT / "SM_NPC_Spirit_Flute.fbx"),
+    bpy.ops.export_scene.fbx(mesh_smooth_type="FACE", filepath=str(OUT / "SM_NPC_Spirit_Flute.fbx"),
                              use_selection=True, object_types={"MESH"},
                              bake_anim=False, path_mode="AUTO")
     bpy.data.objects.remove(export, do_unlink=True)
@@ -253,7 +253,7 @@ def save(scene, rig):
     bpy.ops.object.select_all(action="DESELECT")
     rig.select_set(True)
     bpy.context.view_layer.objects.active = rig
-    bpy.ops.export_scene.fbx(filepath=str(OUT / (NAME + ".fbx")),
+    bpy.ops.export_scene.fbx(mesh_smooth_type="FACE", filepath=str(OUT / (NAME + ".fbx")),
                              use_selection=True, object_types={"ARMATURE"},
                              add_leaf_bones=False, bake_anim=True,
                              bake_anim_use_all_bones=True,

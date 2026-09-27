@@ -432,7 +432,7 @@ def main(noms):
         rig.select_set(True)
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
-        bpy.ops.export_scene.fbx(filepath=str(OUT / (piece + ".fbx")), use_selection=True,
+        bpy.ops.export_scene.fbx(mesh_smooth_type="FACE", filepath=str(OUT / (piece + ".fbx")), use_selection=True,
                                  object_types={"ARMATURE", "MESH"}, add_leaf_bones=False, bake_anim=False,
                                  use_mesh_modifiers=True, armature_nodetype="NULL")
         scene.render.engine = "BLENDER_EEVEE"
