@@ -195,10 +195,17 @@ def gilet_depuis(chemise):
     bm.from_mesh(g.data)
     # Coupes nettes (27/09 : supprimer des sommets laissait des marches) :
     # emmanchures, col, bas, puis les deux bords du V, chacun par un plan.
-    X_EMM = EMMANCHURE - 0.012
+    # Le gilet fait le tour du corps jusqu'a la couture des manches ; seule
+    # l'emmanchure, en haut, est echancree en biais sous le bras (27/09 : coupe
+    # verticale a 1 cm de la couture, la chemise se voyait sur les cotes).
+    X_EMM = EMMANCHURE + 0.002
+    X_IN, Z_HAUT, Z_BAS = EMMANCHURE - 0.035, 1.30, 1.16
+    K_EMM = (X_EMM - X_IN) / (Z_HAUT - Z_BAS)
     PENTE_V = 0.33                      # dx par dz du bord du V (bretelles de 7 cm)
     X0_V, Z0_V = 0.018, 1.08            # pointe du V
     plans = [(Vector((X_EMM, 0, 0)), Vector((1, 0, 0))), (Vector((-X_EMM, 0, 0)), Vector((-1, 0, 0))),
+             (Vector((X_IN, 0, Z_HAUT)), Vector((1, 0, K_EMM)).normalized()),
+             (Vector((-X_IN, 0, Z_HAUT)), Vector((-1, 0, K_EMM)).normalized()),
              (Vector((0, 0, 1.43)), Vector((0, 0, 1))), (Vector((0, 0, 0.905)), Vector((0, 0, -1))),
              (Vector((X0_V, 0, Z0_V)), Vector((-1, 0, PENTE_V)).normalized()),
              (Vector((-X0_V, 0, Z0_V)), Vector((1, 0, PENTE_V)).normalized())]
@@ -207,7 +214,14 @@ def gilet_depuis(chemise):
         bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no, dist=0.0005)
 
     def dehors(p):
-        if abs(p.x) > X_EMM + 0.0006 or p.z > 1.4306 or p.z < 0.9044:
+        if p.z > 1.4306 or p.z < 0.9044:
+            return True
+        # Sous l'aisselle, le tronc deborde la couture a la taille : seules les
+        # manches (bien plus loin) sont coupees ; au-dessus, la couture.
+        if abs(p.x) > (X_EMM + 0.0006 if p.z >= Z_BAS else 0.26):
+            return True
+        # Emmanchure : au-dessus de la ligne en biais, sous le bras.
+        if p.z > Z_BAS and abs(p.x) > X_IN + (Z_HAUT - p.z) * K_EMM + 0.0006:
             return True
         largeur_v = X0_V + max(0.0, p.z - Z0_V) * PENTE_V
         return p.y < 0 and abs(p.x) < largeur_v - 0.0006 and p.z > Z0_V
@@ -234,12 +248,36 @@ def gilet_depuis(chemise):
     bm.to_mesh(g.data)
     bm.free()
     g.data.update()
-    P.gonfler(g, 0.009)
+    P.gonfler(g, 0.011)
     s = g.modifiers.new("Epaisseur", "SOLIDIFY")
     s.thickness = 0.004
     s.offset = -1
     appliquer(g)
     return g
+
+
+def cacher_sous(dessous, arbre_dessus, portee=0.04):
+    """Surcouche : retire du vetement de dessous ce que celui du dessus couvre
+    (27/09 : la chemise traversait le gilet sur les cotes et au milieu du
+    torse). Une face part quand tous ses sommets, vus le long de leur normale,
+    tombent sur le dessus a moins de `portee` ; les faces du bord, a moitie
+    couvertes, restent : pas de trou a la lisiere du gilet."""
+    dessous.data.update()
+    couverts = set()
+    for v in dessous.data.vertices:
+        n = v.normal
+        if arbre_dessus.ray_cast(v.co - n * 0.002, n, portee)[0] is not None:
+            couverts.add(v.index)
+    bm = bmesh.new()
+    bm.from_mesh(dessous.data)
+    bm.verts.ensure_lookup_table()
+    retirees = [f for f in bm.faces if all(v.index in couverts for v in f.verts)]
+    bmesh.ops.delete(bm, geom=retirees, context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    bm.to_mesh(dessous.data)
+    bm.free()
+    dessous.data.update()
+    print("SURCOUCHE", dessous.name, len(retirees), "faces cachees retirees")
 
 
 def projeter(arbre, angle, z, marge):
@@ -420,7 +458,8 @@ def tailleur(corps):
     bpy.context.view_layer.update()
     deps = bpy.context.evaluated_depsgraph_get()
     arbre = BVHTree.FromObject(gilet, deps)
-    arbre_tout = BVHTree.FromObject(chemise, deps)
+    arbre_tout = BVHTree.FromObject(chemise, deps)   # le metre suit la chemise (avant la coupe)
+    cacher_sous(chemise, arbre)
     pieces = [chemise, gilet] + roulis + boutons_et_chaine(arbre) + [metre_ruban(arbre_tout)] + pelote(rayons)
     for o in pieces:
         for poly in o.data.polygons:
