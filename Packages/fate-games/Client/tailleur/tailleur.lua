@@ -16,30 +16,7 @@ return function()
         Input.SetInputEnabled(true)
     end
 
-    -- La camera voulue par le serveur, rapprochee si un mur ou un decor se
-    -- trouve entre elle et le joueur (le rayon ne se lance que cote client,
-    -- doc Trace). Sur la droite joueur -> camera, il garde sa place a l'ecran.
-    local function cadrer(c)
-        if not (c and c.perso and c.camera) then return end
-        local tete = c.perso + Vector(0, 0, 50)
-        local vers = c.camera - tete
-        local longueur = vers:Size()
-        if longueur < 1 then return end
-        local dir = vers * (1 / longueur)
-        local ok, ret = pcall(Trace.LineSingle, tete, c.camera,
-            CollisionChannel.WorldStatic | CollisionChannel.WorldDynamic)
-        local pos = c.camera
-        if ok and ret and ret.Success and ret.Location then
-            local libre = (ret.Location - tete):Size()
-            pos = tete + dir * math.max(60, libre - 30)
-        end
-        local moi = Client.GetLocalPlayer()
-        moi:SetCameraLocation(pos)
-        if c.rotation then moi:SetCameraRotation(c.rotation) end
-    end
-
-    Events.SubscribeRemote("tailleur:ouvrir", function(vue, cadrage)
-        cadrer(cadrage)
+    Events.SubscribeRemote("tailleur:ouvrir", function(vue)
         ouvert = true
         page:SetVisibility(WidgetVisibility.Visible)
         page:BringToFront()

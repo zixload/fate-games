@@ -513,10 +513,7 @@ do
             local rot = Rotator(-2, cabine.yaw + 180, 0)
             player:SetCameraLocation(cam)
             player:SetCameraRotation(rot)
-            -- Le client verifie que rien ne bouche la vue (mur, decor : ecran
-            -- noir le 27/09) et rapproche la camera au besoin (Client/tailleur).
-            Events.CallRemote("tailleur:ouvrir", player, Reliability.Reliable, Boutique.VueTailleur(etat),
-                { perso = Vector(cabine.x, cabine.y, cabine.z), camera = cam, rotation = rot })
+            Events.CallRemote("tailleur:ouvrir", player, Reliability.Reliable, Boutique.VueTailleur(etat))
         end)
     end
 
