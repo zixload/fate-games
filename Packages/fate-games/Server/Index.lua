@@ -550,6 +550,14 @@ do
         end)
     end)
 
+    -- Tourner son personnage sur lui-meme dans la cabine (glisser a la souris).
+    Events.SubscribeRemote("tailleur:tourner", function(player, degres)
+        local perso = chez_tailleur[player:GetID()]
+        if type(degres) ~= "number" or degres ~= degres or not (perso and perso:IsValid()) then return end
+        degres = math.max(-90, math.min(90, degres))
+        perso:SetRotation(Rotator(0, perso:GetRotation().Yaw + degres, 0))
+    end)
+
     -- Essayer une piece (pas besoin de l'avoir) : id vide pour retirer l'essai
     -- de cette categorie.
     Events.SubscribeRemote("tailleur:essayer", function(player, emplacement, id)

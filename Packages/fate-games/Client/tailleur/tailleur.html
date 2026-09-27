@@ -9,6 +9,7 @@
     --ombre: #070a0b; --rouge: #a8322b; --vert: #3d7a4a;
     --common: #b9b2a3; --uncommon: #6fae66; --rare: #4f86c9; --epic: #9c63d1; --legendary: #e0a93b; }
 * { box-sizing: border-box; }
+body.tourne { cursor: grabbing; }
 html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent;
     font-family: "Lilita One", sans-serif; color: var(--encre); user-select: none; }
 body.apercu-navigateur { background: linear-gradient(90deg, #6b5a45, #221b14); }
@@ -228,6 +229,20 @@ $("acheter").addEventListener("click", () => {
 });
 $("fermer").addEventListener("click", () => Bus.Call("fermer"));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") Bus.Call("fermer"); });
+// Cliquer-glisser hors du panneau (sur son personnage) : il tourne sur
+// lui-meme, pour voir la tenue de dos et de profil. Envoi groupe toutes les
+// 50 ms (tailleur:tourner, degres).
+let tourne = null, aEnvoyer = 0;
+document.addEventListener("mousedown", (e) => {
+  if (e.button !== 0 || e.target.closest("#boutique")) return;
+  tourne = e.clientX; document.body.classList.add("tourne");
+});
+document.addEventListener("mousemove", (e) => {
+  if (tourne === null) return;
+  aEnvoyer += (e.clientX - tourne) * 0.5; tourne = e.clientX;
+});
+document.addEventListener("mouseup", () => { tourne = null; document.body.classList.remove("tourne"); });
+setInterval(() => { if (Math.abs(aEnvoyer) >= 1) { Bus.Call("tourner", aEnvoyer); aEnvoyer = 0; } }, 50);
 // Le papier dessine suit la taille reelle du panneau (fenetre redimensionnee,
 // premier affichage avant la taille finale).
 new ResizeObserver(() => requestAnimationFrame(habiller)).observe($("boutique"));
