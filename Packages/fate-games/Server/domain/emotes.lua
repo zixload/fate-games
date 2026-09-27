@@ -16,6 +16,7 @@ return function(Log, Characters, config)
         en_cours[player_id] = nil
         if anim and character and character:IsValid() then
             pcall(function() character:StopAnimation(anim) end)
+            pcall(function() Characters.FigerRotation(player_id, false) end)
         end
     end
 
@@ -40,6 +41,8 @@ return function(Log, Characters, config)
         end)
         if ok then
             en_cours[id] = slot.anim
+            -- La vue tourne librement autour du danseur (Characters.FigerRotation).
+            pcall(function() Characters.FigerRotation(id, true) end)
         else
             Log.Warn("emotes", ("%s : %s"):format(tostring(slot.titre), tostring(err)))
         end

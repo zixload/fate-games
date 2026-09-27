@@ -10,6 +10,11 @@
 -- portee du bord de la capsule, on pousse. Les traces visent le decor fixe et
 -- le decor mobile (une marche peut etre l'un ou l'autre selon la map).
 --
+-- L'obstacle se cherche a plusieurs hauteurs, pas seulement a la cheville :
+-- l'escalier de la place est fait de planches epaisses avec un creux dessous,
+-- le rayon a 5 cm passait sous la planche ("rien a la cheville", 27/09).
+-- Bloque contre une marche, on cherche aussi son dessus meme sans obstacle vu.
+--
 -- Journal : quand on appuie pour avancer mais qu'on reste bloque au sol, la
 -- raison du refus s'ecrit dans la console (F1), une fois par seconde au plus.
 
@@ -95,24 +100,33 @@ return function(config)
             local sol = touche(l, Vector(l.X, l.Y, l.Z - 250), perso)
             if not sol.Success then return journal(bloque, maintenant, "pas de sol sous les pieds") end
             local pied = sol.Location.Z
-            local loin = rayon(perso) + PORTEE
-            -- Un obstacle a hauteur de cheville, a portee du bord de la capsule.
-            local bas = Vector(l.X, l.Y, pied + 5)
-            if not touche(bas, bas + dir * loin, perso).Success then
-                return journal(bloque, maintenant, ("rien a la cheville (portee %d cm)"):format(loin))
+            local r = rayon(perso)
+            local loin = r + PORTEE
+            -- Un obstacle entre la cheville et la hauteur de marche maxi.
+            local obstacle = false
+            for z = 3, HAUTEUR_MAX - 3, 7 do
+                local de = Vector(l.X, l.Y, pied + z)
+                if touche(de, de + dir * loin, perso).Success then obstacle = true break end
             end
+            if not obstacle and not bloque then return end
             -- Rien a hauteur de marche maxi : sinon c'est un mur.
             local haut = Vector(l.X, l.Y, pied + HAUTEUR_MAX + 5)
             if touche(haut, haut + dir * loin, perso).Success then
                 return journal(bloque, maintenant, ("obstacle plus haut que %d cm"):format(HAUTEUR_MAX))
             end
-            -- Le dessus de la marche, juste apres son rebord.
-            local au_dessus = Vector(l.X, l.Y, pied + HAUTEUR_MAX + 10) + dir * (loin + 6)
-            local dessus = touche(au_dessus, Vector(au_dessus.X, au_dessus.Y, pied - 5), perso)
-            if not dessus.Success then return journal(bloque, maintenant, "pas de dessus de marche") end
-            local h = dessus.Location.Z - pied
-            if h < 3 or h > HAUTEUR_MAX then
-                return journal(bloque, maintenant, ("marche de %d cm refusee"):format(math.floor(h)))
+            -- Le dessus de la marche, juste apres son rebord : le premier
+            -- dessus assez haut, de plus pres a plus loin.
+            local h
+            for _, d in ipairs({ r + 4, r + 10, r + 18, loin + 6 }) do
+                local au_dessus = Vector(l.X, l.Y, pied + HAUTEUR_MAX + 10) + dir * d
+                local dessus = touche(au_dessus, Vector(au_dessus.X, au_dessus.Y, pied - 5), perso)
+                local hd = dessus.Success and (dessus.Location.Z - pied) or nil
+                if hd and hd >= 3 and hd <= HAUTEUR_MAX then h = hd break end
+            end
+            -- Sans obstacle vu, rien a dire : on demarre juste (vitesse encore basse).
+            if not h then
+                if obstacle then journal(bloque, maintenant, "obstacle mais pas de dessus de marche a portee") end
+                return
             end
             -- Juste ce qu'il faut pour passer le rebord : v = racine(2 g h).
             local g = 980 * (perso:GetGravityScale() or 1)

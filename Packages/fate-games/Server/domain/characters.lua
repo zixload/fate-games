@@ -360,6 +360,21 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
         return true
     end
 
+    -- Pendant une emote, le corps ne suit plus la camera : la souris fait
+    -- tourner la vue autour du personnage, on peut se regarder de face. oui =
+    -- false rend la rotation d'un personnage debout.
+    function Characters.FigerRotation(player_id, oui)
+        local session = sessions[player_id]
+        local c = session and session.character
+        if not (c and c:IsValid()) or session.assis then return false end
+        if oui then
+            c:SetRotationSettings(Rotator(0, 0, 0), false, false)
+        else
+            rotation_debout(c, session.essai)
+        end
+        return true
+    end
+
     function Characters.Stand(player_id)
         local session = sessions[player_id]
         if not (session and session.assis and session.character) then return false end
