@@ -758,37 +758,40 @@ MAT_MUS = {}
 
 
 def poncho_motif(n):
-    """Poncho andin : fond rouge profond, quelques bandes tissees (moutarde,
-    sarcelle, creme) en zigzag, qui font le tour du corps."""
+    """Tissage andin : bandes (rouge, moutarde, sarcelle, creme, noir) en
+    zigzag qui font le tour du corps, sur une maille tressee en chevrons."""
     v, x, y, z = n.coords()
     u = n.mul(n.atan2(x, n.mul(y, -1.0)), 0.15)            # tour du corps, en m
-    zig = n.mul(n.absv(n.sub(n.frac(n.mul(u, 14.0)), 0.5)), 0.03)
-    h = n.frac(n.mul(n.add(z, zig), 6.0))
-    c = n.rampe(h, [(0.0, "#e2b33c"), (0.10, "#1c1a1a"), (0.12, "#1f6f6a"), (0.20, "#f1e6cf"),
-                    (0.235, "#1c1a1a"), (0.25, "#7a171c"), (1.0, "#7a171c")], True)
-    grain = n.add(n.mul(n.sub(n.bruit(v, 180.0, 2.0), 0.5), 0.3), 0.5)
-    return n.melange(n.mul(grain, 0.35), c, "#3a0d0f")
+    zig = n.mul(n.absv(n.sub(n.frac(n.mul(u, 18.0)), 0.5)), 0.022)
+    h = n.frac(n.mul(n.add(z, zig), 14.0))
+    c = n.rampe(h, [(0.0, "#a3262a"), (0.28, "#a3262a"), (0.30, "#1c1a1a"), (0.34, "#e2b33c"),
+                    (0.52, "#e2b33c"), (0.54, "#f1e6cf"), (0.64, "#f1e6cf"), (0.66, "#1f6f6a"),
+                    (0.90, "#1f6f6a"), (0.92, "#1c1a1a"), (1.0, "#1c1a1a")], True)
+    # Maille tressee : petites cotes en V (chevrons), creuses et bosses.
+    cu = n.absv(n.sub(n.frac(n.mul(u, 120.0)), 0.5))
+    maille = n.absv(n.sub(n.frac(n.add(n.mul(z, 150.0), n.mul(cu, 1.2))), 0.5))
+    c = n.melange(n.mul(n._smooth(0.25, 0.3, maille), 0.45), c, "#1c1a1a")
+    grain = n.add(n.mul(n.sub(n.bruit(v, 180.0, 2.0), 0.5), 0.2), 0.5)
+    return n.melange(n.mul(grain, 0.2), c, "#1c1a1a")
 
 
 def poncho_depuis(chemise):
-    """Poncho : le haut de la chemise, coupe en pointe devant et derriere
-    (bas a 0,98 m au milieu, remonte sur les cotes), sans manches, le bas
-    qui s'ecarte du corps."""
+    """Poncho court sur les epaules : le haut de la chemise (au-dessus de
+    1,17 m, plus le haut des manches), decolle et epaissi. 27/09 : la version
+    evasee en pointe se superposait aux manches, retour a celle-ci."""
     g = chemise.copy()
     g.data = chemise.data.copy()
     g.name = "Poncho"
     bpy.context.collection.objects.link(g)
     bm = bmesh.new()
     bm.from_mesh(g.data)
-    Z_POINTE, PENTE = 0.98, 0.9           # bas : z = 0,98 + 0,9 |x|
-    for sx in (1, -1):
-        geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
-        bmesh.ops.bisect_plane(bm, geom=geom, plane_co=Vector((0, 0, Z_POINTE)),
-                               plane_no=Vector((sx * PENTE, 0, -1)).normalized(), dist=0.0005)
+    Z_BAS = 1.17
+    geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
+    bmesh.ops.bisect_plane(bm, geom=geom, plane_co=Vector((0, 0, Z_BAS)), plane_no=Vector((0, 0, -1)), dist=0.0005)
 
     def garder(f):
         c = f.calc_center_median()
-        if c.z < Z_POINTE + PENTE * abs(c.x) - 0.0005:
+        if c.z < Z_BAS - 0.0005:
             return False
         if abs(c.x) > EMMANCHURE and ML.le_long(c)[0] > 0.10:
             return False                       # au-dela du haut des manches
@@ -797,43 +800,17 @@ def poncho_depuis(chemise):
         return True
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if not garder(f)], context="FACES")
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
-    vus, isoles = set(), []
-    for f in bm.faces:
-        if f in vus:
-            continue
-        pile, groupe = [f], []
-        vus.add(f)
-        while pile:
-            h = pile.pop()
-            groupe.append(h)
-            for e in h.edges:
-                for k in e.link_faces:
-                    if k not in vus:
-                        vus.add(k)
-                        pile.append(k)
-        if len(groupe) < 200:
-            isoles += groupe
-    bmesh.ops.delete(bm, geom=isoles, context="FACES")
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
     bm.to_mesh(g.data)
     bm.free()
     g.data.update()
     P.gonfler(g, 0.013)
-    # Le tissu tombe sans coller : il s'ecarte du corps en descendant, plus
-    # encore sur les cotes (un poncho tombe en cloche depuis les epaules).
-    for v in g.data.vertices:
-        ecart = max(0.0, 1.30 - v.co.z) * 0.40 + max(0.0, abs(v.co.x) - 0.10) * 0.25
-        d = Vector((v.co.x, v.co.y - 0.01, 0))
-        if d.length > 1e-4:
-            v.co += d.normalized() * ecart
-    g.data.update()
     # Le bord du bas, avant l'epaisseur (qui le referme) : pour les franges.
     bm2 = bmesh.new()
     bm2.from_mesh(g.data)
-    g["bord_bas"] = [c for v in bm2.verts if v.is_boundary and v.co.z < 1.25 for c in v.co]
+    g["bord_bas"] = [c for v in bm2.verts if v.is_boundary and v.co.z < Z_BAS + 0.01 for c in v.co]
     bm2.free()
     s = g.modifiers.new("Epaisseur", "SOLIDIFY")
-    s.thickness = 0.007
+    s.thickness = 0.006
     s.offset = -1
     s.use_rim = True
     appliquer(g)
@@ -841,24 +818,23 @@ def poncho_depuis(chemise):
 
 
 def franges(poncho, mat):
-    """Franges de laine le long du bord du bas, tous les 1,4 cm."""
+    """Franges de laine souples le long du bord du bas : brins ronds, courbes,
+    un tous les 1,3 cm."""
     brut = list(poncho["bord_bas"])
     bas = [Vector(brut[i:i + 3]) for i in range(0, len(brut), 3)]
     bas.sort(key=lambda c: math.atan2(c.x, -c.y))
-    objets = []
+    brins = []
     dernier = None
-    tout = bmesh.new()
     for c in bas:
-        if dernier is not None and (c - dernier).length < 0.011:
+        if dernier is not None and (c - dernier).length < 0.013:
             continue
         dernier = c
-        brin = cylindre(c + Vector((0, 0, 0.003)), c + Vector((0, 0, -0.055)), 0.0032, 5)
-        me = bpy.data.meshes.new("tmp")
-        brin.to_mesh(me)
-        brin.free()
-        tout.from_mesh(me)
-        bpy.data.meshes.remove(me)
-    return objet_depuis_bm(tout, "Franges", mat)
+        dehors = Vector((c.x, c.y - 0.01, 0))
+        dehors = dehors.normalized() if dehors.length > 1e-4 else Vector((0, -1, 0))
+        pts = [c + Vector((0, 0, 0.002)), c + dehors * 0.003 + Vector((0, 0, -0.012)),
+               c + dehors * 0.005 + Vector((0, 0, -0.028))]
+        brins.append(bride("Frange", pts, 0.0026, mat))
+    return fusionner(brins, "Franges")
 
 
 def musicien(corps):
@@ -875,12 +851,7 @@ def musicien(corps):
     poncho.data.materials.append(MAT_MUS["poncho"])
     bpy.context.view_layer.update()
     cacher_sous(chemise, BVHTree.FromObject(poncho, bpy.context.evaluated_depsgraph_get()))
-    frange = franges(poncho, MAT_MUS["franges"])
-    # Rigide sur le haut du torse : sinon les bras leves de sa pose tiraient
-    # le bas du poncho vers le haut (27/09). Le dessus des epaules suit les bras.
-    for o in (poncho, frange):
-        rigide(o, "Spine1", lambda v: not (abs(v.co.x) > EMMANCHURE and v.co.z > 1.24))
-    pieces = [chemise, poncho, frange]
+    pieces = [chemise, poncho, franges(poncho, MAT_MUS["franges"])]
     for cote in (1, -1):
         c = axe_bras(0.268, cote)
         pieces.append(objet_depuis_bm(anneau(c, dir_bras(cote), rayons[cote] + 0.006, 0.0085, allonge=1.5),
