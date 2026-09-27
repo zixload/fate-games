@@ -72,7 +72,7 @@ def surface_tete(corps):
     return bm
 
 
-def calotte(corps, ligne, decalage, epaisseur=0.008):
+def calotte(corps, ligne, decalage, epaisseur=0.012):
     """ligne(p) -> hauteur d'implantation ; decalage(p, n) -> distance au crane."""
     bm = surface_tete(corps)
     # Le maillage de la tete est en deux moities (sommets doubles au milieu) :
@@ -101,6 +101,8 @@ def calotte(corps, ligne, decalage, epaisseur=0.008):
         if len(groupe) < 12:
             isoles += groupe
     bmesh.ops.delete(bm, geom=isoles, context="FACES")
+    # Les petits trous dans la calotte (une face exclue au milieu) : combles.
+    bmesh.ops.holes_fill(bm, edges=bm.edges, sides=8)
     # Les oreilles ne font pas partie de la coiffure.
     bm.normal_update()
     for v in bm.verts:
@@ -160,7 +162,7 @@ def courte():
 
     def decalage(p, n):
         dessus = lisse((p.z - 1.74) / 0.08)
-        epaisseur = 0.008 + 0.018 * dessus
+        epaisseur = 0.011 + 0.018 * dessus   # 27/09 : plus epais, plus de jour au contour
         # Bord aminci : les cheveux naissent du crane au lieu d'une marche.
         naissance = 0.3 + 0.7 * lisse((p.z - ligne(p)) / 0.03)
         # Meches en relief, dans le sens des cheveux (vers l'arriere, sur le dessus).
