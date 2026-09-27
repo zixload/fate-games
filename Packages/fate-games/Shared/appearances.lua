@@ -135,6 +135,10 @@ local COSTUMES = { clown = true, souris = true }
 function Apparences.Aleatoire(rng)
     rng = rng or math.random
     local Cosmetiques = Package.Require("Shared/cosmetiques.lua")
+    -- Vetements du catalogue coupes pour les bots : une apparence d'origine entiere.
+    if not Cosmetiques.pour_bots then
+        return Apparences.Resolve(Apparences.list[rng(#Apparences.list)].id)
+    end
     local tetes = {}
     for _, a in ipairs(Apparences.list) do
         if not COSTUMES[a.id] then tetes[#tetes + 1] = a end

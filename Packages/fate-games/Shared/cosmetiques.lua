@@ -17,6 +17,9 @@ local Cosmetiques = {}
 -- les tenues aleatoires ne piochent que dans les pieces du kit (SK_*), deja
 -- cuites : sinon un bot se retrouverait sans vetement.
 Cosmetiques.cuits = true   -- cuites le 27/09
+-- Les bots portent-ils ces vetements ? Non pour l'instant (27/09) : ils gardent
+-- les apparences d'origine, le temps de tester les vetements au mannequin.
+Cosmetiques.pour_bots = false
 
 Cosmetiques.liste = {
     -- Hauts du kit Creative et de ChatGPT

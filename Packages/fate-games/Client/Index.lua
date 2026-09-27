@@ -45,6 +45,10 @@ local ok_marche, err_marche = pcall(function()
 end)
 if not ok_marche then Console.Error("[marche] chargement impossible : " .. tostring(err_marche)) end
 
+-- Mannequin d'essayage (mode dev) : HUD et fleches pour changer de vetement.
+local ok_mannequin, err_mannequin = pcall(function() Package.Require("mannequin.lua")() end)
+if not ok_mannequin then Console.Error("[mannequin] chargement impossible : " .. tostring(err_mannequin)) end
+
 -- PNJ d'ambiance : leurs repliques et leur regard vers le joueur.
 local ok_pnj, err_pnj = pcall(function()
     Package.Require("pnj.lua")(SharedConfig.pnj)
