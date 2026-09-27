@@ -13,6 +13,7 @@ import bmesh
 import bpy
 import numpy as np
 from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 from mathutils.kdtree import KDTree
 
 
@@ -226,27 +227,88 @@ def fabric_strap(name, side, start, end, mat):
     return obj
 
 
-def geta(rig):
+SOL_HAUT = 0.030            # m : dessus de la semelle (dents 1,4 cm + semelle 1,6 cm)
+
+
+def bride(name, points, mat):
+    """Un cordon rond qui passe par `points` (brides des geta)."""
+    curve = bpy.data.curves.new(name, "CURVE")
+    curve.dimensions = "3D"
+    curve.resolution_u = 8
+    curve.bevel_depth = .0065
+    curve.bevel_resolution = 3
+    spline = curve.splines.new("POLY")
+    spline.points.add(len(points) - 1)
+    for node, co in zip(spline.points, points):
+        node.co = (co.x, co.y, co.z, 1.0)
+    obj = bpy.data.objects.new(name, curve)
+    bpy.context.collection.objects.link(obj)
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.convert(target="MESH")
+    obj.data.materials.append(mat)
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = True
+    return obj
+
+
+def sur_le_pied(arbre, centre, direction, marge=.006):
+    """Point de la peau du pied vu depuis `centre` (dans le pied) dans
+    `direction`, decolle de `marge` : la bride suit la surface au lieu de
+    la traverser (27/09)."""
+    direction = direction.normalized()
+    # Rayon lance de l'exterieur vers le pied : il s'arrete sur la vraie peau
+    # (depuis l'interieur, il butait sur des faces internes).
+    dehors = centre + direction * .25
+    hit = arbre.ray_cast(dehors, -direction, .25)[0]
+    if hit is None:
+        return centre + direction * .05
+    return hit + direction * marge
+
+
+def geta(rig, body):
     amber = material("M_COS_Geta_Hinoki", (.47, .245, .105))
     endgrain = material("M_COS_Geta_Endgrain", (.28, .13, .065))
     fabric = material("M_COS_Geta_Fabric", (.095, .12, .14))
+    # En coordonnees du monde : FromObject travaille dans le repere local du
+    # corps, en centimetres (echelle 0,01), et les rayons en metres le ratant.
+    mw = body.matrix_world
+    arbre = BVHTree.FromPolygons([mw @ v.co for v in body.data.vertices],
+                                 [tuple(poly.vertices) for poly in body.data.polygons])
     pieces = []
     for label, x in (("L", .103), ("R", -.103)):
-        # 27/09 : fines (2,2 cm) et posees sur le sol, le pied s'enfonce un peu
-        # dans le bois. L'ancienne version, prevue pour un personnage rehausse
-        # de 5,8 cm, passait sous le sol : invisible en jeu.
-        pieces.append(rounded_box(label + " sole", (x, -.055, .0165),
-                                  (.150, .300, .011), .004, amber))
+        cote = 1 if x > 0 else -1          # exterieur du pied : du cote des x de meme signe
+        # 27/09 : bois plus epais (3 cm en tout) et pose sur le sol.
+        pieces.append(rounded_box(label + " sole", (x, -.055, .022),
+                                  (.150, .300, .016), .005, amber))
         for index, y in enumerate((.045, -.155)):
-            pieces.append(rounded_box(label + f" ha {index}", (x, y, .0055),
-                                      (.140, .024, .011), .003, endgrain))
-        # The V thong rises over the toes and lands on opposite side rims.
-        # Les brides passent au-dessus du pied (orteils a 7,7 cm de haut).
-        joint = (x, -.128, .086)
-        pieces.append(fabric_strap(label + " inside thong", x,
-                                   (x - .072, -.010, .024), joint, fabric))
-        pieces.append(fabric_strap(label + " outside thong", x,
-                                   (x + .072, -.010, .024), joint, fabric))
+            pieces.append(rounded_box(label + f" ha {index}", (x, y, .007),
+                                      (.140, .026, .014), .004, endgrain))
+        # Hanao : un V qui part des deux bords de la semelle a mi-pied, passe
+        # sur le cou-de-pied et descend entre le gros orteil et le suivant.
+        # Chaque point est pose sur la peau (rayon lance depuis l'interieur).
+        interieur = x - cote * .032        # entre les orteils, cote gros orteil
+        # Un seul sommet pour les deux branches du V : elles se rejoignent.
+        sommet = sur_le_pied(arbre, Vector((x, -.110, .035)), Vector((0, 0, 1)))
+        for nom, bord in (("exterieur", 1), ("interieur", -1)):
+            pts = [Vector((x + cote * bord * .074, -.035, SOL_HAUT))]
+            for k in range(1, 7):
+                t = k / 8                      # 0 : bord de la semelle, 1 : sommet
+                angle = (1 - t) * 1.35         # du flanc (77 deg) au dessus
+                centre = Vector((x, -.035 - .075 * t, .035))
+                d = Vector((cote * bord * __import__("math").sin(angle), 0, __import__("math").cos(angle)))
+                pts.append(sur_le_pied(arbre, centre, d))
+            pts.append(sommet)
+            pieces.append(bride(label + " hanao " + nom, pts, fabric))
+        # Le cordon du devant : du sommet vers l'entre-orteils, sur la peau.
+        pts = [sommet]
+        for k in range(1, 6):
+            t = k / 6
+            centre = Vector((sommet.x + (interieur - sommet.x) * t, sommet.y - .045 * t, .03))
+            pts.append(sur_le_pied(arbre, centre, Vector((0, -.35 * t, 1))))
+        pts.append(Vector((interieur, -.150, SOL_HAUT)))
+        pieces.append(bride(label + " maezubo", pts, fabric))
     bpy.ops.object.select_all(action="DESELECT")
     for piece in pieces:
         piece.select_set(True)
@@ -290,7 +352,7 @@ def main():
     rig = bpy.data.objects["Root"]
     body = bpy.data.objects["SK_Animations.001"]
     items = socks(rig, body)
-    items.append(geta(rig))
+    items.append(geta(rig, body))
     render_previews(scene, body, items)
     bpy.ops.wm.save_as_mainfile(filepath=str(OUT / "creative_footwear.blend"))
     (OUT / "manifest.json").write_text(json.dumps({
