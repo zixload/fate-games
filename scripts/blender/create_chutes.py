@@ -12,8 +12,8 @@ puis cuits. Sorties dans art/animations/chutes/ (hors depot).
 - ANIM_Chute_Au_Sol (Falling Flat Impact) : commence a l'image 9, le corps a
   ~50 cm du sol, l'impact tombe a l'image 13. Allonge, il regarde a gauche
   puis a droite (REGARDS), puis la pose est tenue jusqu'a l'image 92
-  (extrapolation constante des courbes) ; le relevement est le fondu de
-  sortie joue en jeu, en attendant une animation "Getting Up".
+  (extrapolation constante des courbes), puis il se releve (Getting Up,
+  RELEVER), le tout dans le meme clip.
 Import : scripts/unreal/import_chutes.py.
 """
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 import bpy
 from math import cos, pi, radians
-from mathutils import Quaternion
+from mathutils import Quaternion, Vector
 
 ROOT = Path(__file__).resolve().parents[2]
 DOWNLOADS = Path.home() / "Downloads"
@@ -40,6 +40,98 @@ CLIPS = (
 # relever : (image, angle en degres) ; la tete et le cou tournent autour de
 # l'axe du cou (Y local des os Mixamo), 60 % pour la tete, 40 % pour le cou.
 REGARDS = {"ANIM_Chute_Au_Sol": ((24, 0), (38, 60), (48, 60), (64, -60), (74, -60), (86, 0))}
+
+
+def hanches(rig):
+    return rig.matrix_world @ rig.pose.bones["Hips"].head
+
+
+def relever(scene, creative, r, fin):
+    """Ajoute le relevement apres l'image `fin` ; rend la nouvelle fin."""
+    depart = fin + 1
+    duree = r["fin"] - r["debut"]
+    nouvelle_fin = depart + duree
+
+    # La pose allongee a raccorder, os par os (valeurs locales).
+    scene.frame_set(fin)
+    allonge = {b.name: (b.location.copy(), b.rotation_quaternion.copy()) for b in creative.pose.bones}
+    hanches_fin = hanches(creative).copy()
+
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.ops.import_scene.fbx(filepath=str(DOWNLOADS / r["fichier"]), use_anim=True)
+    source = next(o for o in bpy.context.selected_objects if o.type == "ARMATURE")
+    action = source.animation_data.action
+    source.animation_data.action = None
+    piste = source.animation_data.nla_tracks.new()
+    bande = piste.strips.new("relever", depart, action)
+    bande.action_frame_start, bande.action_frame_end = r["debut"], r["fin"]
+    bande.frame_start, bande.frame_end = depart, nouvelle_fin
+    scene.frame_set(depart)
+    ecart = hanches_fin - hanches(source)
+    source.location += Vector((ecart.x, ecart.y, 0))
+    bpy.context.view_layer.update()
+
+    for bone in creative.pose.bones:
+        c = bone.constraints.new("COPY_TRANSFORMS")
+        c.target = source
+        c.subtarget = bone.name
+        c.target_space = "WORLD"
+        c.owner_space = "WORLD"
+    bpy.ops.object.select_all(action="DESELECT")
+    creative.select_set(True)
+    bpy.context.view_layer.objects.active = creative
+    bpy.ops.object.mode_set(mode="POSE")
+    bpy.ops.nla.bake(frame_start=depart, frame_end=nouvelle_fin, step=1, only_selected=False,
+                     visual_keying=True, clear_constraints=True, use_current_action=True,
+                     bake_types={"POSE"})
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    # Fondu depuis la pose allongee : pas de saut a la jointure.
+    for frame in range(depart, depart + r["fondu"]):
+        t = ease((frame - fin) / (r["fondu"] + 1))
+        scene.frame_set(frame)
+        for bone in creative.pose.bones:
+            loc, rot = allonge[bone.name]
+            bone.location = loc.lerp(bone.location, t)
+            bone.rotation_quaternion = rot.slerp(bone.rotation_quaternion, t)
+            bone.keyframe_insert("location", frame=frame)
+            bone.keyframe_insert("rotation_quaternion", frame=frame)
+
+    # L'avancee du relevement retiree peu a peu : debout, le bassin revient
+    # au-dessus de sa place de repos (celle du personnage debout).
+    repos = creative.matrix_world @ creative.data.bones["Hips"].head_local
+    scene.frame_set(nouvelle_fin)
+    derive = hanches(creative) - repos
+    derive.z = 0
+    debut_correction = depart + r["fondu"]
+    for frame in range(debut_correction, nouvelle_fin + 1):
+        scene.frame_set(frame)
+        alpha = ease((frame - debut_correction) / (nouvelle_fin - debut_correction))
+        bone = creative.pose.bones["Hips"]
+        local = creative.matrix_world.to_3x3().inverted() @ (-derive * alpha)
+        m = bone.matrix.copy()
+        m.translation += local
+        bone.matrix = m
+        bpy.context.view_layer.update()
+        bone.keyframe_insert("location", frame=frame)
+    scene.frame_set(nouvelle_fin)
+    reste = hanches(creative) - repos
+    print("CHUTE_RELEVER", "images", depart, nouvelle_fin, "ecart_depart_cm", round(ecart.length * 100, 1),
+          "derive_retiree_cm", round(derive.length * 100, 1),
+          "reste_cm", round(Vector((reste.x, reste.y)).length * 100, 1))
+    source.hide_render = True
+    for child in source.children_recursive:
+        child.hide_render = True
+    return nouvelle_fin
+
+
+# Puis il se releve (Getting Up, Mixamo), colle a la suite dans le meme clip :
+# de GU_DEBUT a GU_FIN du clip source (le debut immobile et la fin debout sont
+# coupes), place juste apres la derniere image de la chute, fondu de FONDU
+# images depuis la pose allongee. Il commence allonge sur le ventre, tete du
+# meme cote que la fin de la chute : seul le bassin est recale en XY. Son
+# avancee est retiree peu a peu pour qu'il finisse debout a sa place.
+RELEVER = {"ANIM_Chute_Au_Sol": {"fichier": "Getting Up.fbx", "debut": 30, "fin": 185, "fondu": 8}}
 
 
 def ease(t):
@@ -111,6 +203,8 @@ for filename, asset, debut, fin in CLIPS:
 
     if asset in REGARDS:
         regarder(scene, creative, REGARDS[asset], fin)
+    if asset in RELEVER:
+        fin = relever(scene, creative, RELEVER[asset], fin)
 
     # Plage exportee : on coupe le debut, et on tient la derniere pose.
     scene.frame_start = debut
