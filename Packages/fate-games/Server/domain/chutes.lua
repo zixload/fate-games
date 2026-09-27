@@ -37,7 +37,14 @@ return function(Log, Characters, config)
                 quoi.fondu_sortie or 0.6, 1.0, true)
         end)
         if not ok then en_cours[id] = nil return Log.Warn("chutes", tostring(err)) end
-        Characters.Immobiliser(id, true)
+        -- Immobilise a l'impact seulement : en l'air, il garde son elan (le
+        -- bloquer des le debut de l'animation coupait sa course, 27/09).
+        local impact = math.floor((quoi.avance or 0) * 1000)
+        if impact > 20 then
+            Timer.SetTimeout(function() if en_cours[id] then Characters.Immobiliser(id, true) end end, impact)
+        else
+            Characters.Immobiliser(id, true)
+        end
         Timer.SetTimeout(function()
             en_cours[id] = nil
             Characters.Immobiliser(id, false)
