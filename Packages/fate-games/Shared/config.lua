@@ -111,7 +111,7 @@ return {
 
     -- Boutique du tailleur (Client/tailleur) : camera devant lui, en cm (avant,
     -- vers sa gauche pour le mettre a gauche de l'ecran, hauteur des yeux).
-    tailleur = { camera = { avant = 150, cote = 55, haut = 62 } },
+    tailleur = { camera = { avant = 170, cote = 95, haut = 62 } },
 
     -- PNJ d'ambiance (Server/domain/pnj.lua, Client/pnj.lua), poses en jeu par
     -- /pnj poser <type> (mode dev). look : apparence provisoire

@@ -27,7 +27,7 @@ button:active { border-bottom-width: 2.5px; transform: translateY(2.5px); }
 button:disabled { opacity: .45; cursor: default; }
 button.principal { background: var(--laiton); }
 
-#boutique { position: fixed; right: 26px; top: 26px; bottom: 26px; width: min(560px, 48vw);
+#boutique { position: fixed; right: 26px; top: 26px; bottom: 26px; width: min(760px, 58vw);
     display: flex; flex-direction: column; padding: 18px 20px 16px; transform: rotate(0.5deg); }
 .entete { display: flex; align-items: center; gap: 12px; }
 .entete h1 { margin: 0; font-size: 30px; font-weight: 400; flex: 1; }
@@ -38,7 +38,7 @@ button.principal { background: var(--laiton); }
 .onglets button { padding: 4px 10px 3px; font-size: 15px; }
 .onglets button[aria-pressed="true"] { background: var(--laiton); }
 
-.grille { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+.grille { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
     align-content: start; padding: 4px 4px 8px; scrollbar-width: thin; scrollbar-color: var(--laiton-fonce) transparent; }
 .carte { position: relative; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 10px;
     background: var(--papier-clair); border: 3px solid var(--rarete); cursor: pointer; text-align: left; }
@@ -51,10 +51,15 @@ button.principal { background: var(--laiton); }
 .carte .prix { display: flex; align-items: center; gap: 4px; }
 .carte .etiquette { font-size: 12px; padding: 1px 7px; border-radius: 999px; border: 2px solid var(--encre); background: #fff; }
 .carte.possede .etiquette { background: #d6ead2; }
-.carte.porte { box-shadow: 0 0 0 3px var(--laiton) inset; }
+/* Porte : cadre laiton epais. Dans le panier : fond laiton, contour d'encre,
+   carte un peu soulevee et pastille cochee, bien visibles (27/09). */
+.carte.porte { box-shadow: 0 0 0 4px var(--laiton), 0 0 0 7px var(--encre); }
 .carte.porte .etiquette { background: var(--laiton); }
-.carte.panier { background: #fbe9bf; }
-.carte.panier::after { content: "✓"; position: absolute; top: 4px; right: 8px; font-size: 22px; color: var(--vert); }
+.carte.panier { background: var(--laiton); box-shadow: 0 0 0 4px var(--encre); transform: translateY(-4px) scale(1.03); }
+.carte.panier .nom, .carte.panier .prix { font-weight: 400; color: var(--encre); }
+.carte.panier::after { content: "✓"; position: absolute; top: -10px; right: -10px; width: 34px; height: 34px;
+    display: grid; place-items: center; font-size: 22px; color: #fff; background: var(--vert);
+    border: 3px solid var(--encre); border-radius: 50%; }
 .rarete-bande { height: 5px; border-radius: 3px; background: var(--rarete); }
 .aucun { display: grid; place-items: center; font-size: 15px; color: var(--laiton-fonce); }
 

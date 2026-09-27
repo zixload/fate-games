@@ -25,6 +25,9 @@ TEINTES = {
     "blanc": (245, 245, 242), "brun": (95, 55, 30), "blond": (235, 200, 110), "roux": (200, 85, 30),
     "rose": (240, 110, 170), "vert": (40, 170, 70), "violet": (130, 60, 190), "orange": (245, 130, 30),
     "paille": (225, 195, 120), "cyan": (40, 200, 220),
+    # Cheveux naturels.
+    "chatain": (120, 78, 45), "brun_fonce": (60, 38, 25), "blond_fonce": (190, 150, 80),
+    "gris_clair": (175, 175, 172), "roux_fonce": (150, 60, 30),
 }
 
 im = Image.open(ATLAS).convert("RGB")
