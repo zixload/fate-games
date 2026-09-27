@@ -25,9 +25,12 @@ return function(config)
     local HAUTEUR_MAX = config.hauteur_max or 45   -- cm : au-dela, on saute
     local GLISSE = config.glisse or 0.09           -- s pour monter une marche
     local DELAI = config.delai or 0.12             -- s entre deux marches
-    local PORTEE = config.portee or 14             -- cm devant le bord de la capsule
+    local PORTEE = config.portee or 40             -- cm devant le bord de la capsule
     local MARGE_HAUT = config.marge_haut or 7      -- cm au-dessus de la marche
     local MARGE_AVANT = config.marge_avant or 16   -- cm au-dela du rebord
+    local ANTICIPATION = config.anticipation or 0.12   -- s de marche avant le rebord
+    local GLISSE_MAX = config.glisse_max or 0.12   -- s, glissement le plus long
+    local VITESSE_REF = config.vitesse_ref or 150  -- cm/s si l'on part de l'arret
     local enfoncees = {}
     local chat_ouvert = false
     local dernier = -math.huge
@@ -98,7 +101,8 @@ return function(config)
         local v = perso:GetVelocity()
         if math.abs(v.Z) > 40 then return end   -- en l'air : rien a monter
         -- Bloque, ou presque : sur certaines marches on glisse de cote contre le rebord.
-        local bloque = math.sqrt(v.X * v.X + v.Y * v.Y) < 60
+        local vitesse = math.sqrt(v.X * v.X + v.Y * v.Y)
+        local bloque = vitesse < 60
 
         local ok, err = pcall(function()
             local l = perso:GetLocation()
@@ -119,6 +123,10 @@ return function(config)
                 end
             end
             if not obstacle and not bloque then return end
+            -- Trop tot : on attend que le rebord soit a une fraction de seconde
+            -- de marche, pour monter en avancant plutot que buter puis sauter.
+            local ecart = math.max(0, (a_distance or r) - r)
+            if obstacle and not bloque and ecart > vitesse * ANTICIPATION + 6 then return end
             -- Rien a hauteur de marche maxi : sinon c'est un mur.
             local haut = Vector(l.X, l.Y, pied + HAUTEUR_MAX + 5)
             if touche(haut, haut + dir * loin, perso).Success then
@@ -141,9 +149,12 @@ return function(config)
             -- Monter de la hauteur de la marche, avec de la marge, et avancer assez
             -- pour que le bord de la capsule soit bien au-dessus (marges
             -- relevees le 27/09 : certaines marches accrochaient encore).
-            local avance = math.max(0, (a_distance or r) - r) + MARGE_AVANT
+            local avance = ecart + MARGE_AVANT
             local cible = Vector(l.X + dir.X * avance, l.Y + dir.Y * avance, l.Z + h + MARGE_HAUT)
-            perso:TranslateTo(cible, GLISSE, 0)
+            -- Le temps de parcourir ce bout a l'allure du moment : une petite
+            -- rampe plutot qu'un saut sur place, borne pour garder l'animation.
+            local temps = math.max(GLISSE, math.min(GLISSE_MAX, avance / math.max(vitesse, VITESSE_REF)))
+            perso:TranslateTo(cible, temps, 0)
             dernier = maintenant
         end)
         if not ok then Console.Error("[marche] " .. tostring(err)) end
