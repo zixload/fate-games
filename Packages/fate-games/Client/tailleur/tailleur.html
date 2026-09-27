@@ -27,7 +27,7 @@ button:active { border-bottom-width: 2.5px; transform: translateY(2.5px); }
 button:disabled { opacity: .45; cursor: default; }
 button.principal { background: var(--laiton); }
 
-#boutique { position: fixed; right: 26px; top: 26px; bottom: 26px; width: min(760px, 58vw);
+#boutique { position: fixed; right: 26px; top: 26px; bottom: 26px; width: min(1040px, 64vw);
     display: flex; flex-direction: column; padding: 18px 20px 16px; transform: rotate(0.5deg); }
 .entete { display: flex; align-items: center; gap: 12px; }
 .entete h1 { margin: 0; font-size: 30px; font-weight: 400; flex: 1; }
@@ -38,8 +38,10 @@ button.principal { background: var(--laiton); }
 .onglets button { padding: 4px 10px 3px; font-size: 15px; }
 .onglets button[aria-pressed="true"] { background: var(--laiton); }
 
-.grille { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
-    align-content: start; padding: 4px 4px 8px; scrollbar-width: thin; scrollbar-color: var(--laiton-fonce) transparent; }
+.grille { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;
+    align-content: start; padding: 4px 4px 8px; scrollbar-width: none; }
+/* Pas de barre de defilement : la molette suffit (27/09). */
+.grille::-webkit-scrollbar { display: none; }
 .carte { position: relative; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 10px;
     background: var(--papier-clair); border: 3px solid var(--rarete); cursor: pointer; text-align: left; }
 .carte:hover { transform: translateY(-2px); }

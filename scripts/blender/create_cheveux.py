@@ -21,6 +21,7 @@ from pathlib import Path
 import bmesh
 import bpy
 from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 PROJECT = Path(__file__).resolve().parents[2]
 SOURCE = PROJECT / "art/cosmetics/tshirts/creative_tshirt_rarities.blend"
@@ -72,7 +73,7 @@ def surface_tete(corps):
     return bm
 
 
-def calotte(corps, ligne, decalage, epaisseur=0.012):
+def calotte(corps, ligne, decalage, epaisseur=0.012, apres=None):
     """ligne(p) -> hauteur d'implantation ; decalage(p, n) -> distance au crane."""
     bm = surface_tete(corps)
     # Le maillage de la tete est en deux moities (sommets doubles au milieu) :
@@ -109,6 +110,8 @@ def calotte(corps, ligne, decalage, epaisseur=0.012):
         n = v.normal.copy()
         v.co = v.co + n * decalage(v.co, n)
     bmesh.ops.smooth_vert(bm, verts=bm.verts, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    if apres:
+        apres(bm, corps)
     me = bpy.data.meshes.new("Coiffure")
     bm.to_mesh(me)
     bm.free()
@@ -173,9 +176,122 @@ def courte():
     return ligne, decalage
 
 
+def tomber(bm, corps, jusqua, sauf_devant=0.28, anneaux=12, marge=0.014, rentree=0.45, meches=0.0016):
+    """Prolonge le bord de la calotte vers le bas (cheveux qui tombent droit),
+    sauf sur le front : anneau par anneau jusqu'a la hauteur jusqua(p).
+    Chaque meche est ensuite posee comme une membrane : jamais dans la peau
+    (un rayon depuis l'axe du crane la trouve, oreilles comprises), lissee sur
+    ses voisines, et un peu rentree vers la nuque en descendant (rentree)
+    au lieu de tomber en boite. 27/09 : un rayon fixe de 15,8 cm faisait des
+    cache-oreilles, un simple repoussage une marche au-dessus de l'oreille."""
+    peau = surface_tete(corps)
+    arbre = BVHTree.FromBMesh(peau)
+    peau.free()
+
+    def r_peau(axe, d):
+        """Distance horizontale a la peau la plus eloignee dans la direction d."""
+        loin, depart = None, axe
+        for _ in range(4):
+            hit, _, _, _ = arbre.ray_cast(depart, d, 0.3)
+            if hit is None:
+                break
+            loin = hit
+            depart = hit + d * 0.0005
+        if loin is None:
+            return 0.0
+        return (Vector((loin.x, loin.y, 0)) - Vector((axe.x, axe.y, 0))).length
+
+    def rayon_mini(co):
+        # Les sommets sont espaces de 1 a 2 cm : on sonde autour (hauteur et
+        # angle), sinon une oreille passe entre deux sommets et perce la meche.
+        axe = Vector((CRANE.x, CRANE.y, co.z))
+        d = Vector((co.x - axe.x, co.y - axe.y, 0)).normalized()
+        r = 0.0
+        for dz in (-0.015, -0.0075, 0.0, 0.0075, 0.015):
+            for da in (-0.12, -0.06, 0.0, 0.06, 0.12):
+                c, s_ = math.cos(da), math.sin(da)
+                dd = Vector((d.x * c - d.y * s_, d.x * s_ + d.y * c, 0))
+                r = max(r, r_peau(axe + Vector((0, 0, dz)), dd))
+        return r + marge
+
+    def rayon(v):
+        return math.hypot(v.co.x - CRANE.x, v.co.y - CRANE.y)
+
+    def poser(v, r):
+        d = Vector((v.co.x - CRANE.x, v.co.y - CRANE.y, 0)).normalized()
+        v.co.x, v.co.y = CRANE.x + d.x * r, CRANE.y + d.y * r
+
+    courant = [e for e in bm.edges if e.is_boundary
+               and all(angle_arriere(v.co) > sauf_devant for v in e.verts)]
+    rang = {v: 0 for e in courant for v in e.verts}
+    for k in range(anneaux):
+        if not courant:
+            break
+        res = bmesh.ops.extrude_edge_only(bm, edges=courant)
+        nouveaux = {g for g in res["geom"] if isinstance(g, bmesh.types.BMVert)}
+        for v in nouveaux:
+            v.co.z -= (v.co.z - jusqua(v.co)) / (anneaux - k)
+            rang[v] = k + 1
+        courant = [g for g in res["geom"] if isinstance(g, bmesh.types.BMEdge)
+                   and all(v in nouveaux for v in g.verts)]
+    rideau = [v for v, k in rang.items() if k > 0]
+    mini = {v: rayon_mini(v.co) for v in rideau}
+    droit = {v: rayon(v) for v in rideau}
+    # Rayon voulu : tomber droit, en rentrant peu a peu vers la peau.
+    voulu = {v: max(mini[v], droit[v] - (droit[v] - mini[v]) * rentree * rang[v] / anneaux) for v in rideau}
+    r = {v: max(mini[v], droit[v]) for v in rideau}
+    for v in rang:
+        if rang[v] == 0:
+            r[v] = rayon(v)
+    for _ in range(60):
+        nouveau = {}
+        for v in rideau:
+            vois = [e.other_vert(v) for e in v.link_edges if e.other_vert(v) in r]
+            moy = sum(r[w] for w in vois) / len(vois) if vois else r[v]
+            nouveau[v] = max(mini[v], 0.7 * moy + 0.3 * voulu[v])
+        r.update(nouveau)
+    # Meches verticales discretes : des cheveux, pas un casque lisse.
+    for v in rideau:
+        ang = math.atan2(v.co.x, -(v.co.y - CRANE.y))
+        relief = meches * (math.sin(ang * 52) + 0.6 * math.sin(ang * 97 + 1.3)) * min(1.0, rang[v] / 3)
+        poser(v, r[v] + max(0.0, relief))
+    bm.normal_update()
+
+
+def lisses():
+    """Cheveux lisses mi-longs : frange de cote, tombent droit jusqu'a la
+    machoire sur les cotes et derriere, par-dessus les oreilles."""
+    def ligne(p):
+        # Frange : plus basse sur le front, en biais (raie sur le cote gauche) ;
+        # sur les cotes et derriere, le bord s'arrete au-dessus des oreilles,
+        # le reste tombe (tomber).
+        a = angle_arriere(p)
+        frange = 1.735 + 0.025 * max(-1.0, min(1.0, p.x / 0.08))
+        cotes = 1.725 - 0.02 * lisse((a - 0.5) / 0.5)
+        return frange - (frange - cotes) * lisse((a - 0.15) / 0.2)
+
+    def decalage(p, n):
+        dessus = lisse((p.z - 1.74) / 0.08)
+        # Bord aminci sur la frange seulement : sur les cotes et derriere, la
+        # calotte se prolonge par les cheveux qui tombent, sans marche.
+        devant = 1 - lisse((angle_arriere(p) - 0.2) / 0.1)
+        naissance = 1 - devant * (0.7 - 0.7 * lisse((p.z - ligne(p)) / 0.03))
+        ang = math.atan2(p.x, -(p.y - CRANE.y))
+        meches = 0.0018 * math.sin(ang * 46 + p.z * 10)
+        return (0.013 + 0.012 * dessus) * naissance + meches
+
+    def apres(bm, corps):
+        # La longueur : a la machoire sur les cotes (1,59 m), un peu plus
+        # courte derriere (1,58 m).
+        tomber(bm, corps, lambda p: 1.59 - 0.01 * lisse(angle_arriere(p)))
+
+    return ligne, decalage, apres
+
+
 COUPES = {
     # nom : (fabrique, couleur, nom affiche, rarete)
     "Courte": (courte, "brun", "Coupe courte", "common"),
+    "Lisses": (lisses, "blond_fonce", "Cheveux lisses", "common"),
 }
 
 
@@ -236,8 +352,9 @@ def main(styles):
     manifeste = []
     for style in styles:
         fabrique, couleur, affiche, rarete = COUPES[style]
-        ligne, decalage = fabrique()
-        o = calotte(corps, ligne, decalage)
+        f = fabrique()
+        ligne, decalage, apres = f if len(f) == 3 else (f[0], f[1], None)
+        o = calotte(corps, ligne, decalage, apres=apres)
         nom = "SK_COS_Cheveux_" + style
         o.name = nom
         colorer_degrade(o, couleur)
