@@ -59,5 +59,21 @@ for volume, a, comp, taille, maillage, visible in ajoutes[:20]:
 print("MUR_AUTRES les 8 plus gros objets de la carte d'origine :")
 for volume, a, comp, taille, maillage, visible in [t for t in trouves if t not in ajoutes][:8]:
     ligne(a, taille, maillage, visible)
-acteurs.set_selected_level_actors([t[1] for t in ajoutes[:10]])
-print("MUR_FIN : les 10 plus gros decors ajoutes sont selectionnes (touche F pour les cadrer)")
+# Le vrai test : quelles boites contiennent un point ou marche un joueur, sur
+# le cercle (au centre et a mi-rayon, a hauteur de hanche) ?
+sol = centre.get("sol", 100.0)
+points = [(cx, cy)] + [(cx + 250 * dx, cy + 250 * dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+coupables = []
+for volume, a, comp, taille, maillage, visible in trouves:
+    o, e = a.get_actor_bounds(False)
+    for px, py in points:
+        pz = sol + 90
+        if abs(px - o.x) <= e.x and abs(py - o.y) <= e.y and abs(pz - o.z) <= e.z:
+            coupables.append(a)
+            l = a.get_actor_location()
+            print("MUR_SUR_LE_CERCLE", a.get_actor_label(), "| position", tuple(round(v) for v in (l.x, l.y, l.z)),
+                  "| boite cm", tuple(round(v * 2) for v in (e.x, e.y, e.z)), "|", maillage)
+            break
+print("MUR_SUR_LE_CERCLE_TOTAL", len(coupables))
+acteurs.set_selected_level_actors(coupables or [t[1] for t in ajoutes[:10]])
+print("MUR_FIN : les objets dont la boite couvre le cercle sont selectionnes (F pour les cadrer, Alt+C pour voir leur collision)")
