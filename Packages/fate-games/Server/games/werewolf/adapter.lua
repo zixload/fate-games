@@ -43,21 +43,20 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     -- SetVOIPGlobalChannelSetting, 1 a 63). Un reglage par situation (effet
     -- voice_channel) :
     --   sleep    la nuit, qui n'est pas loup : ni parler ni entendre
-    --   wolves   la nuit, les loups entre eux, sur leur canal global : ni les
-    --            dormeurs ni un passant ne les entendent (sans direction)
+    --   wolves   la nuit, les loups entre eux (les dormeurs n'entendent rien)
     --   village  le jour, tous les vivants
     --   dead     les morts entre eux ; ils ecoutent les vivants sans leur parler
     --   normal   hors partie : la proximite, comme partout sur la map
-    -- Contrepartie de la proximite le jour : un passant pres du cercle entend
-    -- le debat, qui est public, et s'y fait entendre (choix du 27/09). Le
-    -- canal village ne sert plus ; il reste coupe.
+    -- Contrepartie de la proximite : un passant pres du cercle entend la partie
+    -- et s'y fait entendre (choix du 27/09). Les canaux village et wolves ne
+    -- servent plus ; ils restent coupes.
     local CANAUX = config.canaux or { village = 10, wolves = 11, dead = 12 }
     local N, E, D = VOIPSetting.None, VOIPSetting.ListenOnly, VOIPSetting.Both
     local VOIX = {
         sleep   = { locale = N, village = N, wolves = N, dead = N },
-        wolves  = { locale = N, village = N, wolves = D, dead = N },
+        wolves  = { locale = D, village = N, wolves = N, dead = N },
         village = { locale = D, village = N, wolves = N, dead = N },
-        dead    = { locale = E, village = N, wolves = E, dead = D },
+        dead    = { locale = E, village = N, wolves = N, dead = D },
         normal  = { locale = D, village = N, wolves = N, dead = N },
     }
     local MESSAGES_VOIX = {
