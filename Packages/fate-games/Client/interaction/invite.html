@@ -45,8 +45,11 @@
         };
         function apply(kind, armed) {
             const cue = document.getElementById('cue');
-            const valid = Object.prototype.hasOwnProperty.call(icons, kind) ? kind : 'pickup';
-            cue.dataset.kind = valid;
+            // Plus rien de vise : on garde l'icone pendant le fondu de sortie,
+            // sinon la main par defaut apparaissait un instant (27/09).
+            if (kind) {
+                cue.dataset.kind = Object.prototype.hasOwnProperty.call(icons, kind) ? kind : 'pickup';
+            }
             cue.classList.toggle('visible', !!kind);
             cue.classList.toggle('armed', !!armed);
         }
