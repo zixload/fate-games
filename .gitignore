@@ -51,3 +51,7 @@ art/sons/
 # Visuels du serveur : fond tire d une capture du jeu (assets Fab), hors depot
 art/affiche/
 Packages/fate-games/Client/tailleur/img/
+
+# Caches Python des scripts Blender, maquette des rangs (hors depot, 27/09)
+__pycache__/
+art/rangs/
