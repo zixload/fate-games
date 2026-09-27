@@ -287,9 +287,15 @@ return function(R, A, S, G)
         if trop_tot(w, f, "attaque") then return nil, "trop_tot" end
         local arme = A[f.arme]
         if not (arme and arme.famille == "melee") then return nil, "pas_corps_a_corps" end
-        if f.action or f.esquive and w.t < f.esquive.fin then return nil, "occupe" end
         force = force == "lourde" and "lourde" or "legere"
         dir = DIRECTIONS[dir] and dir or "droite"
+        -- Pendant la recuperation de son coup, le suivant est mis en file : il
+        -- part des que possible (enchainer sans perdre de clics).
+        if f.action and f.action.kind == "attaque" and f.action.phase == "recuperation" then
+            f.en_file = { force = force, dir = dir }
+            return {}
+        end
+        if f.action or f.esquive and w.t < f.esquive.fin then return nil, "occupe" end
         local att = arme[force]
         local cout = cout_endurance(w, f, att.endurance)
         if f.endurance < cout then return nil, "epuise" end
@@ -336,10 +342,13 @@ return function(R, A, S, G)
 
     function Combat.garder(w, id, dir)
         local f = combattant(w, id)
+        dir = DIRECTIONS[dir] and dir or "droite"
+        -- La garde que le joueur tient : elle revient d'elle-meme apres une
+        -- attaque, un etourdissement ou une esquive.
+        if f then f.garde_tenue = dir end
         local ok, raison = peut_agir(w, f)
         if not ok then return nil, raison end
-        if f.action then return nil, "occupe" end
-        dir = DIRECTIONS[dir] and dir or "droite"
+        if f.action then return {} end
         if f.garde and f.garde.dir == dir then return {} end
         f.garde = { dir = dir, depuis = w.t }
         return { { kind = "garde", id = id, dir = dir } }
@@ -347,6 +356,7 @@ return function(R, A, S, G)
 
     function Combat.lacher_garde(w, id)
         local f = combattant(w, id)
+        if f then f.garde_tenue = nil end
         if not (f and f.garde) then return {} end
         f.garde = nil
         return { { kind = "garde", id = id, dir = nil } }
@@ -417,7 +427,8 @@ return function(R, A, S, G)
         if g and arme_d.famille == "melee" and G.ecart(d.yaw, d.pos, a.pos) <= demi
             and (bouclier or g.dir == MIROIR[action.dir]) then
             local parable = action.force == "legere" or arme_d.poids ~= "leger"
-            if parable and w.t - g.depuis <= w.R.defense.parade then
+            local fenetre = w.R.defense.parade * (bouclier and w.R.defense.parade_bouclier or 1)
+            if parable and w.t - g.depuis <= fenetre then
                 -- Parade : le coup est annule, l'attaquant est expose.
                 a.action = nil
                 d.endurance = math.min(d.endurance_max, d.endurance + w.R.defense.parade_rendue)
@@ -891,12 +902,26 @@ return function(R, A, S, G)
                 frapper(w, f, fx)
                 if f.action == a and t >= a.fin_frappe + (a.attente or 0) then a.phase = "recuperation" end
             end
-            if f.action == a and t >= a.fin + (a.attente or 0) then f.action = nil end
+            if f.action == a and t >= a.fin + (a.attente or 0) then
+                f.action = nil
+                local suivante = f.en_file
+                f.en_file = nil
+                if suivante then
+                    for _, e in ipairs(Combat.attaquer(w, f.id, suivante.force, suivante.dir) or {}) do fx[#fx + 1] = e end
+                end
+            end
         elseif a and a.kind == "sort" and t >= a.fin then
             f.action = nil
             lancer_sort(w, f, a, fx)
         end
         if f.esquive and t >= f.esquive.fin then f.esquive = nil end
+        -- Rien en cours et la garde tenue : elle revient.
+        if f.garde_tenue and not f.garde and not f.action and not f.bande and not (f.esquive and t < f.esquive.fin)
+            and not a_statut(w, f, "etourdi") and not a_statut(w, f, "expose") then
+            -- Datee dans le passe : une garde qui revient seule bloque, elle ne pare pas.
+            f.garde = { dir = f.garde_tenue, depuis = t - 10 }
+            fx[#fx + 1] = { kind = "garde", id = f.id, dir = f.garde_tenue }
+        end
         if f.recharge_fin and t >= f.recharge_fin then
             f.recharge_fin = nil
             local arme = A[f.arme]

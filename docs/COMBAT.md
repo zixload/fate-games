@@ -68,7 +68,10 @@ Défenses :
   direction et de face est bloqué : pas de dégâts (sauf la part qui traverse la garde), de
   l'endurance et de la posture en moins. Un bouclier bloque toutes les directions de face.
 - **Parade** : poser la garde dans la bonne direction dans les 250 ms avant l'impact (contre un
-  joueur qui a du ping, le coup est tranché jusqu'à 150 ms plus tard, le temps que sa garde arrive). Le coup est
+  joueur qui a du ping, le coup est tranché jusqu'à 150 ms plus tard, le temps que sa garde arrive).
+  Avec un bouclier, qui couvre tous les côtés, la fenêtre est deux fois plus courte.
+- **Garde tenue** : tant que le joueur tient la garde, elle revient d'elle-même après son attaque
+  (sans compter comme une parade), et un clic pendant la récupération de son coup est mis en file. Le coup est
   annulé, l'attaquant perd beaucoup de posture et reste exposé. Récompense la lecture.
 - **Esquive** : un pas vif, invulnérable pendant 250 ms, coûte de l'endurance, courte récupération.
 - **Feinte** : annuler son armement avant la frappe, contre de l'endurance. Punit les parades

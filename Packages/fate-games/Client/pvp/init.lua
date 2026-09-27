@@ -121,8 +121,10 @@ return function()
         hud("etat", e, arme)
     end)
 
+    -- "occupe" n'est pas affiche : un clic pendant son propre coup est normal
+    -- (le serveur le met en file quand il le peut).
     local REFUS = { epuise = "Épuisé", etourdi = "Étourdi", expose = "Exposé", mana = "Plus de mana",
-        recharge = "En recharge", occupe = "Occupé", trop_tard = "Trop tard pour feinter", vide = "Chargeur vide" }
+        recharge = "En recharge", trop_tard = "Trop tard pour feinter", vide = "Chargeur vide" }
     Events.SubscribeRemote("pvp:refus", function(_, raison)
         if REFUS[raison] then hud("refus", REFUS[raison]) end
     end)

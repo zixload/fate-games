@@ -165,6 +165,9 @@ function IA.executer(Combat, w, id, decision, rng, niveau)
             end
         elseif Combat[quoi] then
             ajouter(Combat[quoi](w, id, it[2], it[3]))
+            -- Un bot decide de sa garde a chaque instant : pas de garde tenue
+            -- qui reviendrait seule (c'est pour le joueur qui tient le clic).
+            if quoi == "garder" then f.garde_tenue = nil end
         end
     end
     return fx
