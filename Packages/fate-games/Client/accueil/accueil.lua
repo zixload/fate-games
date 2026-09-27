@@ -49,8 +49,13 @@ return function(config)
     local function jouer()
         if not ouvert or parti then return end
         parti = true
-        Events.CallRemote("accueil:jouer", Reliability.Reliable)
+        -- Arreter net le trajet en cours (27/09 : le RotateCameraTo de 40 s
+        -- continuait apres l'apparition et bloquait le viseur quelques secondes).
+        local moi = Client.GetLocalPlayer()
+        moi:TranslateCameraTo(moi:GetCameraLocation(), 0.01)
+        moi:RotateCameraTo(moi:GetCameraRotation(), 0.01)
         fermer()
+        Events.CallRemote("accueil:jouer", Reliability.Reliable)
     end
 
     Events.SubscribeRemote("accueil:ouvrir", function(d)
