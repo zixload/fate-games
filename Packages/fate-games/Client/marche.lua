@@ -128,14 +128,17 @@ return function(config)
             local ecart = math.max(0, (a_distance or r) - r)
             if obstacle and not bloque and ecart > vitesse * ANTICIPATION + 6 then return end
             -- Rien a hauteur de marche maxi : sinon c'est un mur.
+            -- Juste au-dessus de la marche visee, pas plus loin : la marche
+            -- suivante d'un escalier n'est pas un mur.
             local haut = Vector(l.X, l.Y, pied + HAUTEUR_MAX + 5)
-            if touche(haut, haut + dir * loin, perso).Success then
+            if touche(haut, haut + dir * ((a_distance or r) + 12), perso).Success then
                 return journal(bloque, maintenant, ("obstacle plus haut que %d cm"):format(HAUTEUR_MAX))
             end
             -- Le dessus de la marche, juste apres son rebord : le premier
             -- dessus assez haut, de plus pres a plus loin.
             local h
-            for _, d in ipairs({ r + 2, r + 7, r + 12, r + 18, r + 25, r + 32, loin + 6 }) do
+            local rebord = a_distance or r
+            for _, d in ipairs({ rebord + 3, rebord + 8, rebord + 14, rebord + 20, rebord + 28 }) do
                 local au_dessus = Vector(l.X, l.Y, pied + HAUTEUR_MAX + 10) + dir * d
                 local dessus = touche(au_dessus, Vector(au_dessus.X, au_dessus.Y, pied - 5), perso)
                 local hd = dessus.Success and (dessus.Location.Z - pied) or nil
