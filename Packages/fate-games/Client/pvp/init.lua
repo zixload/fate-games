@@ -19,6 +19,7 @@
 -- /pvp inverser : inverse le geste vertical (garde en haut).
 
 return function()
+    local Dev = Package.Require("dev.lua")
     local Pseudo = Package.Require("ui/pseudo.lua")
 
     local FAMILLE = { poings = "melee", dague = "melee", epee_courte = "melee", epee_longue = "melee", hache = "melee",
@@ -394,6 +395,7 @@ return function()
 
     Chat.Subscribe("PlayerSubmit", function(message)
         if tostring(message) == "/pvp inverser" then
+            if not Dev.actif then return end
             inverser = not inverser
             Chat.AddMessage("Geste vertical " .. (inverser and "inverse" or "normal"))
             return false

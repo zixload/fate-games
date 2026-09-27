@@ -7,6 +7,7 @@
 -- Reglage en direct : /lg ombre <voile 0-1> <epaisseur du contour>
 
 return function()
+    local Dev = Package.Require("dev.lua")
     local SLOT = 0
     local reglage = { voile = 0.35, epaisseur = 2 }
     local ombres = setmetatable({}, { __mode = "k" })   -- personnage -> true
@@ -48,6 +49,7 @@ return function()
     Chat.Subscribe("PlayerSubmit", function(message)
         local v, e = tostring(message):match("^/lg ombre%s*([%d%.]*)%s*([%d%.]*)")
         if not v then return end
+        if not Dev.actif then return end
         reglage.voile = tonumber(v) or reglage.voile
         reglage.epaisseur = tonumber(e) or reglage.epaisseur
         couleurs()

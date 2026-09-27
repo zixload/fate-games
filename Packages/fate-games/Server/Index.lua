@@ -10,6 +10,14 @@
 local SharedConfig = Package.Require("Shared/config.lua")
 local ServerConfig = Package.Require("core/config.lua")
 
+-- Mode dev : [custom_settings] dev = true dans le Config.toml du serveur.
+-- Sans cela, mode sortie : ni bots ni commandes de dev (docs/SORTIE.md).
+local DEV = false
+do
+    local ok, reglages = pcall(function() return Server.GetCustomSettings() end)
+    DEV = ok and type(reglages) == "table" and (reglages.dev == true or reglages.dev == "true")
+end
+
 local Log       = Package.Require("core/log.lua")(ServerConfig)
 local Scheduler = Package.Require("core/scheduler.lua")(Log, SharedConfig)
 local DB        = Package.Require("db/init.lua")(Log, ServerConfig)
@@ -90,7 +98,7 @@ Scheduler.Start()
 LiarsBar.Init()
 DuelJeu.Init()
 local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, DB, Ids, Characters, Interactables, WwEngine, WwRoles, WwMatch,
-    { bots = ServerConfig.dev and ServerConfig.dev.liars_bots, volume = ServerConfig.voice.volume,
+    { bots = DEV, volume = ServerConfig.voice.volume,
       canaux = ServerConfig.voice.canaux_loup_garou, boutique = Boutique,
       bonus_participation = DuelConfig.bonus_participation })
 LoupGarou.Init()
@@ -101,11 +109,11 @@ Emotes.Init()
 local CombatSysteme = Package.Require("combat/init.lua")
 local PvP = Package.Require("games/pvp/adapter.lua")(Log, Characters, CombatSysteme,
     Package.Require("games/pvp/armes_nanos.lua")({}),
-    { dev = ServerConfig.dev and ServerConfig.dev.liars_bots })
+    { dev = DEV })
 PvP.Init()
 
 -- Poser l'arene du duel sous ses pieds : "/arene [rayon]", en mode dev.
-if ServerConfig.dev and ServerConfig.dev.liars_bots then
+if DEV then
     Chat.Subscribe("PlayerSubmit", function(message, player)
         local texte = tostring(message)
         if not texte:match("^/arene") then return end
@@ -128,7 +136,7 @@ end
 
 -- Bots de test : "/bots N" dans le chat, en mode dev seulement. Retourner
 -- false retient le message (doc Chat, PlayerSubmit).
-if ServerConfig.dev and ServerConfig.dev.liars_bots then
+if DEV then
     Chat.Subscribe("PlayerSubmit", function(message, player)
         local n = tostring(message):match("^/bots%s+(%d+)%s*$")
         if not n then return end
@@ -230,9 +238,9 @@ end
 -- ESSAI : regler la camera assise en direct, "/cam <avant> <haut> [cote]"
 -- en cm (cote positif = vers la droite),
 -- tant que le personnage d'essai est actif. Les bonnes valeurs vont ensuite
--- dans dev.creative_character.seated_camera.
-local essai = ServerConfig.dev and ServerConfig.dev.creative_character
-if essai and essai.enabled then
+-- dans personnage.seated_camera (mode dev).
+local essai = ServerConfig.personnage
+if DEV and essai and essai.enabled then
     Chat.Subscribe("PlayerSubmit", function(message, player)
         local texte = tostring(message)
         local avant, haut, cote = texte:match("^/cam%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s*$")
@@ -430,7 +438,7 @@ do
     end)
 
     -- Argent de test : "/argent <n>" dans le chat, en mode dev seulement.
-    if ServerConfig.dev and ServerConfig.dev.liars_bots then
+    if DEV then
         Chat.Subscribe("PlayerSubmit", function(message, player)
             local n = tostring(message):match("^/argent%s+(%d+)%s*$")
             if not n then return end
@@ -448,7 +456,7 @@ end
 
 -- Demo de reglage des cartes (/fan demo, cote client) : bots sur toutes les
 -- chaises, en mode dev seulement.
-if ServerConfig.dev and ServerConfig.dev.liars_bots then
+if DEV then
     Events.SubscribeRemote("liars:fan_demo", function(player, actif)
         local ok, detail = LiarsBar.DemoCartes(actif == true)
         Chat.SendMessage(player, ok and (actif and ("demo : %d bot(s) assis"):format(detail) or "demo : bots partis")
@@ -466,6 +474,8 @@ Events.SubscribeRemote("liars:lever", function(player)
 end)
 
 Player.Subscribe("Ready", function(player)
+    -- Le client n'ouvre ses commandes de reglage qu'en mode dev.
+    Events.CallRemote("fg:dev", player, Reliability.Reliable, DEV)
     Characters.OnPlayerReady(player)
     local ok_duel, err_duel = pcall(DuelJeu.OnPlayerReady, player)
     if not ok_duel then Log.Warn("duel", "arenes non envoyees : " .. tostring(err_duel)) end

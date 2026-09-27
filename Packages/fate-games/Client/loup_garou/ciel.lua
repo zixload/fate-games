@@ -16,6 +16,7 @@
 -- Apercu sans partie : /lg ciel jour | nuit | aube | soir | <heure>[:<minutes>]
 
 return function()
+    local Dev = Package.Require("dev.lua")
     local function hm(h, m) return h * 60 + (m or 0) end
 
     -- Par phase : points { part de la phase (0 a 1), heure }. Sans entree,
@@ -137,6 +138,7 @@ return function()
     Chat.Subscribe("PlayerSubmit", function(message)
         local arg = tostring(message):match("^/lg ciel%s*(%S*)")
         if not arg then return end
+        if not Dev.actif then return end
         local cible = MOMENTS[arg]
         if not cible then
             local h, m = arg:match("^(%d+):?(%d*)$")

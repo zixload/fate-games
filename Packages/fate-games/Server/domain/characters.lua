@@ -179,7 +179,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
     local function spawn(session, transform)
         local point = transform or config.spawn
 
-        local essai = config.dev and config.dev.creative_character
+        local essai = config.personnage
         local character
         if essai and essai.enabled then
             character = creer_essai(point, essai)
@@ -254,7 +254,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
     -- meme corps, meme animation. z est la hauteur d'un personnage debout
     -- sur le plancher. nil si le personnage d'essai est coupe.
     function Characters.CorpsAssis(x, y, z, yaw)
-        local essai = config.dev and config.dev.creative_character
+        local essai = config.personnage
         if not (essai and essai.enabled) then return nil end
         local c = creer_essai({ x = x, y = y, z = z, yaw = yaw }, essai)
         poser_assis(c, x, y, z, yaw)
@@ -298,7 +298,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
     -- Reglage en jeu des vitesses (commande /vitesse, mode dev). Le
     -- personnage d'essai est a l'echelle 0.8 : sa foulee l'est aussi, donc la
     -- vitesse qui ne fait pas glisser les pieds se trouve en jeu. Les bonnes
-    -- valeurs vont ensuite dans dev.creative_character.
+    -- valeurs vont ensuite dans personnage.
     function Characters.SetVitesses(player_id, marche, course)
         local session = sessions[player_id]
         if not (session and session.essai and session.character) then return false end
@@ -386,7 +386,7 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
     ----------------------------------------------------------------------------
 
     local function essai_actif()
-        local essai = config.dev and config.dev.creative_character
+        local essai = config.personnage
         return (essai and essai.enabled) and essai or nil
     end
 

@@ -744,7 +744,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         local corps = Characters.CorpsDebout(pos.X, pos.Y, pos.Z, rot.Yaw, "ronchon")
         if not corps then
             Duel.Quitter(A.d, id)
-            return nil, "pas de corps Creative (dev.creative_character desactive)"
+            return nil, "pas de corps Creative (personnage desactive)"
         end
         bots[id] = { corps = corps, arene = A, tir = 0, pas = 0, vu_par = {} }
         corps:SetValue("duel_bot", id, true)

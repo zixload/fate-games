@@ -30,6 +30,7 @@
 --   /fan plaque retourner    echange face et dos
 
 return function(config, Rendu)
+    local Dev = Package.Require("dev.lua")
     local VECTEURS = {
         pos   = { config.fan,   "pos",      { "x", "y", "z" } },
         rot   = { config.fan,   "rot",      { "p", "y", "r" } },
@@ -67,6 +68,7 @@ return function(config, Rendu)
         local mots = {}
         for m in tostring(message):gmatch("%S+") do mots[#mots + 1] = m end
         if mots[1] ~= "/fan" then return end
+        if not Dev.actif then return end
 
         local cle = mots[2]
         if not cle then

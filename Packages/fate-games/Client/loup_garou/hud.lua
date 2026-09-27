@@ -27,6 +27,7 @@
 -- compteurs de voix, loups allies, amoureux) : Canvas, sans retard.
 
 return function(config, Interaction)
+    local Dev = Package.Require("dev.lua")
     config = config or {}
     local PORTEE = config.portee or 1500
     local CONE = math.cos(math.rad(config.cone or 10))
@@ -193,6 +194,7 @@ return function(config, Interaction)
     Chat.Subscribe("PlayerSubmit", function(message)
         local cle, valeur = tostring(message):match("^/lg nuit%s*(%a*)%s*([%d%.]*)")
         if not cle then return end
+        if not Dev.actif then return end
         local champ = REGLAGES_NUIT[cle] == true and cle or REGLAGES_NUIT[cle]
         if cle == "essai" then
             essai = not essai
@@ -791,6 +793,8 @@ return function(config, Interaction)
     Chat.Subscribe("PlayerSubmit", function(message)
         local mots = {}
         for m in tostring(message):gmatch("%S+") do mots[#mots + 1] = m end
+        -- /lg centre et /lg demo : outils de dev.
+        if mots[1] == "/lg" and (mots[2] == "centre" or mots[2] == "demo") and not Dev.actif then return end
         -- /lg centre : le sol sous ses pieds, mesure ici (Trace est cote client).
         if mots[1] == "/lg" and mots[2] == "centre" then
             local player = Client.GetLocalPlayer()

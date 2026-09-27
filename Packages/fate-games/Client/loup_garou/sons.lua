@@ -7,6 +7,7 @@
 -- de FadeIn multiplie le volume du son (doc Sound).
 
 return function(config)
+    local Dev = Package.Require("dev.lua")
     config = config or {}
     local VOLUMES = config.volumes or { ambiance = 0.18, lg_jour = 0.04, sons = 0.6, coeur = 0.35 }
     local chemin = Package.Require("son.lua")
@@ -207,6 +208,7 @@ return function(config)
     Chat.Subscribe("PlayerSubmit", function(message)
         local nom, reste = tostring(message):match("^/lg son%s+(%S+)%s*(.*)$")
         if not nom then return end
+        if not Dev.actif then return end
         if nom == "tout" then
             tout_jouer()
             return false

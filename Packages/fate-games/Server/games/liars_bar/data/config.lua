@@ -30,7 +30,7 @@ return {
     -- deconnecte ou reste inerte : sans lui la partie se bloque
     shoot_timeout = 15.0,
 
-    -- Bots de test (voir bots.lua). Ils ne jouent que si dev.liars_bots est
+    -- Bots de test (voir bots.lua). Ils ne jouent qu'en mode dev ([custom_settings] dev = true,
     -- vrai dans Server/core/config.lua.
     bots = {
         delay          = 3.0,   -- secondes avant qu'un bot joue

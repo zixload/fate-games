@@ -78,58 +78,57 @@ return {
         canaux_loup_garou = { village = 10, wolves = 11, dead = 12 },
     },
 
+    -- Le mode dev (bots, /pvp, /lg passer, /vitesse, /fan...) ne se regle
+    -- plus ici : il s'active dans le Config.toml du serveur, section
+    -- [custom_settings], avec `dev = true`. Sans cela, le serveur est en mode
+    -- sortie : aucune commande de dev, aucun bot (docs/SORTIE.md).
     dev = {
         -- Test d'integration au demarrage, sans client de jeu : fabrique un faux
         -- joueur et pousse la vraie chaine de connexion. Voir Server/dev/smoke.lua.
         -- A laisser a false en temps normal : il ecrit puis supprime des lignes.
         smoke_test = false,
+    },
 
-        -- Bots de test de Liar's Bar : "/bots N" dans le chat. A mettre a
-        -- false sur un serveur ouvert au public.
-        liars_bots = true,
-
-        -- ESSAI CharacterSimple (voir domain/characters.lua) : jouer le clown
-        -- du pack Creative Characters, copie dans MyAssetPack. Laisser
-        -- enabled a false tant que le pack et ABP_Creative ne sont pas cuits.
-        creative_character = {
-            enabled        = true,
-            body           = "my-asset-pack::SK_Body_010",
-            anim_blueprint = "my-asset-pack::ABP_Creative",
-            parts = {
-                "my-asset-pack::SK_Male_emotion_happy_002",
-                "my-asset-pack::SK_Clown_nose_001",
-                "my-asset-pack::SK_Costume_10_001",
-                "my-asset-pack::SK_Shoe_Slippers_005",
-            },
-            scale      = 0.8,    -- le corps du pack mesure ~190 cm, un peu grand
-            walk_speed = 150,    -- cm/s, marche : le point Walk du Blend Space
-            run_speed  = 450,    -- cm/s, Maj enfoncee : le point Run du Blend Space
-            -- On recule moins vite qu'on avance : les animations de recul du
-            -- pack ont une foulee plus lente, et sans cela les pieds glissent.
-            -- A regler en jeu avec "/vitesse arriere <marche> [course]", puis
-            -- a reporter sur les echantillons de recul du Blend Space.
-            walk_back_speed = 100,
-            run_back_speed  = 250,
-            -- Saut : l'animation en l'air dure plus longtemps que le saut par
-            -- defaut. On monte l'impulsion et on allege la pesanteur pour que
-            -- le temps en l'air corresponde. A regler en jeu : "/saut <z>
-            -- [pesanteur]". Temps en l'air = 2 x z / (981 x pesanteur).
-            jump_z        = 400.0,
-            gravity_scale = 0.9,
-            rotation_rate = 540, -- degres par seconde
-            -- Debout, le corps suit la camera au lieu de pivoter vers sa
-            -- marche : sans cela, les pas de cote et le recul du Blend Space
-            -- 2D ne se verraient jamais, le personnage se tournant toujours
-            -- dans le sens de son deplacement. Faux = comportement d'avant.
-            face_camera = true,
-            eye_height = 60.0,   -- hauteur de la camera depuis le centre du corps
-            arm_length = 250.0,  -- recul de la camera ; 0 = premiere personne
-            -- Camera a la hauteur des yeux, dans l'axe du buste. Avancer de
-            -- plusieurs dizaines de cm placerait tout le corps derriere elle.
-            -- Head et Neck sont caches localement par posture.lua.
-            -- /cam permet de peaufiner cette position en jeu.
-            seated_camera = { forward = 0.0, up = 132.0, side = 0.0 },
+    -- Les personnages des joueurs (CharacterSimple du pack Creative Characters,
+    -- voir domain/characters.lua).
+    personnage = {
+        enabled        = true,
+        body           = "my-asset-pack::SK_Body_010",
+        anim_blueprint = "my-asset-pack::ABP_Creative",
+        parts = {
+            "my-asset-pack::SK_Male_emotion_happy_002",
+            "my-asset-pack::SK_Clown_nose_001",
+            "my-asset-pack::SK_Costume_10_001",
+            "my-asset-pack::SK_Shoe_Slippers_005",
         },
+        scale      = 0.8,    -- le corps du pack mesure ~190 cm, un peu grand
+        walk_speed = 150,    -- cm/s, marche : le point Walk du Blend Space
+        run_speed  = 450,    -- cm/s, Maj enfoncee : le point Run du Blend Space
+        -- On recule moins vite qu'on avance : les animations de recul du
+        -- pack ont une foulee plus lente, et sans cela les pieds glissent.
+        -- A regler en jeu avec "/vitesse arriere <marche> [course]", puis
+        -- a reporter sur les echantillons de recul du Blend Space.
+        walk_back_speed = 100,
+        run_back_speed  = 250,
+        -- Saut : l'animation en l'air dure plus longtemps que le saut par
+        -- defaut. On monte l'impulsion et on allege la pesanteur pour que
+        -- le temps en l'air corresponde. A regler en jeu : "/saut <z>
+        -- [pesanteur]". Temps en l'air = 2 x z / (981 x pesanteur).
+        jump_z        = 400.0,
+        gravity_scale = 0.9,
+        rotation_rate = 540, -- degres par seconde
+        -- Debout, le corps suit la camera au lieu de pivoter vers sa
+        -- marche : sans cela, les pas de cote et le recul du Blend Space
+        -- 2D ne se verraient jamais, le personnage se tournant toujours
+        -- dans le sens de son deplacement. Faux = comportement d'avant.
+        face_camera = true,
+        eye_height = 60.0,   -- hauteur de la camera depuis le centre du corps
+        arm_length = 250.0,  -- recul de la camera ; 0 = premiere personne
+        -- Camera a la hauteur des yeux, dans l'axe du buste. Avancer de
+        -- plusieurs dizaines de cm placerait tout le corps derriere elle.
+        -- Head et Neck sont caches localement par posture.lua.
+        -- /cam permet de peaufiner cette position en jeu.
+        seated_camera = { forward = 0.0, up = 132.0, side = 0.0 },
     },
 
     -- Point d'arrivee par defaut, utilise quand un personnage n'a pas d'etat
