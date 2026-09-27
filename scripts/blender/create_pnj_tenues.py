@@ -823,6 +823,15 @@ def poncho_depuis(chemise):
     return g
 
 
+def franges_motif(n):
+    """Laine des franges : brun a la racine, qui s'eclaircit vers le bout."""
+    v, x, y, z = n.coords()
+    degrade = n._smooth(1.14, 0.06, z)                  # 0 en bas, 1 en haut
+    c = n.melange(degrade, "#b08d62", "#6b4527")
+    grain = n.add(n.mul(n.sub(n.bruit(v, 300.0, 2.0), 0.5), 0.3), 0.5)
+    return n.melange(n.mul(grain, 0.25), c, "#4a2e18")
+
+
 def franges(poncho, mat):
     """Franges de laine : un brin tous les 9 mm, longueurs et ondulations
     toutes differentes (pas de rangee uniforme), dans la texture du poncho.
@@ -849,8 +858,10 @@ def franges(poncho, mat):
         for k in range(9):
             t = k / 8
             ondule = math.sin(phase + t * 2.6 * math.pi) * amplitude * t
-            pts.append(c + Vector((0, 0, 0.002 - longueur * t))
-                       + dehors * (0.004 * t + 0.002 * t * t)
+            # Le brin part de l'interieur du poncho (1,4 cm plus haut, 6 mm
+            # en retrait) : pas de bout coupe visible au bord (27/09).
+            pts.append(c + Vector((0, 0, 0.014 - (longueur + 0.012) * t))
+                       + dehors * (-0.006 + 0.010 * t + 0.002 * t * t)
                        + cote * (ondule + penche * t))
         brins.append(bride("Frange", pts, hasard.uniform(0.0021, 0.0031), mat))
     for b in brins:
@@ -863,7 +874,7 @@ def musicien(corps):
     MAT_MUS.update({
         "chemise": materiau("Chemise musicien", tissu("#e6dcc4", "#cbbf a3".replace(" ", ""))),
         "poncho": materiau("Poncho", poncho_motif),
-        "franges": materiau("Franges", tissu("#efe5cf", "#d6c7a5", 260.0, 0.3)),
+        "franges": materiau("Franges", franges_motif),
     })
     chemise, rayons = chemise_retroussee(corps)
     chemise.data.materials.clear()
