@@ -49,6 +49,8 @@ button.principal { background: var(--laiton); }
 .carte .image img { width: 100%; height: 100%; object-fit: cover; }
 .carte .image svg { width: 55%; height: 55%; opacity: .45; }
 .carte .nom { font-size: 15px; line-height: 1.1; min-height: 33px; }
+/* Numero dans la categorie, le meme qu'au mannequin (Shared/cosmetiques.lua). */
+.carte .num { font-weight: 700; font-variant-numeric: tabular-nums; }
 .carte .bas { display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
 .carte .prix { display: flex; align-items: center; gap: 4px; }
 .carte .etiquette { font-size: 12px; padding: 1px 7px; border-radius: 999px; border: 2px solid var(--encre); background: #fff; }
@@ -134,7 +136,7 @@ function carte(a) {
     : `<span class="prix"><svg width="18" height="18"><use href="#pile"/></svg>${a.prix}</span>`;
   return `<button class="carte ${etat}" data-id="${a.id}" style="--rarete: var(--${nettoyer(a.rarete)})" title="${RARETES[a.rarete] || ""}">
     <div class="image"><img src="img/${nettoyer(a.id)}.png" alt="" onerror="this.replaceWith(document.createRange().createContextualFragment('<svg><use href=\\'#cintre\\'/></svg>'))"></div>
-    <div class="nom">${nettoyer(a.nom)}</div>
+    <div class="nom"><b class="num">${String(a.numero || 0).padStart(2, "0")}</b> ${nettoyer(a.nom)}</div>
     <div class="bas">${bas}<span style="color: var(--${nettoyer(a.rarete)}); font-size: 12px">${RARETES[a.rarete] || ""}</span></div>
   </button>`;
 }

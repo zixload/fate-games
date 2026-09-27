@@ -137,6 +137,10 @@ for _, c in ipairs(Cosmetiques.liste) do
     Cosmetiques.par_id[c.id] = c
     local e = Cosmetiques.par_emplacement[c.emplacement] or {}
     e[#e + 1] = c
+    -- Numero dans sa categorie (Cheveux 01, 02...) : le meme au mannequin et
+    -- chez le tailleur, pour retrouver vite une piece reperee. Ajouter les
+    -- nouvelles pieces en fin de categorie garde les numeros existants.
+    c.numero = #e
     Cosmetiques.par_emplacement[c.emplacement] = e
 end
 

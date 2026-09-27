@@ -23,7 +23,7 @@ return function()
             local liste = Cosmetiques.par_emplacement[e.id] or {}
             local c = liste[choix[e.id] or 0]
             lignes[i] = { categorie = e.nom, vide = #liste == 0, choisie = i == ligne,
-                          nom = c and c.nom or nil, rarete = c and c.rarete or nil }
+                          nom = c and c.nom or nil, numero = c and c.numero or nil, rarete = c and c.rarete or nil }
         end
         page:CallEvent("mannequin:maj", lignes)
     end

@@ -26,6 +26,8 @@ body.apercu-navigateur { background: radial-gradient(circle at 60% 40%, #6b5a45,
     padding: 6px 10px; border-radius: 8px; font-size: 16px; }
 .ligne .cat { color: var(--laiton-fonce); font-size: 14px; }
 .ligne .nom { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Numero dans la categorie : le meme chez le tailleur. */
+.num { font-weight: 700; font-variant-numeric: tabular-nums; }
 .ligne.choisie { background: var(--laiton); }
 .ligne.choisie .cat { color: var(--encre); }
 .ligne.choisie .nom::before { content: "‹ "; opacity: .6; }
@@ -53,7 +55,8 @@ const nettoyer = (s) => String(s == null ? "" : s).replace(/[<>&]/g, "");
 function maj(lignes) {
   document.getElementById("lignes").innerHTML = (lignes || []).map((l) => {
     const nom = l.vide ? '<span class="nom">à venir</span>'
-      : (l.nom ? `<span class="nom">${nettoyer(l.nom)}</span>` : '<span class="nom aucun">aucun</span>');
+      : (l.nom ? `<span class="nom">${l.numero ? `<b class="num">${String(l.numero).padStart(2, "0")}</b> ` : ""}${nettoyer(l.nom)}</span>`
+               : '<span class="nom aucun">aucun</span>');
     const rarete = l.rarete ? `<span class="rarete ${nettoyer(l.rarete)}"></span>` : "<span></span>";
     return `<div class="ligne${l.choisie ? " choisie" : ""}${l.vide ? " vide" : ""}"><span class="cat">${nettoyer(l.categorie)}</span>${nom}${rarete}</div>`;
   }).join("");
@@ -63,7 +66,7 @@ if (typeof Events !== "undefined") {
   Events.Subscribe("mannequin:maj", maj);
 } else {
   document.body.classList.add("apercu-navigateur");
-  maj([{ categorie: "Cheveux", nom: "Coiffure bouclée", rarete: "common" }, { categorie: "Visage" },
+  maj([{ categorie: "Cheveux", nom: "Coiffure bouclée", numero: 1, rarete: "common" }, { categorie: "Visage" },
        { categorie: "Chapeau", vide: true }, { categorie: "Lunettes", nom: "Lunettes rondes", rarete: "common" },
        { categorie: "Barbe" }, { categorie: "Haut", nom: "T-shirt Hawaï", rarete: "epic", choisie: true },
        { categorie: "Bas", nom: "Slim tartan", rarete: "rare" }, { categorie: "Chaussures", nom: "Baskets", rarete: "common" },

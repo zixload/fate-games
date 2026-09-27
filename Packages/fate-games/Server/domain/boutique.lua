@@ -400,7 +400,7 @@ return function(Log, DB, Ids, Catalogue, config)
         for _, c in ipairs(C.liste) do
             local a = Catalogue.article("cosmetiques", c.id)
             vue.articles[#vue.articles + 1] = {
-                id = c.id, nom = c.nom, rarete = c.rarete, emplacement = c.emplacement,
+                id = c.id, nom = c.nom, numero = c.numero, rarete = c.rarete, emplacement = c.emplacement,
                 prix = a and a.prix or 0, possede = Boutique.Possede(etat, "cosmetiques", c.id),
                 porte = etat.tenue[c.emplacement] == c.id,
             }

@@ -46,4 +46,7 @@ for m in json.loads((ART / "pantalons/manifeste.json").read_text(encoding="utf-8
 for m in json.loads((ART / "tete/manifeste.json").read_text(encoding="utf-8")):
     carte(ART / "tete" / ("Apercu_" + m["piece"] + ".png"), (0.08, 0.05, 0.92, 0.9),
           m["piece"].replace("SK_COS_", "").lower())
+# Pieces du kit (scripts/blender/apercus_kit.py), deja cadrees.
+for source in sorted((ART / "kit").glob("Apercu_*.png")):
+    carte(source, (0.0, 0.0, 1.0, 1.0), source.stem.replace("Apercu_", ""))
 print("images :", len(list(OUT.glob("*.png"))))
