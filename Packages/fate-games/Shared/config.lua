@@ -109,6 +109,10 @@ return {
     -- le meme pour tous : secondes de jour (6h a 20h) et de nuit (20h a 6h).
     cycle = { jour = 600, nuit = 300, decalage = 0 },
 
+    -- Boutique du tailleur (Client/tailleur) : camera devant lui, en cm (avant,
+    -- vers sa gauche pour le mettre a gauche de l'ecran, hauteur des yeux).
+    tailleur = { camera = { avant = 150, cote = 55, haut = 62 } },
+
     -- PNJ d'ambiance (Server/domain/pnj.lua, Client/pnj.lua), poses en jeu par
     -- /pnj poser <type> (mode dev). look : apparence provisoire
     -- (Shared/appearances.lua) en attendant leurs tenues ; assis : pose au sol

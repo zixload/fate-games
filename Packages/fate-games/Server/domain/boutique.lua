@@ -202,6 +202,15 @@ return function(Log, DB, Ids, Catalogue, config)
         )
     end
 
+    -- La tenue portee (tailleur), rangee par categorie. Lue sans attendre :
+    -- une tenue absente laisse simplement l'apparence de base.
+    local function lire_tenue(account, etat)
+        DB.Select("SELECT emplacement, article FROM tenue WHERE account_id = :0", function(rows, err)
+            if err then return Log.Error("boutique", "lecture de la tenue impossible : " .. tostring(err)) end
+            for _, row in ipairs(rows or {}) do etat.tenue[row.emplacement] = row.article end
+        end, account.id)
+    end
+
     -- Charge le solde, les possessions et l'equipement, et verse le bonus
     -- d'accueil a la premiere visite. callback(etat) ; nil si la base a echoue.
     function Boutique.Charger(account, callback)
@@ -222,13 +231,15 @@ return function(Log, DB, Ids, Catalogue, config)
                 local row = (rows and rows[1]) or {}
                 local etat = {
                     solde   = (tonumber(row.credits) or 0) - (tonumber(row.debits) or 0),
-                    possede = { persos = {}, armes = {} },
+                    possede = { persos = {}, armes = {}, cosmetiques = {} },
+                    tenue   = {},
                 }
 
                 lire_possessions(account, etat, function(ok)
                     if not ok then return callback(nil) end
                     lire_equipement(account, etat, function(ok2)
                         if not ok2 then return callback(nil) end
+                        lire_tenue(account, etat)
                         etats[account.id] = etat
 
                         local bonus = cfg.bonus_accueil or 0
@@ -326,6 +337,77 @@ return function(Log, DB, Ids, Catalogue, config)
     end
 
     -- A la deconnexion : la base reste la verite, le cache se reconstruit.
+    -- Le panier du tailleur : tout ou rien sur le prix total, puis un achat par
+    -- piece (Boutique.Acheter revalide chacune). callback(ok, raison).
+    function Boutique.AcheterPanier(account, ids, cid, callback)
+        local etat = etats[account.id]
+        if not etat then return callback(false, "etat") end
+        local total, liste = 0, {}
+        for _, id in ipairs(ids) do
+            local a = Catalogue.article("cosmetiques", id)
+            if not a then return callback(false, "inconnu") end
+            if not Boutique.Possede(etat, "cosmetiques", id) then
+                total = total + a.prix
+                liste[#liste + 1] = id
+            end
+        end
+        if total > etat.solde then return callback(false, "solde") end
+        local i = 0
+        local function suivant()
+            i = i + 1
+            if i > #liste then return callback(true) end
+            Boutique.Acheter(account, "cosmetiques", liste[i], cid, function(ok, raison)
+                if not ok then return callback(false, raison) end
+                suivant()
+            end)
+        end
+        suivant()
+    end
+
+    -- Porter une piece possedee (ou "aucun") dans sa categorie. callback(ok, raison).
+    function Boutique.Porter(account, emplacement, id, callback)
+        local etat = etats[account.id]
+        if not etat then return callback(false, "etat") end
+        local C = Package.Require("Shared/cosmetiques.lua")
+        local connu = false
+        for _, e in ipairs(C.emplacements) do connu = connu or e.id == emplacement end
+        if not connu then return callback(false, "emplacement") end
+        if id ~= "aucun" then
+            local piece = C.par_id[id]
+            if not (piece and piece.emplacement == emplacement) then return callback(false, "inconnu") end
+            if not Boutique.Possede(etat, "cosmetiques", id) then return callback(false, "non_possede") end
+        end
+        DB.Execute(
+            [[INSERT INTO tenue (account_id, emplacement, article, updated_at) VALUES (:0, :1, :2, :3)
+              ON CONFLICT(account_id, emplacement) DO UPDATE SET article = excluded.article,
+              updated_at = excluded.updated_at]],
+            function(_, err)
+                if err then
+                    Log.Error("boutique", "tenue non ecrite : " .. tostring(err))
+                    return callback(false, "base")
+                end
+                etat.tenue[emplacement] = id
+                callback(true)
+            end,
+            account.id, emplacement, id, now())
+    end
+
+    -- Ce que la boutique du tailleur affiche : solde, pieces (prix, possedee,
+    -- portee), tenue.
+    function Boutique.VueTailleur(etat)
+        local C = Package.Require("Shared/cosmetiques.lua")
+        local vue = { solde = etat.solde, tenue = etat.tenue, articles = {} }
+        for _, c in ipairs(C.liste) do
+            local a = Catalogue.article("cosmetiques", c.id)
+            vue.articles[#vue.articles + 1] = {
+                id = c.id, nom = c.nom, rarete = c.rarete, emplacement = c.emplacement,
+                prix = a and a.prix or 0, possede = Boutique.Possede(etat, "cosmetiques", c.id),
+                porte = etat.tenue[c.emplacement] == c.id,
+            }
+        end
+        return vue
+    end
+
     function Boutique.Oublier(account)
         if account then etats[account.id] = nil end
     end

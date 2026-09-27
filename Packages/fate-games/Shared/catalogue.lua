@@ -47,9 +47,20 @@ Catalogue.armes_3d = true
 
 Catalogue.arme_de_base = "revolver"
 
+-- Pieces a combiner, vendues chez le tailleur (Shared/cosmetiques.lua) : le
+-- prix suit la rarete ; les pieces du kit Creative sont a tout le monde.
+Catalogue.prix_rarete = { common = 150, uncommon = 400, rare = 900, epic = 2000, legendary = 5000 }
+Catalogue.cosmetiques = {}
+for _, c in ipairs(Package.Require("Shared/cosmetiques.lua").liste) do
+    local du_kit = not c.piece:find("^SK_COS_")
+    Catalogue.cosmetiques[#Catalogue.cosmetiques + 1] = {
+        id = c.id, prix = du_kit and 0 or (Catalogue.prix_rarete[c.rarete] or 500),
+    }
+end
+
 -- Index : Catalogue.article("persos", "clown") -> { id, prix, rang }
 local index = {}
-for _, rayon in ipairs({ "persos", "armes" }) do
+for _, rayon in ipairs({ "persos", "armes", "cosmetiques" }) do
     index[rayon] = {}
     for rang, article in ipairs(Catalogue[rayon]) do
         article.rang = rang

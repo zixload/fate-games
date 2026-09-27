@@ -389,6 +389,10 @@ do
         return session, etat
     end
 
+    local function look_de(etat)
+        return Appearances.DepuisTenue(etat.tenue, etat.perso)
+    end
+
     Characters.SurArrivee(function(session, transform)
         Boutique.Charger(session.account, function(etat)
             if not Characters.SessionByPlayer(session.player_id) then return end
@@ -397,7 +401,7 @@ do
                 return Characters.Apparaitre(session, transform, ServerConfig.boutique.perso_defaut)
             end
             if not (ServerConfig.vestiaire and ServerConfig.vestiaire.enabled) then
-                return Characters.Apparaitre(session, transform, etat.perso)
+                return Characters.Apparaitre(session, transform, look_de(etat))
             end
             Characters.OuvrirVestiaire(session, transform, etat.perso)
             Events.CallRemote("vestiaire:ouvrir", session.player, Reliability.Reliable, Boutique.Vue(etat))
@@ -446,28 +450,83 @@ do
         Boutique.Equiper(session.account, "persos", look_id, function(ok)
             if not ok then return envoyer(player, etat, "base") end
             if not Characters.AuVestiaire(player:GetID()) then return end
-            Characters.Habiller(player:GetID(), look_id)
+            Characters.Habiller(player:GetID(), look_de(etat))
             Characters.QuitterVestiaire(player:GetID())
             Events.CallRemote("vestiaire:fermer", player, Reliability.Reliable)
         end)
     end)
 
-    -- Remonter au vestiaire en jeu : E sur le tailleur (PNJ, SharedConfig.pnj),
-    -- debout seulement. Plus de touche I : le serveur ne l'ecoute plus.
-    PnjActions.vestiaire = function(player)
-        if not (ServerConfig.vestiaire and ServerConfig.vestiaire.enabled) then return end
+    -- Boutique du tailleur : E sur lui (PNJ, SharedConfig.pnj). Le joueur lache
+    -- son personnage le temps des achats ; la camera cadre la tete du tailleur,
+    -- a gauche de l'ecran, la grille des pieces s'ouvre a droite (Client/tailleur).
+    local chez_tailleur = {}   -- player_id -> personnage laisse
+    local CAM = (SharedConfig.tailleur and SharedConfig.tailleur.camera) or { avant = 150, cote = 55, haut = 62 }
+
+    local function vue_tailleur(player, etat, refus)
+        Events.CallRemote("tailleur:etat", player, Reliability.Reliable, Boutique.VueTailleur(etat), refus)
+    end
+
+    local function session_tailleur(player)
         local session = Characters.SessionByPlayer(player:GetID())
-        if not (session and session.account) then return end
+        if not (session and session.account and chez_tailleur[player:GetID()]) then return nil end
+        local etat = Boutique.Etat(session.account)
+        if not etat then return nil end
+        return session, etat
+    end
+
+    PnjActions.vestiaire = function(player, pnj)
+        local session = Characters.SessionByPlayer(player:GetID())
+        if not (session and session.account and session.character) or chez_tailleur[player:GetID()] then return end
+        if session.assis or Characters.AuVestiaire(player:GetID()) then return end
         Boutique.Charger(session.account, function(etat)
-            if not etat then return end
-            local ok, raison = Characters.RetournerVestiaire(player:GetID(), etat.perso)
-            if not ok then
-                Log.Debug("vestiaire", "retour refuse : " .. tostring(raison))
-                return
-            end
-            Events.CallRemote("vestiaire:ouvrir", player, Reliability.Reliable, Boutique.Vue(etat))
+            if not etat or not player:IsValid() then return end
+            local p = pnj and pnj.place
+            if not p then return end
+            chez_tailleur[player:GetID()] = session.character
+            player:UnPossess()
+            -- Devant le tailleur, decale vers sa gauche : il tombe a gauche de l'ecran.
+            local r = math.rad(p.yaw)
+            local avant = Vector(math.cos(r), math.sin(r), 0)
+            local gauche = Vector(math.cos(r - math.pi / 2), math.sin(r - math.pi / 2), 0)
+            local cam = Vector(p.x, p.y, p.z) + avant * CAM.avant + gauche * CAM.cote + Vector(0, 0, CAM.haut)
+            player:SetCameraLocation(cam)
+            player:SetCameraRotation(Rotator(-4, p.yaw + 180, 0))
+            Events.CallRemote("tailleur:ouvrir", player, Reliability.Reliable, Boutique.VueTailleur(etat))
         end)
     end
+
+    Events.SubscribeRemote("tailleur:acheter", function(player, ids)
+        local session, etat = session_tailleur(player)
+        if not session or type(ids) ~= "table" or #ids == 0 or #ids > 40 then return end
+        local propres = {}
+        for _, id in ipairs(ids) do if type(id) == "string" then propres[#propres + 1] = id end end
+        Boutique.AcheterPanier(session.account, propres, nil, function(ok, raison)
+            vue_tailleur(player, etat, not ok and raison or nil)
+        end)
+    end)
+
+    Events.SubscribeRemote("tailleur:porter", function(player, emplacement, id)
+        local session, etat = session_tailleur(player)
+        if not session or type(emplacement) ~= "string" or type(id) ~= "string" then return end
+        Boutique.Porter(session.account, emplacement, id, function(ok, raison)
+            if ok then Characters.Habiller(player:GetID(), look_de(etat)) end
+            vue_tailleur(player, etat, not ok and raison or nil)
+        end)
+    end)
+
+    local function quitter_tailleur(player)
+        local perso = chez_tailleur[player:GetID()]
+        chez_tailleur[player:GetID()] = nil
+        if perso and perso:IsValid() and player:IsValid() then player:Possess(perso) end
+    end
+
+    Events.SubscribeRemote("tailleur:fermer", function(player)
+        if not chez_tailleur[player:GetID()] then return end
+        quitter_tailleur(player)
+        Events.CallRemote("tailleur:fermer", player, Reliability.Reliable)
+    end)
+
+    Player.Subscribe("Destroy", function(player) chez_tailleur[player:GetID()] = nil end)
 
     -- Argent de test : "/argent <n>" dans le chat, en mode dev seulement.
     if DEV then

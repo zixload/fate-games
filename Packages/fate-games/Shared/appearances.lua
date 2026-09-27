@@ -161,6 +161,48 @@ function Apparences.Aleatoire(rng)
     }
 end
 
+-- Pieces des apparences de base absentes du catalogue, et leur categorie.
+local HORS_CATALOGUE = { Costume_10_001 = "haut", Costume_6_001 = "haut", Hat_049 = "chapeau", Gloves_014 = "accessoire" }
+
+-- L'apparence d'un joueur : son personnage de base (perso_id), dont chaque
+-- categorie portee chez le tailleur (tenue = { emplacement = id | "aucun" })
+-- remplace la piece. Rend une tenue resolue (body, head, worn, materiaux).
+function Apparences.DepuisTenue(tenue, perso_id)
+    local base = Apparences.Resolve(perso_id) or Apparences.Resolve(Apparences.default_id)
+    if not (tenue and next(tenue)) then return base end
+    local C = Package.Require("Shared/cosmetiques.lua")
+    local par_piece = {}
+    for _, c in ipairs(C.liste) do par_piece[c.piece] = c end
+    local cases = {}
+    for _, chemin in ipairs(base.head) do
+        local nom = chemin:match("::SK_(.+)$")
+        local c = par_piece["SK_" .. tostring(nom)]
+        local e = c and c.emplacement or HORS_CATALOGUE[nom] or ("tete_" .. tostring(nom))
+        cases[e] = { piece = chemin }
+    end
+    for _, chemin in ipairs(base.worn) do
+        local nom = chemin:match("::SK_(.+)$")
+        local c = par_piece["SK_" .. tostring(nom)]
+        local e = c and c.emplacement or HORS_CATALOGUE[nom] or ("corps_" .. tostring(nom))
+        cases[e] = { piece = chemin }
+    end
+    for e, id in pairs(tenue) do
+        if id == "aucun" then
+            cases[e] = nil
+        elseif C.par_id[id] then
+            -- Un costume entier (clown, souris) occupe haut et bas : un bas porte l'enleve.
+            if e == "bas" and cases.haut and cases.haut.piece:find("Costume_") then cases.haut = nil end
+            cases[e] = { piece = C.par_id[id].piece_chemin, materiau = C.par_id[id].materiau_chemin }
+        end
+    end
+    local worn, materiaux = {}, {}
+    for _, c in pairs(cases) do
+        worn[#worn + 1] = c.piece
+        materiaux[#worn] = c.materiau
+    end
+    return { id = base.id, label = base.label, body = base.body, head = {}, worn = worn, materiaux = materiaux }
+end
+
 -- Identifiant par defaut, utilise quand un joueur n'a jamais choisi.
 Apparences.default_id = Apparences.list[1].id
 

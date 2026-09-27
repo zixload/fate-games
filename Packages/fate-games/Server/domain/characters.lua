@@ -427,13 +427,12 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
 
     -- Habille un corps Creative d'une apparence du catalogue. Memes pieces et
     -- meme "master pose" que Liar's Bar (games/liars_bar/adapter.lua).
+    -- look_id : l'identifiant d'une apparence, ou une tenue deja resolue
+    -- (Appearances.DepuisTenue : pieces du tailleur et leurs materiaux).
     local function habiller(c, look_id)
-        local look = Appearances and Appearances.Resolve(look_id)
+        local look = type(look_id) == "table" and look_id or (Appearances and Appearances.Resolve(look_id))
         if not look then return false end
-        c:SetMesh(look.body)
-        c:RemoveAllSkeletalMeshesAttached()
-        for i, mesh in ipairs(look.head) do c:AddSkeletalMeshAttached("tete_" .. i, mesh) end
-        for i, mesh in ipairs(look.worn) do c:AddSkeletalMeshAttached("tenue_" .. i, mesh) end
+        Package.Require("Shared/cosmetiques.lua").Habiller(c, look, "tenue")
         return true
     end
 

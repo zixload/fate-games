@@ -101,7 +101,8 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
                     max_distance = it.portee or 300,
                     on_interact = function(player)
                         local f = actions and actions[it.action]
-                        if f then f(player) end
+                        local v = vivants[i]
+                        if f then f(player, { corps = v and v.corps, place = p }) end
                     end,
                 })
             end)

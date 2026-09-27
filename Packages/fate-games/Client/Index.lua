@@ -45,6 +45,10 @@ local ok_marche, err_marche = pcall(function()
 end)
 if not ok_marche then Console.Error("[marche] chargement impossible : " .. tostring(err_marche)) end
 
+-- Boutique du tailleur : grille des pieces, panier, achat (E sur le tailleur).
+local ok_tailleur, err_tailleur = pcall(function() Package.Require("tailleur/tailleur.lua")() end)
+if not ok_tailleur then Console.Error("[tailleur] chargement impossible : " .. tostring(err_tailleur)) end
+
 -- Mannequin d'essayage (mode dev) : HUD et fleches pour changer de vetement.
 local ok_mannequin, err_mannequin = pcall(function() Package.Require("mannequin.lua")() end)
 if not ok_mannequin then Console.Error("[mannequin] chargement impossible : " .. tostring(err_mannequin)) end

@@ -149,4 +149,21 @@ return {
             )]],
         },
     },
+
+    {
+        id   = 6,
+        name = "tenue",
+        statements = {
+            -- La tenue portee, piece par piece (chez le tailleur) : une ligne
+            -- par categorie. article "aucun" : la categorie est volontairement
+            -- vide ; sans ligne, la piece de l'apparence de base reste.
+            [[CREATE TABLE IF NOT EXISTS tenue (
+                account_id  INTEGER NOT NULL,
+                emplacement TEXT    NOT NULL,
+                article     TEXT    NOT NULL,
+                updated_at  TEXT    NOT NULL,
+                PRIMARY KEY (account_id, emplacement)
+            )]],
+        },
+    },
 }
