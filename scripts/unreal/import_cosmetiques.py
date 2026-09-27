@@ -77,15 +77,6 @@ for m in json.loads((ART / "pantalons/manifeste.json").read_text(encoding="utf-8
     pieces[m["piece"]] = ART / "pantalons" / (m["piece"] + ".fbx")
     textures[m["texture"]] = ART / "pantalons" / (m["texture"] + ".png")
 
-# Le materiau pose par defaut sur chaque piece : le premier motif qui l'utilise.
-MATERIAU_DEFAUT = {
-    "SK_COS_TShirt_Rare_Compass": "MI_COS_TShirt_Rare_Compass",
-    "SK_COS_TShirt_Epic_Eclipse": "MI_COS_TShirt_Epic_Eclipse",
-    "SK_COS_TShirt_Legendary_Sun": "MI_COS_TShirt_Legendary_Sun",
-}
-for m in json.loads((ART / "pantalons/manifeste.json").read_text(encoding="utf-8")):
-    MATERIAU_DEFAUT.setdefault(m["piece"], "MI_" + m["texture"][2:])
-
 # ---------------------------------------------------------------- textures et materiaux
 
 imp = {}
@@ -136,15 +127,8 @@ for nom, fichier in sorted(pieces.items()):
         raise RuntimeError("Ce n'est pas un maillage squelettique : " + nom)
     if sk.get_editor_property("skeleton") != skeleton:
         raise RuntimeError("Mauvais squelette : " + nom)
-    # Un materiau par defaut sur la piece (le premier motif qui l'utilise).
-    defaut = MATERIAU_DEFAUT.get(nom)
-    if defaut:
-        mi = lib.load_asset(DEST + "/Materiaux/" + defaut)
-        mats = sk.get_editor_property("materials")
-        for m in mats:
-            m.set_editor_property("material_interface", mi)
-        sk.set_editor_property("materials", mats)
-        lib.save_loaded_asset(sk)
+    # Pas de materiau par defaut sur la piece : si le motif ne prend pas en
+    # jeu, elle reste en damier et on sait laquelle ne marche pas.
     print("COS_PIECE", nom)
 
 lib.save_directory(DEST)

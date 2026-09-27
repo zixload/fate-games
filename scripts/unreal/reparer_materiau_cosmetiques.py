@@ -1,5 +1,6 @@
 r"""Repare les vetements en damier gris : coche l'usage "maillage squelettique"
-de M_COS_Base et pose un materiau par defaut sur chaque piece SK_COS_*.
+de M_COS_Base (sans lui, tout motif pose sur un maillage squelettique
+s'affiche en damier en jeu cuit).
 
 A executer une fois dans la console Python de l'ADK :
 
@@ -27,25 +28,21 @@ mel.recompile_material(base)
 lib.save_loaded_asset(base)
 print("COS_BASE_SQUELETTIQUE", base.get_editor_property("used_with_skeletal_mesh"))
 
-defauts = {
-    "SK_COS_TShirt_Rare_Compass": "MI_COS_TShirt_Rare_Compass",
-    "SK_COS_TShirt_Epic_Eclipse": "MI_COS_TShirt_Epic_Eclipse",
-    "SK_COS_TShirt_Legendary_Sun": "MI_COS_TShirt_Legendary_Sun",
-}
-for m in json.loads((ART / "pantalons/manifeste.json").read_text(encoding="utf-8")):
-    defauts.setdefault(m["piece"], "MI_" + m["texture"][2:])
-
-for piece, mi_nom in sorted(defauts.items()):
-    sk = lib.load_asset(DEST + "/" + piece)
-    mi = lib.load_asset(DEST + "/Materiaux/" + mi_nom)
-    if not (sk and mi):
-        print("COS_MANQUE", piece, mi_nom)
+# Aucun materiau par defaut sur les pieces : un motif qui ne prend pas en jeu
+# doit rester visible (damier). Si une version precedente de ce script en a
+# pose, on les retire.
+for sk_asset in lib.list_assets(DEST, recursive=False):
+    nom = sk_asset.split(".")[-1]
+    if not nom.startswith("SK_COS_") or nom.endswith("PhysicsAsset") or nom.endswith("Frayed"):
+        continue
+    sk = lib.load_asset(sk_asset)
+    if not isinstance(sk, unreal.SkeletalMesh):
         continue
     mats = sk.get_editor_property("materials")
     for m in mats:
-        m.set_editor_property("material_interface", mi)
+        m.set_editor_property("material_interface", None)
     sk.set_editor_property("materials", mats)
     lib.save_loaded_asset(sk)
-    print("COS_PIECE_MATERIAU", piece, mi_nom)
+    print("COS_PIECE_SANS_DEFAUT", nom)
 lib.save_directory(DEST)
 print("COS_REPARATION_COMPLETE")
