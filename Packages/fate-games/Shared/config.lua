@@ -151,8 +151,10 @@ return {
     -- glissement au-dessus de la marche et au-dela du rebord (cm).
     -- Glissement tres court et presque sans marge en hauteur : plus long ou plus
     -- haut, l'animation de marche repartait a zero a chaque marche (27/09).
-    marche = { hauteur_max = 45, glisse = 0.03, glisse_max = 0.12, delai = 0.1, portee = 40,
-        anticipation = 0.12, marge_haut = 6, marge_avant = 12 },
+    -- Reduit fortement le 27/09 : sur les petits objets, le glissement donnait
+    -- des retours en arriere et des deplacements bizarres.
+    marche = { hauteur_max = 25, glisse = 0.03, glisse_max = 0.06, delai = 0.2, portee = 12,
+        anticipation = 0.05, marge_haut = 2, marge_avant = 5 },
 
     -- Roue d'emotes (Client/emotes.lua, Server/domain/emotes.lua). T ouvre la
     -- roue, puis 1 a 7 choisit une danse sur QWERTY, AZERTY ou pave numerique.
