@@ -187,6 +187,9 @@ def chemise_retroussee(corps):
 
 def gilet_depuis(chemise):
     """Le tronc de la chemise, ouvert en V devant, sans manches ni col, decolle."""
+    zc = [v.co.z for v in chemise.data.vertices if abs(v.co.x) < 0.05 and v.co.y > 0]
+    ze = [v.co.z for v in chemise.data.vertices if 0.10 < abs(v.co.x) < 0.14]
+    print("CHEMISE_HAUT dos", round(max(zc), 3), "epaule", round(max(ze), 3))
     g = chemise.copy()
     g.data = chemise.data.copy()
     g.name = "Gilet"
@@ -201,12 +204,14 @@ def gilet_depuis(chemise):
     X_EMM = EMMANCHURE + 0.002
     X_IN, Z_HAUT, Z_BAS = EMMANCHURE - 0.035, 1.30, 1.16
     K_EMM = (X_EMM - X_IN) / (Z_HAUT - Z_BAS)
-    PENTE_V = 0.33                      # dx par dz du bord du V (bretelles de 7 cm)
+    # Le V rejoint la base du col (x = 7,5 cm a z = 1,42) : le gilet vient
+    # toucher le col, bretelles sur toute l'epaule (27/09).
+    PENTE_V = (0.075 - 0.018) / (1.42 - 1.08)
     X0_V, Z0_V = 0.018, 1.08            # pointe du V
     plans = [(Vector((X_EMM, 0, 0)), Vector((1, 0, 0))), (Vector((-X_EMM, 0, 0)), Vector((-1, 0, 0))),
              (Vector((X_IN, 0, Z_HAUT)), Vector((1, 0, K_EMM)).normalized()),
              (Vector((-X_IN, 0, Z_HAUT)), Vector((-1, 0, K_EMM)).normalized()),
-             (Vector((0, 0, 1.43)), Vector((0, 0, 1))), (Vector((0, 0, 0.905)), Vector((0, 0, -1))),
+             (Vector((0, 0, 0.905)), Vector((0, 0, -1))),
              (Vector((X0_V, 0, Z0_V)), Vector((-1, 0, PENTE_V)).normalized()),
              (Vector((-X0_V, 0, Z0_V)), Vector((1, 0, PENTE_V)).normalized())]
     for co, no in plans:
@@ -214,7 +219,12 @@ def gilet_depuis(chemise):
         bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no, dist=0.0005)
 
     def dehors(p):
-        if p.z > 1.4306 or p.z < 0.9044:
+        if p.z < 0.9044:
+            return True
+        # En haut, le gilet monte jusqu'a la base du col (rayon ~10 cm autour
+        # du cou) au lieu d'une coupe plate a 1,43 m qui laissait une bande
+        # blanche au dos et sur les epaules (27/09).
+        if p.z > 1.39 and math.hypot(p.x, p.y - 0.034) < 0.112:
             return True
         # Sous l'aisselle, le tronc deborde la couture a la taille : seules les
         # manches (bien plus loin) sont coupees ; au-dessus, la couture.
@@ -245,6 +255,18 @@ def gilet_depuis(chemise):
             isoles += groupe
     bmesh.ops.delete(bm, geom=isoles, context="FACES")
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    # Bord du col (coupe en escalier) : lisse le long de sa ligne.
+    bord_col = [v for v in bm.verts if v.is_boundary and v.co.z > 1.38]
+    # Recaler chaque sommet du bord sur le cercle du col, a sa hauteur : un
+    # bord rond et net (le lissage laissait des pointes au dos).
+    for v in bord_col:
+        d = Vector((v.co.x, v.co.y - 0.034, 0))
+        if d.length > 1e-4 and d.length < 0.13:
+            d = d.normalized() * 0.112
+            v.co.x, v.co.y = d.x, 0.034 + d.y
+    zs_dos = [v.co.z for v in bm.verts if abs(v.co.x) < 0.05 and v.co.y > 0]
+    zs_ep = [v.co.z for v in bm.verts if 0.10 < abs(v.co.x) < 0.14]
+    print("GILET_HAUT dos", round(max(zs_dos), 3) if zs_dos else None, "epaule", round(max(zs_ep), 3) if zs_ep else None)
     bm.to_mesh(g.data)
     bm.free()
     g.data.update()
@@ -458,12 +480,20 @@ def tailleur(corps):
     bpy.context.view_layer.update()
     deps = bpy.context.evaluated_depsgraph_get()
     arbre = BVHTree.FromObject(gilet, deps)
-    arbre_tout = BVHTree.FromObject(chemise, deps)   # le metre suit la chemise (avant la coupe)
+    # Le metre se pose sur la couche la plus exterieure : gilet ou chemise.
+    sommets, faces = [], []
+    for o in (chemise, gilet):
+        base = len(sommets)
+        sommets += [o.matrix_world @ v.co for v in o.data.vertices]
+        faces += [tuple(base + i for i in poly.vertices) for poly in o.data.polygons]
+    arbre_tout = BVHTree.FromPolygons(sommets, faces)
     cacher_sous(chemise, arbre)
     pieces = [chemise, gilet] + roulis + boutons_et_chaine(arbre) + [metre_ruban(arbre_tout)] + pelote(rayons)
     for o in pieces:
         for poly in o.data.polygons:
             poly.use_smooth = True
+    if "--debug" in sys.argv:
+        bpy.ops.wm.save_as_mainfile(filepath=str(OUT / "debug_tailleur.blend"), copy=True)
     return fusionner(pieces, "SK_PNJ_Tailleur_Haut")
 
 
@@ -584,4 +614,4 @@ def main(noms):
                                 encoding="utf-8")
 
 
-main(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else list(PNJ))
+main([a for a in sys.argv[sys.argv.index("--") + 1:] if not a.startswith("--")] if "--" in sys.argv else list(PNJ))
