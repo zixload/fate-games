@@ -77,6 +77,12 @@ for m in json.loads((ART / "pantalons/manifeste.json").read_text(encoding="utf-8
     pieces[m["piece"]] = ART / "pantalons" / (m["piece"] + ".fbx")
     textures[m["texture"]] = ART / "pantalons" / (m["texture"] + ".png")
 
+# Pieces de tete : elles utilisent l'atlas du kit Creative, comme ses pieces.
+tete = json.loads((ART / "tete/manifeste.json").read_text(encoding="utf-8"))
+for m in tete:
+    pieces[m["piece"]] = ART / "tete" / (m["piece"] + ".fbx")
+PIECES_ATLAS = {m["piece"] for m in tete}
+
 # ---------------------------------------------------------------- textures et materiaux
 
 imp = {}
@@ -119,6 +125,22 @@ for nom, texture in sorted(imp.items()):
 
 # ---------------------------------------------------------------- pieces
 
+_atlas = []
+
+
+def materiau_atlas():
+    """Le materiau de l'atlas Creative, pris sur une piece du kit (SK_Hat_010)."""
+    if not _atlas:
+        chemins = [a for a in lib.list_assets("/Game/MyAssetPack", recursive=True)
+                   if a.split(".")[-1] == "SK_Hat_010"]
+        if not chemins:
+            raise RuntimeError("SK_Hat_010 introuvable : materiau de l'atlas inconnu")
+        kit = lib.load_asset(chemins[0])
+        _atlas.append(kit.get_editor_property("materials")[0].get_editor_property("material_interface"))
+        print("COS_ATLAS", _atlas[0].get_path_name())
+    return _atlas[0]
+
+
 for nom, fichier in sorted(pieces.items()):
     if not fichier.is_file():
         raise FileNotFoundError(fichier)
@@ -127,8 +149,15 @@ for nom, fichier in sorted(pieces.items()):
         raise RuntimeError("Ce n'est pas un maillage squelettique : " + nom)
     if sk.get_editor_property("skeleton") != skeleton:
         raise RuntimeError("Mauvais squelette : " + nom)
-    # Pas de materiau par defaut sur la piece : si le motif ne prend pas en
-    # jeu, elle reste en damier et on sait laquelle ne marche pas.
+    # Pas de materiau par defaut sur les vetements : si le motif ne prend pas
+    # en jeu, la piece reste en damier et on sait laquelle ne marche pas. Les
+    # pieces de tete, elles, portent le materiau de l'atlas du kit.
+    if nom in PIECES_ATLAS:
+        mats = sk.get_editor_property("materials")
+        for m in mats:
+            m.set_editor_property("material_interface", materiau_atlas())
+        sk.set_editor_property("materials", mats)
+        lib.save_loaded_asset(sk)
     print("COS_PIECE", nom)
 
 lib.save_directory(DEST)
