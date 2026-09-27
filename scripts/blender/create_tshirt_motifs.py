@@ -281,7 +281,7 @@ def tie_dye(n):
 def flammes(n):
     v, x, y, z = n.coords()
     langues = n.add(n.mul(n.sin(n.mul(x, 30.0)), 0.055), n.mul(n.sub(n.bruit(v, 4.0, 2.0), 0.5), 0.24))
-    hauteur = n.add(1.13, langues)
+    hauteur = n.add(BAS_Z + 0.5 * (HAUT_Z - BAS_Z), langues)   # mi-hauteur du vetement
     feu = n.sub(hauteur, z)               # positif dans les flammes
     c = n.rampe(n.add(n.mul(feu, 3.2), 0.5), [(0.0, "#141414"), (0.5, "#141414"), (0.53, "#c1121f"),
                                                (0.62, "#f77f00"), (0.78, "#fcbf49"), (1.0, "#fff3b0")])
@@ -402,7 +402,7 @@ def dark(n):
     base = n.melange(n.mul(felure, 0.55), base, "#4a0d18")
     # Une toile d'araignee sur le devant, en bas a gauche.
     ax = n.add(x, 0.13)
-    az = n.sub(z, 0.9)
+    az = n.sub(z, BAS_Z + 0.08)
     r = n.math("POWER", n.add(n.mul(ax, ax), n.mul(az, az)), 0.5)
     th = n.atan2(az, ax)
     rayons = n.gt(n.absv(n.sub(n.frac(n.mul(th, 16 / (2 * math.pi))), 0.5)), 0.465)
@@ -494,4 +494,6 @@ def main():
     (OUT / "manifeste.json").write_text(json.dumps(manifeste, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-main()
+# Importable (les pantalons reprennent les motifs) : ne tourne que lance directement.
+if __name__ == "__main__":
+    main()
