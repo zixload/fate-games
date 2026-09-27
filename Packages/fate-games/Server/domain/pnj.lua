@@ -6,6 +6,9 @@
 --   /pnj poser <type>   ici, tourne comme moi
 --   /pnj retirer        le plus proche (3 m)
 --   /pnj liste          les types connus
+--   /pnj cacher|montrer tous les PNJ caches (en attendant leurs tenues et
+--                       animations) ; leurs interactions restent : E a la place
+--                       du tailleur ouvre toujours le vestiaire.
 --
 -- Corps Creative habille d'une apparence existante (Shared/appearances.lua)
 -- en attendant les tenues des PNJ ; debout, ou assis au sol avec une pose du
@@ -27,6 +30,7 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
     local PAUSE = (config.pause or 25) * 1000       -- ms entre deux repliques d'un PNJ
 
     local places = {}      -- { { type, x, y, z, yaw } }, tel qu'enregistre
+    local caches = false   -- /pnj cacher : les corps ne sont pas crees
     local vivants = {}     -- index de place -> { corps, def, dernier }
 
     local function lire()
@@ -35,12 +39,18 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
         local texte = f:Read(0)
         f:Close()
         local ok, t = pcall(JSON.parse, texte)
-        return ok and type(t) == "table" and t or {}
+        if not (ok and type(t) == "table") then return {} end
+        -- Ancien format : la liste seule ; nouveau : { places, caches }.
+        if t.places then
+            caches = t.caches == true
+            return t.places
+        end
+        return t
     end
 
     local function ecrire()
         local f = File(FICHIER, true)
-        f:Write(JSON.stringify(places))
+        f:Write(JSON.stringify({ places = places, caches = caches }))
         f:Close()
     end
 
@@ -60,20 +70,22 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
         local def = p and TYPES[p.type]
         if not def then return end
         local corps
-        local ok, err = pcall(function()
-            if def.assis then
-                corps = Characters.CorpsAssis(p.x, p.y, p.z + (def.assis.z or 11), p.yaw)
-            else
-                corps = Characters.CorpsDebout(p.x, p.y, p.z, p.yaw)
+        if not caches then
+            local ok, err = pcall(function()
+                if def.assis then
+                    corps = Characters.CorpsAssis(p.x, p.y, p.z + (def.assis.z or 11), p.yaw)
+                else
+                    corps = Characters.CorpsDebout(p.x, p.y, p.z, p.yaw)
+                end
+            end)
+            if not (ok and corps) then return Log.Warn("pnj", ("%s : corps impossible (%s)"):format(p.type, tostring(err))) end
+            habiller(corps, def.look)
+            local anim = def.assis and def.assis.anim or def.anim
+            if anim then
+                pcall(function() corps:PlayAnimation(anim, "DefaultSlot", true, 0.2, 0.2, 1.0, true) end)
             end
-        end)
-        if not (ok and corps) then return Log.Warn("pnj", ("%s : corps impossible (%s)"):format(p.type, tostring(err))) end
-        habiller(corps, def.look)
-        local anim = def.assis and def.assis.anim or def.anim
-        if anim then
-            pcall(function() corps:PlayAnimation(anim, "DefaultSlot", true, 0.2, 0.2, 1.0, true) end)
+            corps:SetValue("pnj", p.type, true)
         end
-        corps:SetValue("pnj", p.type, true)
         -- Son interaction : un repere invisible a hauteur de buste (le client
         -- ne vise que des Props, Client/interaction/init.lua).
         local repere, inter
@@ -95,7 +107,7 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
             end)
         end
         -- Le nom au-dessus de la tete (Client/pseudos.lua).
-        if def.nom then corps:SetValue("pseudo", def.nom, true) end
+        if corps and def.nom then corps:SetValue("pseudo", def.nom, true) end
         vivants[i] = { corps = corps, def = def, dernier = 0, repere = repere, inter = inter }
     end
 
@@ -140,11 +152,16 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
             ecrire()
             tout_recreer()
             dire(player, ("%s retire (%d PNJ)"):format(TYPES[t] and TYPES[t].nom or t, #places))
+        elseif mots[2] == "cacher" or mots[2] == "montrer" then
+            caches = mots[2] == "cacher"
+            ecrire()
+            tout_recreer()
+            dire(player, caches and "PNJ caches (le vestiaire reste a la place du tailleur)." or "PNJ de retour.")
         else
             local noms = {}
             for t in pairs(TYPES) do noms[#noms + 1] = t end
             table.sort(noms)
-            dire(player, "/pnj poser <" .. table.concat(noms, "|") .. "> | /pnj retirer")
+            dire(player, "/pnj poser <" .. table.concat(noms, "|") .. "> | /pnj retirer | /pnj cacher | /pnj montrer")
         end
         return false
     end
@@ -160,7 +177,7 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
         if #positions == 0 then return end
         for _, v in pairs(vivants) do
             local phrases = v.def.phrases
-            if phrases and #phrases > 0 and v.corps:IsValid() and maintenant - v.dernier >= PAUSE then
+            if phrases and #phrases > 0 and v.corps and v.corps:IsValid() and maintenant - v.dernier >= PAUSE then
                 local l = v.corps:GetLocation()
                 for _, pos in ipairs(positions) do
                     if (pos - l):Size() <= RAYON_VOIX then
