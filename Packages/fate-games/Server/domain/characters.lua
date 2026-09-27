@@ -253,6 +253,13 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
     -- Un corps Creative sans joueur (bot de test), assis comme un joueur :
     -- meme corps, meme animation. z est la hauteur d'un personnage debout
     -- sur le plancher. nil si le personnage d'essai est coupe.
+    -- Un corps Creative debout, sans joueur (PNJ, Server/domain/pnj.lua).
+    function Characters.CorpsDebout(x, y, z, yaw)
+        local essai = config.personnage
+        if not (essai and essai.enabled) then return nil end
+        return creer_essai({ x = x, y = y, z = z, yaw = yaw }, essai)
+    end
+
     function Characters.CorpsAssis(x, y, z, yaw)
         local essai = config.personnage
         if not (essai and essai.enabled) then return nil end

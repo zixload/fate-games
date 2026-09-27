@@ -45,6 +45,12 @@ local ok_marche, err_marche = pcall(function()
 end)
 if not ok_marche then Console.Error("[marche] chargement impossible : " .. tostring(err_marche)) end
 
+-- PNJ d'ambiance : leurs repliques et leur regard vers le joueur.
+local ok_pnj, err_pnj = pcall(function()
+    Package.Require("pnj.lua")(SharedConfig.pnj)
+end)
+if not ok_pnj then Console.Error("[pnj] chargement impossible : " .. tostring(err_pnj)) end
+
 -- Pas, cri au saut, reception, musique de la place hors des jeux.
 local ok_bruits, err_bruits = pcall(function()
     Package.Require("bruits.lua")(SharedConfig.bruits)

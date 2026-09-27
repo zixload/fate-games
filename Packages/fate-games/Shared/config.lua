@@ -109,6 +109,29 @@ return {
     -- le meme pour tous : secondes de jour (6h a 20h) et de nuit (20h a 6h).
     cycle = { jour = 600, nuit = 300, decalage = 0 },
 
+    -- PNJ d'ambiance (Server/domain/pnj.lua, Client/pnj.lua), poses en jeu par
+    -- /pnj poser <type> (mode dev). look : apparence provisoire
+    -- (Shared/appearances.lua) en attendant leurs tenues ; assis : pose au sol
+    -- du loup-garou ; phrases : sons de my-asset-pack (art/sons/pnj_*.wav,
+    -- import_sons.py), vides tant que les voix ne sont pas faites.
+    pnj = {
+        rayon_voix = 600,    -- cm : un joueur plus pres le fait parler
+        pause = 25,          -- s entre deux repliques d'un meme PNJ
+        regard = 800,        -- cm : au-dela, il ne suit plus le joueur des yeux
+        volume_voix = 0.9,
+        types = {
+            crieur   = { nom = "Le crieur", look = "chapeau", phrases = {} },
+            tailleur = { nom = "Le tailleur", look = "etudiant", phrases = {} },
+            forain   = { nom = "Le forain", look = "clown", phrases = {} },
+            barman   = { nom = "Le barman", look = "ronchon", phrases = {} },
+            conteuse = { nom = "La conteuse", look = "casque", phrases = {},
+                assis = { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Glance", z = 11 } },
+            musicien = { nom = "Le musicien", look = "bavard", phrases = {},
+                assis = { anim = "my-asset-pack::ANIM_WW_Sitting_Idle", z = 11 } },
+            touriste = { nom = "Le touriste", look = "souris", phrases = {} },
+        },
+    },
+
     -- Chutes (Server/domain/chutes.lua) : hauteur de chute (cm, du point le
     -- plus haut du saut au sol d'arrivee) qui fait encaisser durement, puis
     -- s'ecraser au sol. Un saut sur place monte de ~90 cm : 135, c'est un saut

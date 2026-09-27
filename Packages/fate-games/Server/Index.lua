@@ -49,6 +49,7 @@ local Interactables = Package.Require("domain/interactables.lua")(Log, Intents, 
 local Boutique      = Package.Require("domain/boutique.lua")(Log, DB, Ids, Catalogue, ServerConfig)
 local Emotes        = Package.Require("domain/emotes.lua")(Log, Characters, SharedConfig.emotes)
 local Chutes        = Package.Require("domain/chutes.lua")(Log, Characters, SharedConfig.chutes)
+local Pnj           = Package.Require("domain/pnj.lua")(Log, Characters, SharedConfig.pnj, dev_pour)
 
 -- Liar's Bar. Le cablage est explicite et a plat : chaque module recoit ses
 -- dependances, aucune globale ne circule entre eux (R5).
@@ -121,6 +122,7 @@ local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, DB, Ids, Ch
 LoupGarou.Init()
 Emotes.Init()
 Chutes.Init()
+Pnj.Init()
 
 -- Systeme de combat (docs/COMBAT.md) : moteur pur combat/, adaptateur sur le
 -- personnage natif. En dev, /pvp pour l'essayer.
