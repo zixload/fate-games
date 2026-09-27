@@ -36,7 +36,7 @@ MP = unreal.MaterialProperty
 #   metal_smooth : carte Unity (metal en R, lissage en A)
 #   verre : materiau translucide ; couleur : teinte constante (0-1)
 DECORS = [
-    {"nom": "Lantern", "echelle": 0.2, "materiaux": {
+    {"nom": "Lantern", "echelle": 0.2, "collision": "exacte", "materiaux": {
         "lantern": {"base": "braziers_lantern_BaseColor.png", "normal": "braziers_lantern_Normal.png",
                     "rough": "braziers_lantern_Roughness.png", "metal": "braziers_lantern_Metallic.png"},
         "glass": {"verre": True, "couleur": (1.0, 0.72, 0.38), "emissif": 3.0},
@@ -46,13 +46,13 @@ DECORS = [
                     "metal_smooth": f"CfWood_{m}_MetallicSmoothness.png", "emissive": f"CfWood_{m}_Emission.png"}
         for m in ("Ash", "Stone", "Wood")
     }},
-    {"nom": "CrystalBall", "echelle": 0.1, "materiaux": {
+    {"nom": "CrystalBall", "echelle": 0.1, "collision": "exacte", "materiaux": {
         "01default": {"base": "Stand.jpg"},
         "02default": {"base": "Stand2.jpg"},
         "07default": {"base": "Mist.png", "verre": True, "emissif": 1.5},
         "08default": {"verre": True, "couleur": (0.75, 0.82, 1.0)},
     }},
-    {"nom": "CrystalBallTable", "echelle": 50.0, "materiaux": {
+    {"nom": "CrystalBallTable", "echelle": 50.0, "collision": "exacte", "materiaux": {
         "mglass": {"base": "crystalball_table_m_glass_BaseColor.png", "normal": "crystalball_table_m_glass_Normal.png",
                    "rough": "crystalball_table_m_glass_Roughness.png", "emissive": "crystalball_table_m_glass_Emissive.png",
                    "opacity": "crystalball_table_m_glass_Opacity.png", "verre": True},
