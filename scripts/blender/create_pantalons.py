@@ -126,6 +126,18 @@ def elargir(obj, facteur):
     obj.data.update()
 
 
+EPAISSEUR = 0.006   # m : le vetement decolle un peu du corps (moins de trous en pose)
+
+
+def gonfler(obj, epaisseur=EPAISSEUR):
+    """Pousse chaque sommet le long de sa normale : le corps traverse moins le
+    vetement quand les articulations se plient (27/09)."""
+    obj.data.update()
+    for v in obj.data.vertices:
+        v.co += v.normal * epaisseur
+    obj.data.update()
+
+
 def lisse(t):
     t = min(1.0, max(0.0, t))
     return t * t * (3 - 2 * t)
@@ -208,6 +220,18 @@ def deplier(obj):
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.smart_project(island_margin=0.02)
     bpy.ops.object.mode_set(mode="OBJECT")
+    # Design_UV doit etre le seul jeu d'UV : Unreal lit la texture avec le
+    # premier canal, et celui du kit (une fine bande de l'atlas) donnait des
+    # motifs en bouillie en jeu (27/09).
+    for couche in [c for c in obj.data.uv_layers if c.name != "Design_UV"]:
+        obj.data.uv_layers.remove(couche)
+    assert len(obj.data.uv_layers) == 1 and obj.data.uv_layers[0].name == "Design_UV"
+    # Recalculer le maillage evalue (celui qu'ecrit l'export FBX) : sinon il
+    # garde l'ancien jeu d'UV en cache.
+    obj.data.update()
+    bpy.context.view_layer.update()
+    ev = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    assert [u.name for u in ev.data.uv_layers] == ["Design_UV"], [u.name for u in ev.data.uv_layers]
 
 
 # ---------------------------------------------------------------- motifs de pantalon
@@ -469,6 +493,7 @@ def main():
             if base == "Pants_014":
                 retirer_genouilleres(obj)
             elargir(obj, COUPES[coupe])
+            gonfler(obj)
             obj.modifiers.new("Lisse", "SUBSURF").levels = 2
             transferer_poids(obj, corps, rig)
             deplier(obj)

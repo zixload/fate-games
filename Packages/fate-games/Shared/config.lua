@@ -142,7 +142,7 @@ return {
     -- ne sont pas cuites (scripts/unreal/import_chutes.py).
     chutes = {
         actif = true,     -- animations cuites le 27/09
-        seuil_dure = 135,
+        seuil_dure = 200,         -- 135 le 27/09 : trop bas
         seuil_sol = 400,          -- ~4 m (230 le 27/09 : trop bas)
         -- avance : l'animation part tant de secondes avant l'impact (celui du
         -- clip tombe alors a l'arrivee) ; annonce : le client previent jusqu'a
