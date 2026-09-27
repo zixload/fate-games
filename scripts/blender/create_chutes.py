@@ -9,8 +9,9 @@ puis cuits. Sorties dans art/animations/chutes/ (hors depot).
 - ANIM_Chute_Reception (Hard Landing) : commence a l'image 3, quand les pieds
   touchent presque le sol ; le debut en l'air est retire, le jeu la lance a
   l'impact.
-- ANIM_Chute_Au_Sol (Falling Flat Impact) : commence a l'image 9, le corps a
-  ~50 cm du sol, l'impact tombe a l'image 13. Allonge, il regarde a gauche
+- ANIM_Chute_Au_Sol (Falling Flat Impact) : commence a l'image 1, 0,4 s
+  avant l'impact (image 13) : le corps bascule vers l'avant en l'air
+  (EN_L_AIR), le jeu la lance 0,4 s avant de toucher le sol. Allonge, il regarde a gauche
   puis a droite (REGARDS), puis la pose est tenue jusqu'a l'image 92
   (extrapolation constante des courbes), puis il se releve (Getting Up,
   RELEVER), le tout dans le meme clip.
@@ -33,7 +34,7 @@ FPS = 30
 # fichier, asset, premiere image gardee, derniere image (None : la fin du clip)
 CLIPS = (
     ("Hard Landing.fbx", "ANIM_Chute_Reception", 3, None),
-    ("Falling Flat Impact.fbx", "ANIM_Chute_Au_Sol", 9, 92),
+    ("Falling Flat Impact.fbx", "ANIM_Chute_Au_Sol", 1, 92),
 )
 
 # Au sol, il regarde a gauche puis a droite ("quelqu'un m'a vu ?") avant de se
@@ -131,6 +132,31 @@ def relever(scene, creative, r, fin):
 # images depuis la pose allongee. Il commence allonge sur le ventre, tete du
 # meme cote que la fin de la chute : seul le bassin est recale en XY. Son
 # avancee est retiree peu a peu pour qu'il finisse debout a sa place.
+# En l'air, le corps bascule a l'horizontale pendant les 12 images avant
+# l'impact (image 13). Dans le clip source il descend aussi de 1,5 m : en jeu
+# le personnage chute deja, le corps flotterait. Le bassin est donc recale de
+# BASSIN_DEPART (hauteur debout) jusqu'a sa hauteur a l'impact : le corps
+# chute avec le personnage et touche le sol pile a l'image 13.
+EN_L_AIR = {"ANIM_Chute_Au_Sol": {"impact": 13, "depart": 0.75}}
+
+
+def recaler_en_l_air(scene, rig, r, debut):
+    impact = r["impact"]
+    scene.frame_set(impact)
+    z_impact = hanches(rig).z
+    for frame in range(debut, impact):
+        scene.frame_set(frame)
+        voulu = r["depart"] + (z_impact - r["depart"]) * ease((frame - debut) / (impact - debut))
+        bone = rig.pose.bones["Hips"]
+        delta = rig.matrix_world.to_3x3().inverted() @ Vector((0, 0, voulu - hanches(rig).z))
+        m = bone.matrix.copy()
+        m.translation += delta
+        bone.matrix = m
+        bpy.context.view_layer.update()
+        bone.keyframe_insert("location", frame=frame)
+    print("CHUTE_EN_L_AIR", "images", debut, impact, "bassin", r["depart"], "->", round(z_impact, 3))
+
+
 RELEVER = {"ANIM_Chute_Au_Sol": {"fichier": "Getting Up.fbx", "debut": 30, "fin": 185, "fondu": 8}}
 
 
@@ -201,6 +227,8 @@ for filename, asset, debut, fin in CLIPS:
     for fc in creative.animation_data.action.fcurves if hasattr(creative.animation_data.action, "fcurves") else []:
         fc.extrapolation = "CONSTANT"
 
+    if asset in EN_L_AIR:
+        recaler_en_l_air(scene, creative, EN_L_AIR[asset], debut)
     if asset in REGARDS:
         regarder(scene, creative, REGARDS[asset], fin)
     if asset in RELEVER:

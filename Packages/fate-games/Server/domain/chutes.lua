@@ -28,7 +28,26 @@ return function(Log, Characters, config)
         return nil
     end
 
-    local function chute(player, hauteur)
+    local function jouer(id, quoi)
+        local session = Characters.SessionByPlayer(id)
+        local c = session and session.character
+        if not (c and c:IsValid()) or session.assis then en_cours[id] = nil return end
+        local ok, err = pcall(function()
+            c:PlayAnimation(quoi.anim, "DefaultSlot", false, quoi.fondu_entree or 0.05,
+                quoi.fondu_sortie or 0.6, 1.0, true)
+        end)
+        if not ok then en_cours[id] = nil return Log.Warn("chutes", tostring(err)) end
+        Characters.Immobiliser(id, true)
+        Timer.SetTimeout(function()
+            en_cours[id] = nil
+            Characters.Immobiliser(id, false)
+        end, math.floor((quoi.duree or 1) * 1000))
+    end
+
+    -- temps : secondes avant l'impact, vues par le client. L'animation part
+    -- `avance` s avant l'impact (moins la demi-latence du joueur), pour que
+    -- l'impact du clip tombe a l'arrivee.
+    local function chute(player, hauteur, temps)
         if not config.actif then return end
         local id = player:GetID()
         if en_cours[id] then return end
@@ -43,17 +62,15 @@ return function(Log, Characters, config)
         if not (c and c:IsValid() and c:IsA(CharacterSimple)) or session.assis then return end
 
         dernier[id] = maintenant
-        local ok, err = pcall(function()
-            c:PlayAnimation(quoi.anim, "DefaultSlot", false, quoi.fondu_entree or 0.05,
-                quoi.fondu_sortie or 0.6, 1.0, true)
-        end)
-        if not ok then return Log.Warn("chutes", tostring(err)) end
         en_cours[id] = true
-        Characters.Immobiliser(id, true)
-        Timer.SetTimeout(function()
-            en_cours[id] = nil
-            Characters.Immobiliser(id, false)
-        end, math.floor((quoi.duree or 1) * 1000))
+        temps = math.max(0, math.min(1, tonumber(temps) or 0))
+        local latence = (tonumber(player:GetPing()) or 0) / 2000
+        local attente = temps - latence - (quoi.avance or 0)
+        if attente > 0.02 then
+            Timer.SetTimeout(function() jouer(id, quoi) end, math.floor(attente * 1000))
+        else
+            jouer(id, quoi)
+        end
     end
 
     function Chutes.Init()

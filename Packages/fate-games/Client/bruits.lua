@@ -75,20 +75,39 @@ return function(config)
     -- (Server/domain/chutes.lua), avec la hauteur de la chute en cm : du point
     -- le plus haut atteint en l'air jusqu'au sol d'arrivee. La vitesse ne
     -- distinguait pas un saut sur place d'un saut depuis un rebord bas.
-    local SEUIL_ANNONCE = (Package.Require("Shared/config.lua").chutes or {}).seuil_dure or 135
-    local function annoncer_chute(ch, e, hauteur)
+    -- Annoncee un peu avant l'impact (jusqu'a AVANCE_CHUTE s), avec le temps
+    -- qu'il reste : le serveur cale l'animation pour que l'impact du clip tombe
+    -- pile a l'arrivee (le corps bascule vers l'avant en l'air).
+    local CHUTES = Package.Require("Shared/config.lua").chutes or {}
+    local SEUIL_ANNONCE = CHUTES.seuil_dure or 135
+    local AVANCE_CHUTE = CHUTES.annonce or 0.55
+    local function mien(ch)
         local p = Client.GetLocalPlayer()
         local moi = p and p:GetControlledCharacter()
-        if moi and moi == ch and hauteur >= SEUIL_ANNONCE then
-            Events.CallRemote("zix:chute", Reliability.Reliable, hauteur)
-        end
+        return moi and moi == ch
+    end
+    local function annoncer_chute(ch, e, hauteur, temps)
+        if e.annonce or not mien(ch) or hauteur < SEUIL_ANNONCE then return end
+        e.annonce = true
+        Events.CallRemote("zix:chute", Reliability.Reliable, hauteur, temps)
+    end
+    -- En chute : le sol est-il a moins de AVANCE_CHUTE s ? d = v t + g t^2 / 2.
+    local function anticiper_chute(ch, e, vz)
+        if e.annonce or not mien(ch) then return end
+        local g = 980 * (ch:GetGravityScale() or 1)
+        local portee = vz * AVANCE_CHUTE + g * AVANCE_CHUTE * AVANCE_CHUTE / 2 + 10
+        local d = sol_sous(ch, portee)
+        if not d then return end
+        local temps = (-vz + math.sqrt(vz * vz + 2 * g * d)) / g
+        local sol = pieds(ch).Z - d
+        annoncer_chute(ch, e, (e.sommet and (e.sommet - 70) or sol) - sol, temps)
     end
 
-    -- d : distance restante jusqu'au sol quand le son part en avance (0 au contact).
-    local function recevoir(ch, e, d)
+    local function recevoir(ch, e)
         e.recu = true
-        local z = ch:GetLocation().Z - (d or 0)
-        annoncer_chute(ch, e, (e.sommet or z) - z)
+        -- Au contact, si rien n'a ete annonce en l'air : temps restant nul.
+        local z = pieds(ch).Z
+        annoncer_chute(ch, e, (e.sommet and (e.sommet - 70) or z) - z, 0)
         local force = math.min(1, e.chute / 900)
         jouer(grosse(e) and "reception" or "reception_leger", pieds(ch), V.reception * (0.6 + 0.4 * force), 0.95 + math.random() * 0.1)
     end
@@ -125,21 +144,22 @@ return function(config)
                         local v = ch:GetVelocity()
                         local vitesse = math.sqrt(v.X * v.X + v.Y * v.Y)
                         if not e.en_l_air and v.Z > SEUIL_SAUT then
-                            e.en_l_air, e.chute, e.crie, e.recu = true, 0, false, false
+                            e.en_l_air, e.chute, e.crie, e.recu, e.annonce = true, 0, false, false, false
                             e.sommet = l.Z
                         elseif v.Z < -60 then
                             e.en_l_air = true
                             e.sommet = math.max(e.sommet or l.Z, l.Z)
                             e.chute = math.max(e.chute, -v.Z)
+                            pcall(anticiper_chute, ch, e, -v.Z)
                             -- Le sol arrive dans moins de AVANCE_RECEPTION : le son part.
                             if not e.recu and grosse(e) then
                                 local ok, d = pcall(sol_sous, ch, -v.Z * AVANCE_RECEPTION + 5)
-                                if ok and d then recevoir(ch, e, d) end
+                                if ok and d then recevoir(ch, e) end
                             end
                         elseif e.en_l_air and math.abs(v.Z) < 30 and select(2, pcall(sol_proche, ch)) == true then
                             -- Au sol : une reception seulement apres une vraie chute.
                             if e.chute >= SEUIL_CHUTE and not e.recu then recevoir(ch, e) end
-                            e.en_l_air, e.chute, e.reste, e.crie, e.recu = false, 0, 0, false, false
+                            e.en_l_air, e.chute, e.reste, e.crie, e.recu, e.annonce = false, 0, 0, false, false, false
                             e.sommet = nil
                         end
                         -- Le point le plus haut de ce saut (la hauteur de chute part de la).

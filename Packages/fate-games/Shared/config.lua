@@ -119,8 +119,15 @@ return {
         actif = true,     -- animations cuites le 27/09
         seuil_dure = 135,
         seuil_sol = 230,
-        dure = { anim = "my-asset-pack::ANIM_Chute_Reception", duree = 1.93, fondu_sortie = 0.3 },
-        sol = { anim = "my-asset-pack::ANIM_Chute_Au_Sol", duree = 7.97, fondu_sortie = 0.4 },   -- chute, regards, relevement
+        -- avance : l'animation part tant de secondes avant l'impact (celui du
+        -- clip tombe alors a l'arrivee) ; annonce : le client previent jusqu'a
+        -- tant de secondes avant de toucher le sol.
+        annonce = 0.55,
+        dure = { anim = "my-asset-pack::ANIM_Chute_Reception", duree = 1.93, avance = 0.03,
+            fondu_entree = 0.08, fondu_sortie = 0.3 },
+        -- chute (le corps bascule en l'air, impact a 0,4 s), regards, relevement
+        sol = { anim = "my-asset-pack::ANIM_Chute_Au_Sol", duree = 8.23, avance = 0.4,
+            fondu_entree = 0.3, fondu_sortie = 0.4 },
     },
 
     -- Bruits du corps et musique de la place (Client/bruits.lua) : pas, cri au
