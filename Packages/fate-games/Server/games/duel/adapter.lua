@@ -18,6 +18,7 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
     local noms = {}              -- player_id -> nom, pour le HUD
     local spectateurs = {}       -- player_id -> { arene, cible }
     local dehors = {}            -- player_id -> derniere position hors de toute arene
+    local sur_fin = nil          -- abonne aux fins de duel (stats), Adapter.SurFin
     local choix_arme = {}        -- player_id -> arme choisie pour le duel
     local dernier_dedans = {}    -- player_id -> derniere position dans son arene
     -- Bots de test (/botduel) : identifiants negatifs, jamais ceux d'un joueur.
@@ -407,6 +408,17 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
 
     local function terminer(A, gagnant)
         local partie = ("duel:%s:%d"):format(A.nom, A.numero)
+        -- Stats (domain/stats.lua) : les humains presents a la fin, gagnants ou non.
+        if sur_fin then
+            local joueurs = {}
+            for id, j in pairs(A.d.joueurs) do
+                local s = not bots[id] and not j.parti and Characters.SessionByPlayer(id)
+                if s and s.character_id then
+                    joueurs[#joueurs + 1] = { character_id = s.character_id, won = j.camp == gagnant }
+                end
+            end
+            pcall(sur_fin, partie, joueurs)
+        end
         local participants, gagnants = {}, {}
         for id, j in pairs(A.d.joueurs) do
             local account = comptes[id]
@@ -928,6 +940,10 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
             end
         end
         return lignes
+    end
+
+    function Adapter.SurFin(fn)
+        sur_fin = fn
     end
 
     return Adapter

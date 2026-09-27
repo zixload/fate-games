@@ -56,9 +56,10 @@ local Pnj           = Package.Require("domain/pnj.lua")(Log, Characters, SharedC
     Interactables, PnjActions)
 -- Ecran d'accueil : activite des jeux (resume, gains) et arrivee des joueurs.
 local Activite = Package.Require("domain/activite.lua")()
+local Stats    = Package.Require("domain/stats.lua")(Log, DB)
 local Accueil  = Package.Require("domain/accueil.lua")(Log, Characters, Boutique, Activite,
     { fichier = "accueil.json", traversee = SharedConfig.accueil and SharedConfig.accueil.traversee,
-      spawn = ServerConfig.spawn }, dev_pour)
+      spawn = ServerConfig.spawn }, dev_pour, Stats)
 
 -- Liar's Bar. Le cablage est explicite et a plat : chaque module recoit ses
 -- dependances, aucune globale ne circule entre eux (R5).
@@ -132,6 +133,7 @@ LoupGarou.Init()
 Activite.Inscrire("werewolf", LoupGarou.Resume)
 Activite.Inscrire("liars", LiarsBar.Resume)
 Activite.Inscrire("duel", DuelJeu.Resume)
+DuelJeu.SurFin(Stats.EnregistrerDuel)
 
 -- Le nom du joueur qui tient ce compte, s'il est en ligne.
 local function nom_du_compte(account)

@@ -6,7 +6,7 @@
 -- File), poses en jeu par /accueil a et /accueil b (mode dev) : la camera du
 -- developpeur, que seul son client connait (accueil:mesurer).
 
-return function(Log, Characters, Boutique, Activite, config, dev_pour)
+return function(Log, Characters, Boutique, Activite, config, dev_pour, Stats)
     local Accueil = {}
     local FICHIER = config.fichier or "accueil.json"
     local plans = {}        -- { a = plan, b = plan }, plan = { x, y, z, pitch, yaw, roll }
@@ -71,6 +71,14 @@ return function(Log, Characters, Boutique, Activite, config, dev_pour)
             gains = Activite.Gains(),
             traversee = config.traversee or 40,
         })
+        -- Les stats suivent, sans retarder l'arrivee (base lente).
+        if Stats and session.character_id and session.account then
+            local id = session.player_id
+            Stats.Charger(session.character_id, session.account.id, function(st)
+                local p = presents[id]
+                if p and p:IsValid() then Events.CallRemote("accueil:stats", p, Reliability.Reliable, st) end
+            end)
+        end
     end
 
     function Accueil.Gain(g)
