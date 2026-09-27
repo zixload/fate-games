@@ -19,6 +19,8 @@
 -- une transition donnait des retours en arriere.
 --
 -- Apercu sans partie : /lg ciel jour | nuit | aube | soir | <heure>[:<minutes>]
+-- L'heure choisie tient (captures d'ecran) jusqu'a /lg ciel libre, qui
+-- rend l'horloge du monde, ou jusqu'a la prochaine partie.
 
 return function(cycle)
     local Dev = Package.Require("dev.lua")
@@ -50,6 +52,7 @@ return function(cycle)
     local courant = JOUR         -- minutes depuis minuit, tenues ici
     local segments = nil         -- { { de, a, t0, duree }, ... } en minutes continues
     local visee = nil
+    local fige = false           -- /lg ciel : l'heure choisie ne suit plus l'horloge du monde
 
     local function pousser(minutes, transition)
         local m = math.floor(minutes + 0.5) % 1440
@@ -121,7 +124,7 @@ return function(cycle)
 
     Timer.SetInterval(function()
         -- Hors partie et sans programme en cours : l'heure du monde.
-        if pret and not segments and not en_partie then
+        if pret and not segments and not en_partie and not fige then
             local minutes = heure_monde()
             local avant = math.floor(courant + 0.5) % 1440
             local apres = math.floor(minutes + 0.5) % 1440
@@ -150,6 +153,7 @@ return function(cycle)
 
     Events.SubscribeRemote("ww:phase", function(id, duree)
         en_partie = true
+        fige = false
         local p = PHASES[id]
         -- Les phases de nuit s'enchainent : une seule nuit, qui dure ce qu'elle dure.
         if p == NUIT then
@@ -174,6 +178,11 @@ return function(cycle)
         local arg = tostring(message):match("^/lg ciel%s*(%S*)")
         if not arg then return end
         if not Dev.actif then return end
+        if arg == "libre" then
+            fige = false
+            Chat.AddMessage("ciel : horloge du monde")
+            return false
+        end
         local cible = MOMENTS[arg]
         if not cible then
             local h, m = arg:match("^(%d+):?(%d*)$")
@@ -181,12 +190,14 @@ return function(cycle)
             if h and h >= 0 and h <= 23 and m >= 0 and m <= 59 then cible = hm(h, m) end
         end
         if not cible then
-            Chat.AddMessage("/lg ciel jour | nuit | aube | soir | <heure>[:<minutes>]")
+            Chat.AddMessage("/lg ciel jour | nuit | aube | soir | <heure>[:<minutes>] | libre")
             return false
         end
         visee = nil
+        fige = true
         programmer({ { 0, cible } }, 6)
-        Chat.AddMessage(("ciel : vers %02d:%02d"):format(math.floor(cible / 60), cible % 60))
+        Chat.AddMessage(("ciel : vers %02d:%02d, tenue (/lg ciel libre pour reprendre)")
+            :format(math.floor(cible / 60), cible % 60))
         return false
     end)
 end
