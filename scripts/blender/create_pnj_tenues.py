@@ -185,6 +185,28 @@ def chemise_retroussee(corps):
     return obj, moyennes
 
 
+def bride(nom, points, rayon, mat):
+    """Un cordon ouvert qui passe par `points` (sangles)."""
+    curve = bpy.data.curves.new(nom, "CURVE")
+    curve.dimensions = "3D"
+    curve.resolution_u = 4
+    curve.bevel_depth = rayon
+    curve.bevel_resolution = 3
+    spline = curve.splines.new("POLY")
+    spline.points.add(len(points) - 1)
+    for node, co in zip(spline.points, points):
+        node.co = (co.x, co.y, co.z, 1.0)
+    o = bpy.data.objects.new(nom, curve)
+    bpy.context.collection.objects.link(o)
+    bpy.ops.object.select_all(action="DESELECT")
+    o.select_set(True)
+    bpy.context.view_layer.objects.active = o
+    bpy.ops.object.convert(target="MESH")
+    o.data.materials.clear()
+    o.data.materials.append(mat)
+    return o
+
+
 def bride_fermee(nom, points, rayon, mat):
     """Un tube ferme qui passe par `points` (bord arrondi du col)."""
     curve = bpy.data.curves.new(nom, "CURVE")
@@ -557,9 +579,193 @@ def tailleur(corps):
     return fusionner(pieces, "SK_PNJ_Tailleur_Haut")
 
 
+# ---------------------------------------------------------------- armurier (forgeron)
+
+MAT_FORGE = {}
+
+
+def rigide(o, os_, test):
+    """Marque les sommets `test(v)` pour les lier entierement a l'os `os_`
+    apres le transfert des poids (voir appliquer_rigides)."""
+    g = o.vertex_groups.get("RIGIDE:" + os_) or o.vertex_groups.new(name="RIGIDE:" + os_)
+    g.add([v.index for v in o.data.vertices if test(v)], 1.0, "REPLACE")
+
+
+def appliquer_rigides(obj):
+    for g in [g for g in obj.vertex_groups if g.name.startswith("RIGIDE:")]:
+        os_ = g.name.split(":", 1)[1]
+        cible = obj.vertex_groups.get(os_) or obj.vertex_groups.new(name=os_)
+        marques = [v.index for v in obj.data.vertices if any(a.group == g.index for a in v.groups)]
+        for autre in obj.vertex_groups:
+            if autre.name != os_ and not autre.name.startswith("RIGIDE:"):
+                autre.remove(marques)
+        cible.add(marques, 1.0, "REPLACE")
+    for g in [g for g in obj.vertex_groups if g.name.startswith("RIGIDE:")]:
+        obj.vertex_groups.remove(g)
+
+
+def cuir(fond, fonce, echelle=45.0):
+    """Cuir epais : marbrure sombre et grain serre."""
+    def f(n):
+        v, x, y, z = n.coords()
+        marbre = n.bruit(v, echelle, 4.0, 0.6)
+        grain = n.add(n.mul(n.sub(n.bruit(v, 260.0, 2.0), 0.5), 0.3), 0.5)
+        c = n.melange(marbre, fonce, fond)
+        return n.melange(n.mul(grain, 0.35), c, fonce)
+    return f
+
+
+def tablier(arbre_devant):
+    """Grand tablier de cuir : bavette sur la poitrine, jupe plate jusqu'a
+    mi-cuisse. Chaque point est pose devant la tenue (rayon lance depuis
+    l'avant) ; sous la taille, la jupe tombe droit devant les deux jambes."""
+    colonnes, rangs = 17, 26
+    z_haut, z_bas, z_taille = 1.345, 0.70, 1.0
+    grille = []
+    for j in range(rangs):
+        z = z_haut - (z_haut - z_bas) * j / (rangs - 1)
+        # Bavette etroite en haut, qui s'evase jusqu'a la taille.
+        t = min(1.0, max(0.0, (z_haut - z) / (z_haut - 1.08)))
+        demi = 0.085 + (0.165 - 0.085) * (t * t * (3 - 2 * t))
+        rang = []
+        for i in range(colonnes):
+            x = -demi + 2 * demi * i / (colonnes - 1)
+            hit = arbre_devant.ray_cast(Vector((x, -0.6, z)), Vector((0, 1, 0)), 1.0)[0]
+            rang.append(Vector((x, (hit.y if hit else -0.13) - 0.012, z)))
+        grille.append(rang)
+    # Jupe : plate, au niveau le plus en avant de sa rangee de taille.
+    for j, rang in enumerate(grille):
+        if rang[0].z < z_taille:
+            devant = min(p.y for p in grille[j])
+            ref = min(p.y for r in grille if abs(r[0].z - z_taille) < 0.03 for p in r)
+            y_plat = min(devant, ref)
+            for p in rang:
+                p.y = y_plat
+    bm = bmesh.new()
+    vs = [[bm.verts.new(p) for p in rang] for rang in grille]
+    for j in range(rangs - 1):
+        for i in range(colonnes - 1):
+            bm.faces.new((vs[j][i], vs[j][i + 1], vs[j + 1][i + 1], vs[j + 1][i]))
+    bm.normal_update()
+    o = objet_depuis_bm(bm, "Tablier", MAT_FORGE["cuir"])
+    s = o.modifiers.new("Epaisseur", "SOLIDIFY")
+    s.thickness = 0.008
+    s.offset = 1
+    s.use_rim = True
+    b = o.modifiers.new("Bords", "BEVEL")
+    b.width = 0.002
+    b.segments = 2
+    appliquer(o)
+    return o, grille
+
+
+def armurier(corps):
+    MAT_FORGE.update({
+        "chemise": materiau("Chemise forge", tissu("#3c4148", "#2b2f35")),
+        "cuir": materiau("Cuir tablier", cuir("#6e4526", "#3f2513")),
+        "sangle": materiau("Sangle", cuir("#3b2616", "#231509", 90.0)),
+        "laiton": materiau("Rivets", uni("#c29a45")),
+        "fer": materiau("Fer", lambda n: n.melange(n.bruit(n.coords()[0], 60.0, 3.0), "#2b2d30", "#56595e")),
+        "bois": materiau("Bois", cuir("#7a5431", "#4e3219", 30.0)),
+        "gant": materiau("Gants", cuir("#a07548", "#6d4a28", 70.0)),
+    })
+    chemise, rayons = chemise_retroussee(corps)
+    chemise.data.materials.clear()
+    chemise.data.materials.append(MAT_FORGE["chemise"])
+    bpy.context.view_layer.update()
+    arbre_chemise = BVHTree.FromObject(chemise, bpy.context.evaluated_depsgraph_get())
+    mw = corps.matrix_world
+    # Devant : chemise + corps (le bas du tablier passe devant le pantalon).
+    sommets, faces = [], []
+    for o, m in ((chemise, chemise.matrix_world), (corps, mw)):
+        base = len(sommets)
+        sommets += [m @ v.co for v in o.data.vertices]
+        faces += [tuple(base + i for i in poly.vertices) for poly in o.data.polygons]
+    arbre_devant = BVHTree.FromPolygons(sommets, faces)
+    tab, grille = tablier(arbre_devant)
+
+    pieces = [chemise, tab]
+    # Ourlet de cuir fonce tout autour du tablier : un bord fini, epais.
+    contour = [p.copy() for p in grille[0]] + [r[-1].copy() for r in grille[1:]]         + [p.copy() for p in reversed(grille[-1][:-1])] + [r[0].copy() for r in reversed(grille[1:-1])]
+    for q in contour:
+        q.y -= 0.004
+    ourlet = bride_fermee("Ourlet", contour, 0.0048, MAT_FORGE["sangle"])
+    rigide(ourlet, "Hips", lambda v: v.co.z < 1.0)
+    pieces.append(ourlet)
+    # Bourrelets des manches retroussees.
+    for cote in (1, -1):
+        c = axe_bras(0.268, cote)
+        pieces.append(objet_depuis_bm(anneau(c, dir_bras(cote), rayons[cote] + 0.006, 0.0085, allonge=1.5),
+                                      "Retrousse", MAT_FORGE["chemise"]))
+    # Sangle du cou : des coins de la bavette, par-dessus les epaules, derriere la nuque.
+    haut_g, haut_d = grille[0][0], grille[0][-1]
+    chemin = []
+    for ang, z in ((0.62, 1.40), (0.95, 1.44), (1.6, 1.465), (math.pi, 1.47), (-1.6, 1.465), (-0.95, 1.44), (-0.62, 1.40)):
+        p, _ = projeter(arbre_chemise, ang, z, 0.006)
+        chemin.append(p)
+    pieces.append(bride("Sangle cou", [haut_d] + chemin + [haut_g], 0.0055, MAT_FORGE["sangle"]))
+    # Sangle de taille : fait le tour du corps, noeud dans le dos.
+    tour = []
+    for k in range(40):
+        ang = 2 * math.pi * k / 40
+        p, _ = projeter(arbre_devant, ang, 1.0, 0.009)
+        if abs(ang) < 0.9 or abs(ang - 2 * math.pi) < 0.9:
+            p.y = min(p.y, grille[13][0].y - 0.004)
+        tour.append(p)
+    pieces.append(bride_fermee("Sangle taille", tour, 0.006, MAT_FORGE["sangle"]))
+    dos, _ = projeter(arbre_devant, math.pi, 1.0, 0.014)
+    pieces.append(objet_depuis_bm(sphere(dos, 0.016, Vector((1.4, 0.7, 1))), "Noeud", MAT_FORGE["sangle"]))
+    # Rivets aux coins de la bavette et de la poche.
+    for p in (grille[1][1], grille[1][-2]):
+        pieces.append(objet_depuis_bm(sphere(p + Vector((0, -0.006, 0)), 0.0055, Vector((1, 0.5, 1))), "Rivet", MAT_FORGE["laiton"]))
+    # Poche a outils sur la jupe, avec deux rivets.
+    jp = 19
+    y_jupe = grille[jp][8].y - 0.006
+    poche = bmesh.new()
+    bmesh.ops.create_cube(poche, size=1.0)
+    for v in poche.verts:
+        v.co = Vector((v.co.x * 0.15, y_jupe - 0.006 + v.co.y * 0.012, grille[jp][0].z + v.co.z * 0.11))
+    bmesh.ops.bevel(poche, geom=list(poche.verts) + list(poche.edges), offset=0.004, segments=2, affect="EDGES")
+    pieces.append(objet_depuis_bm(poche, "Poche", MAT_FORGE["cuir"]))
+    for x in (-0.07, 0.07):
+        pieces.append(objet_depuis_bm(sphere(Vector((x, y_jupe - 0.013, grille[jp][0].z + 0.048)), 0.005,
+                                             Vector((1, 0.5, 1))), "Rivet", MAT_FORGE["laiton"]))
+    # Pince et marteau qui depassent de la poche.
+    zp = grille[jp][0].z + 0.11
+    pieces.append(objet_depuis_bm(cylindre(Vector((0.035, y_jupe - 0.010, zp - 0.05)),
+                                           Vector((0.042, y_jupe - 0.012, zp + 0.085)), 0.008), "Manche", MAT_FORGE["bois"]))
+    tete = bmesh.new()
+    bmesh.ops.create_cube(tete, size=1.0)
+    for v in tete.verts:
+        v.co = Vector((0.042 + v.co.x * 0.075, y_jupe - 0.012 + v.co.y * 0.03, zp + 0.10 + v.co.z * 0.03))
+    bmesh.ops.bevel(tete, geom=list(tete.verts) + list(tete.edges), offset=0.004, segments=2, affect="EDGES")
+    pieces.append(objet_depuis_bm(tete, "Tete marteau", MAT_FORGE["fer"]))
+    for dx in (-0.045, -0.03):
+        pieces.append(objet_depuis_bm(cylindre(Vector((dx, y_jupe - 0.010, zp - 0.04)),
+                                               Vector((dx - 0.008, y_jupe - 0.012, zp + 0.07)), 0.0045), "Pince", MAT_FORGE["fer"]))
+    # Manchettes de forge : cuir epais, evase vers la main.
+    for cote in (1, -1):
+        axe = dir_bras(cote)
+        for s_, r_ in ((0.335, 0.043), (0.36, 0.047), (0.385, 0.052)):
+            pieces.append(objet_depuis_bm(anneau(axe_bras(s_, cote), axe, r_, 0.009, allonge=1.4),
+                                          "Manchette", MAT_FORGE["gant"]))
+    # Rigide sur le bassin : la jupe du tablier et ce qui y pend (sinon elle
+    # se tord avec les jambes croisees de sa pose, 27/09).
+    for o in pieces:
+        if o.name.split(".")[0] in ("Poche", "Manche", "Tete marteau", "Pince"):
+            rigide(o, "Hips", lambda v: True)
+        elif o is tab:
+            rigide(o, "Hips", lambda v: v.co.z < 1.0)
+    for o in pieces:
+        for poly in o.data.polygons:
+            poly.use_smooth = True
+    return fusionner(pieces, "SK_PNJ_Armurier_Haut")
+
+
 PNJ = {
     # nom : (fabrique, tete du kit pour les apercus, couleur du pantalon d'apercu)
     "Tailleur": (tailleur, ["Hairstyle_male_012", "Moustache_002", "Glasses_004", "Male_emotion_usual_001"], (0.09, 0.09, 0.1, 1)),
+    "Armurier": (armurier, ["Moustache_001", "Male_emotion_angry_003"], (0.16, 0.13, 0.1, 1)),
 }
 
 
@@ -638,6 +844,7 @@ def main(noms):
         fabrique, tete, couleur_bas = PNJ[nom]
         obj = fabrique(corps)
         P.transferer_poids(obj, corps, rig)
+        appliquer_rigides(obj)
         img = cuire(obj, nom)
         bpy.ops.object.select_all(action="DESELECT")
         rig.select_set(True)
