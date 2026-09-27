@@ -72,19 +72,23 @@ return function(config)
     local function grosse(e) return e.crie or e.chute >= SEUIL_GROS end
 
     -- Sa propre chute : le serveur y joue l'animation d'ecrasement
-    -- (Server/domain/chutes.lua), avec la vitesse de chute.
-    local SEUIL_ANNONCE = (Package.Require("Shared/config.lua").chutes or {}).seuil_dure or 900
-    local function annoncer_chute(ch, e)
+    -- (Server/domain/chutes.lua), avec la hauteur de la chute en cm : du point
+    -- le plus haut atteint en l'air jusqu'au sol d'arrivee. La vitesse ne
+    -- distinguait pas un saut sur place d'un saut depuis un rebord bas.
+    local SEUIL_ANNONCE = (Package.Require("Shared/config.lua").chutes or {}).seuil_dure or 135
+    local function annoncer_chute(ch, e, hauteur)
         local p = Client.GetLocalPlayer()
         local moi = p and p:GetControlledCharacter()
-        if moi and moi == ch and e.chute >= SEUIL_ANNONCE then
-            Events.CallRemote("zix:chute", Reliability.Reliable, e.chute)
+        if moi and moi == ch and hauteur >= SEUIL_ANNONCE then
+            Events.CallRemote("zix:chute", Reliability.Reliable, hauteur)
         end
     end
 
-    local function recevoir(ch, e)
+    -- d : distance restante jusqu'au sol quand le son part en avance (0 au contact).
+    local function recevoir(ch, e, d)
         e.recu = true
-        annoncer_chute(ch, e)
+        local z = ch:GetLocation().Z - (d or 0)
+        annoncer_chute(ch, e, (e.sommet or z) - z)
         local force = math.min(1, e.chute / 900)
         jouer(grosse(e) and "reception" or "reception_leger", pieds(ch), V.reception * (0.6 + 0.4 * force), 0.95 + math.random() * 0.1)
     end
@@ -122,19 +126,24 @@ return function(config)
                         local vitesse = math.sqrt(v.X * v.X + v.Y * v.Y)
                         if not e.en_l_air and v.Z > SEUIL_SAUT then
                             e.en_l_air, e.chute, e.crie, e.recu = true, 0, false, false
+                            e.sommet = l.Z
                         elseif v.Z < -60 then
                             e.en_l_air = true
+                            e.sommet = math.max(e.sommet or l.Z, l.Z)
                             e.chute = math.max(e.chute, -v.Z)
                             -- Le sol arrive dans moins de AVANCE_RECEPTION : le son part.
                             if not e.recu and grosse(e) then
                                 local ok, d = pcall(sol_sous, ch, -v.Z * AVANCE_RECEPTION + 5)
-                                if ok and d then recevoir(ch, e) end
+                                if ok and d then recevoir(ch, e, d) end
                             end
                         elseif e.en_l_air and math.abs(v.Z) < 30 and select(2, pcall(sol_proche, ch)) == true then
                             -- Au sol : une reception seulement apres une vraie chute.
                             if e.chute >= SEUIL_CHUTE and not e.recu then recevoir(ch, e) end
                             e.en_l_air, e.chute, e.reste, e.crie, e.recu = false, 0, 0, false, false
+                            e.sommet = nil
                         end
+                        -- Le point le plus haut de ce saut (la hauteur de chute part de la).
+                        if e.en_l_air then e.sommet = math.max(e.sommet or l.Z, l.Z) end
                         -- En l'air au-dessus du vide : le cri, une fois par chute.
                         if e.en_l_air and not e.crie then
                             local ok, vide = pcall(vide_sous, ch)
