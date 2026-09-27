@@ -70,6 +70,7 @@ local suites = {
     "accounts",
     "boutique",
     "activite",
+    "stats",
     "duel_logic",
     "characters",
     "interactables",
