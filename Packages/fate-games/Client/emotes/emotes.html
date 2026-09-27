@@ -30,7 +30,13 @@ body.apercu-navigateur { background: radial-gradient(circle at 50% 40%, #6d8aa6,
 .emote.choisie { --bord: var(--laiton-fonce); }
 .emote.choisie .cadre { background: var(--laiton); }
 .cadre { width: 100%; aspect-ratio: 1; border-radius: 10px; background: #f6eedb; display: grid; place-items: center; overflow: hidden; }
-.cadre img { width: 100%; height: 100%; object-fit: contain; }
+/* Le mannequin rendu dans Blender recoit un contour d'encre, comme le reste
+   des HUD, pour se detacher de la carte. */
+.cadre img { width: 100%; height: 100%; object-fit: contain;
+    filter: drop-shadow(1.6px 0 0 var(--encre)) drop-shadow(-1.6px 0 0 var(--encre))
+            drop-shadow(0 1.6px 0 var(--encre)) drop-shadow(0 -1.6px 0 var(--encre))
+            drop-shadow(3px 4px 0 rgba(7, 10, 11, .25)); }
+.emote.choisie .cadre img { transform: scale(1.06); }
 .cadre svg { width: 70px; height: 90px; opacity: .35; }
 .titre { min-height: 34px; font-size: clamp(13px, 1.5vw, 17px); line-height: 1; text-align: center; }
 .emote.vide { opacity: .55; }
