@@ -57,5 +57,53 @@ return function(Log, DB)
         return st
     end
 
+    -- Les quatre sources, l'une apres l'autre ; une requete en erreur laisse
+    -- sa source vide. callback(stats) est toujours appele.
+    function Stats.Charger(character_id, account_id, callback)
+        local brut = {}
+        local function lire(requete, arg, cle, toutes)
+            return function(suite)
+                DB.Select(requete, function(rows, err)
+                    if err then
+                        Log.Warn("stats", cle .. " illisible : " .. tostring(err))
+                    elseif rows then
+                        brut[cle] = toutes and rows or rows[1]
+                    end
+                    suite()
+                end, arg)
+            end
+        end
+        local etapes = {
+            lire([[SELECT role, COUNT(*) AS n, SUM(won) AS w, SUM(survived) AS s
+                   FROM werewolf_participants WHERE character_id = :0 GROUP BY role]], character_id, "roles", true),
+            lire([[SELECT COUNT(*) AS n, SUM(CASE WHEN placement = 1 THEN 1 ELSE 0 END) AS w, AVG(placement) AS p
+                   FROM liars_participants WHERE character_id = :0]], character_id, "liars"),
+            lire([[SELECT COUNT(*) AS n, SUM(won) AS w FROM duel_resultats WHERE character_id = :0]],
+                character_id, "duel"),
+            lire([[SELECT SUM(amount) AS total, MAX(amount) AS meilleur FROM ledger
+                   WHERE credit_account = :0 AND reason = 'gain']], "compte:" .. tostring(account_id), "argent"),
+        }
+        local i = 0
+        local function suivante()
+            i = i + 1
+            if i > #etapes then return callback(Stats.Calculer(brut)) end
+            etapes[i](suivante)
+        end
+        suivante()
+    end
+
+    -- Un duel termine : une ligne par joueur humain present a la fin.
+    function Stats.EnregistrerDuel(partie, joueurs)
+        local quand = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        for _, j in ipairs(joueurs or {}) do
+            if j.character_id and j.character_id > 0 then
+                DB.Execute([[INSERT OR IGNORE INTO duel_resultats (partie, character_id, won, created_at)
+                             VALUES (:0, :1, :2, :3)]],
+                    function(_, err) if err then Log.Error("stats", "duel non ecrit : " .. tostring(err)) end end,
+                    partie, j.character_id, j.won and 1 or 0, quand)
+            end
+        end
+    end
+
     return Stats
 end

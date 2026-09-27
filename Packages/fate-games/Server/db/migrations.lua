@@ -166,4 +166,18 @@ return {
             )]],
         },
     },
+    {
+        id   = 7,
+        name = "duel_resultats",
+        statements = {
+            -- Un duel termine, un joueur humain par ligne (stats de l'accueil).
+            [[CREATE TABLE IF NOT EXISTS duel_resultats (
+                partie       TEXT    NOT NULL,
+                character_id INTEGER NOT NULL,
+                won          INTEGER NOT NULL,
+                created_at   TEXT    NOT NULL,
+                PRIMARY KEY (partie, character_id)
+            )]],
+        },
+    },
 }

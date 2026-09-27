@@ -61,4 +61,47 @@ return function(H, Stubs)
             H.assert_eq(st.argent.meilleur, 0, "argent a zero")
         end)
     end)
+    H.describe("domain/stats (base)", function()
+
+        H.it("Charger lit les quatre sources et calcule", function()
+            local S, c = module()
+            c.answer("FROM werewolf_participants", { { role = "wolf", n = 2, w = 1, s = 1 } })
+            c.answer("FROM liars_participants", { { n = 4, w = 2, p = 2 } })
+            c.answer("FROM duel_resultats", { { n = 3, w = 2 } })
+            c.answer("FROM ledger", { { total = 450, meilleur = 250 } })
+            local st
+            S.Charger(12, 7, function(r) st = r end)
+            H.assert_eq(st.loup_garou.parties, 2, "loup-garou")
+            H.assert_eq(st.liars.victoires, 2, "liars")
+            H.assert_eq(st.duel.parties, 3, "duel")
+            H.assert_eq(st.argent.meilleur, 250, "argent")
+            local vu = false
+            for _, s in ipairs(c.db.selected) do
+                if s.query:find("FROM ledger", 1, true) then vu = s.params[1] == "compte:7" end
+            end
+            H.assert_true(vu, "argent lu sur compte:7")
+        end)
+
+        H.it("une base en erreur donne des stats vides, sans echec", function()
+            local S, c = module()
+            c.db.select_error = "base en panne"
+            local st
+            S.Charger(12, 7, function(r) st = r end)
+            H.assert_true(st ~= nil, "callback appele")
+            H.assert_true(st.vide, "vide")
+        end)
+
+        H.it("EnregistrerDuel ecrit une ligne par joueur", function()
+            local S, c = module()
+            S.EnregistrerDuel("duel:Est:3", { { character_id = 12, won = true }, { character_id = 13, won = false } })
+            local lignes = {}
+            for _, e in ipairs(c.db.executed) do
+                if e.query:find("INTO duel_resultats", 1, true) then lignes[#lignes + 1] = e.params end
+            end
+            H.assert_count(lignes, 2, "deux lignes")
+            H.assert_eq(lignes[1][1], "duel:Est:3", "partie")
+            H.assert_eq(lignes[1][3], 1, "gagne = 1")
+            H.assert_eq(lignes[2][3], 0, "perdu = 0")
+        end)
+    end)
 end
