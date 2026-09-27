@@ -55,6 +55,23 @@ return function(config)
         return not t.Success
     end
 
+    -- Distance du sol sous les pieds (cm), nil au-dela de max.
+    local function sol_sous(ch, max)
+        local p = pieds(ch)
+        local t = Trace.LineSingle(p, Vector(p.X, p.Y, p.Z - max), CANAUX, 0, { ch })
+        return t.Success and (p.Z - t.Location.Z) or nil
+    end
+
+    -- Le son de reception culmine a ~0,09 s : on le lance un peu avant le
+    -- contact, sinon on l'entend en retard (27/09).
+    local AVANCE_RECEPTION = config.avance_reception or 0.12
+
+    local function recevoir(ch, e)
+        e.recu = true
+        local force = math.min(1, e.chute / 900)
+        jouer("reception", pieds(ch), V.reception * (0.6 + 0.4 * force), 0.95 + math.random() * 0.1)
+    end
+
     -- Un sol juste sous les pieds : au sommet d'un saut la vitesse verticale
     -- passe aussi par zero, ce n'est pas un atterrissage.
     local function sol_proche(ch)
@@ -87,17 +104,19 @@ return function(config)
                         local v = ch:GetVelocity()
                         local vitesse = math.sqrt(v.X * v.X + v.Y * v.Y)
                         if not e.en_l_air and v.Z > SEUIL_SAUT then
-                            e.en_l_air, e.chute, e.crie = true, 0, false
+                            e.en_l_air, e.chute, e.crie, e.recu = true, 0, false, false
                         elseif v.Z < -60 then
                             e.en_l_air = true
                             e.chute = math.max(e.chute, -v.Z)
+                            -- Le sol arrive dans moins de AVANCE_RECEPTION : le son part.
+                            if not e.recu and e.chute >= SEUIL_CHUTE then
+                                local ok, d = pcall(sol_sous, ch, -v.Z * AVANCE_RECEPTION + 5)
+                                if ok and d then recevoir(ch, e) end
+                            end
                         elseif e.en_l_air and math.abs(v.Z) < 30 and select(2, pcall(sol_proche, ch)) == true then
                             -- Au sol : une reception seulement apres une vraie chute.
-                            if e.chute >= SEUIL_CHUTE then
-                                local force = math.min(1, e.chute / 900)
-                                jouer("reception", pieds(ch), V.reception * (0.6 + 0.4 * force), 0.95 + math.random() * 0.1)
-                            end
-                            e.en_l_air, e.chute, e.reste, e.crie = false, 0, 0, false
+                            if e.chute >= SEUIL_CHUTE and not e.recu then recevoir(ch, e) end
+                            e.en_l_air, e.chute, e.reste, e.crie, e.recu = false, 0, 0, false, false
                         end
                         -- En l'air au-dessus du vide : le cri, une fois par chute.
                         if e.en_l_air and not e.crie then
