@@ -185,13 +185,13 @@ def chemise_retroussee(corps):
     return obj, moyennes
 
 
-def bride(nom, points, rayon, mat):
+def bride(nom, points, rayon, mat, resolution=12, tour=3):
     """Un cordon ouvert qui passe par `points` (sangles)."""
     curve = bpy.data.curves.new(nom, "CURVE")
     curve.dimensions = "3D"
-    curve.resolution_u = 12
+    curve.resolution_u = resolution
     curve.bevel_depth = rayon
-    curve.bevel_resolution = 3
+    curve.bevel_resolution = tour
     # Bezier a poignees automatiques : une courbe souple (27/09).
     spline = curve.splines.new("BEZIER")
     spline.bezier_points.add(len(points) - 1)
@@ -828,6 +828,14 @@ def franges_motif(n):
     v, x, y, z = n.coords()
     degrade = n._smooth(1.14, 0.06, z)                  # 0 en bas, 1 en haut
     c = n.melange(degrade, "#b08d62", "#6b4527")
+    # Fibres torsadees : fines stries en biais.
+    stries = n.absv(n.sub(n.frac(n.mul(n.add(n.add(x, y), n.mul(z, 1.6)), 900.0)), 0.5))
+    c = n.melange(n.mul(n._smooth(0.3, 0.3, stries), 0.25), c, "#3d2615")
+    # Fibres sombres dans le sens du brin, au hasard : un bruit tres etire en
+    # hauteur donne des traits verticaux irreguliers (plein de petites cordes).
+    etire = n.vecteur(n.mul(x, 1.0), n.mul(y, 1.0), n.mul(z, 0.06))
+    fibres = n.bruit(etire, 900.0, 3.0, 0.6)
+    c = n.melange(n.mul(n._smooth(0.58, 0.06, fibres), 0.7), c, "#2a190d")
     grain = n.add(n.mul(n.sub(n.bruit(v, 300.0, 2.0), 0.5), 0.3), 0.5)
     return n.melange(n.mul(grain, 0.25), c, "#4a2e18")
 
@@ -854,16 +862,24 @@ def franges(poncho, mat):
         phase = hasard.uniform(0, 2 * math.pi)
         amplitude = hasard.uniform(0.002, 0.005)
         penche = hasard.uniform(-0.006, 0.006)
-        pts = []
-        for k in range(9):
-            t = k / 8
+        axe = []
+        for k in range(25):
+            t = k / 24
             ondule = math.sin(phase + t * 2.6 * math.pi) * amplitude * t
             # Le brin part de l'interieur du poncho (1,4 cm plus haut, 6 mm
             # en retrait) : pas de bout coupe visible au bord (27/09).
-            pts.append(c + Vector((0, 0, 0.014 - (longueur + 0.012) * t))
+            axe.append(c + Vector((0, 0, 0.014 - (longueur + 0.012) * t))
                        + dehors * (-0.006 + 0.010 * t + 0.002 * t * t)
                        + cote * (ondule + penche * t))
-        brins.append(bride("Frange", pts, hasard.uniform(0.0021, 0.0031), mat))
+        # Corde : deux fils tordus l'un autour de l'autre le long de l'axe.
+        epais = hasard.uniform(0.0013, 0.0017)
+        tours = (longueur + 0.012) / 0.009                 # un tour tous les 9 mm
+        for fil in range(2):
+            pts = []
+            for k, q in enumerate(axe):
+                a = 2 * math.pi * (tours * k / 24 + fil / 2) + phase
+                pts.append(q + (cote * math.cos(a) + dehors * math.sin(a)) * epais)
+            brins.append(bride("Frange", pts, epais * 1.05, mat, resolution=3, tour=2))
     for b in brins:
         b.data.materials.clear()
         b.data.materials.append(mat)
