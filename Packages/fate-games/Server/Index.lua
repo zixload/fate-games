@@ -54,6 +54,11 @@ local Chutes        = Package.Require("domain/chutes.lua")(Log, Characters, Shar
 local PnjActions    = {}
 local Pnj           = Package.Require("domain/pnj.lua")(Log, Characters, SharedConfig.pnj, dev_pour,
     Interactables, PnjActions)
+-- Ecran d'accueil : activite des jeux (resume, gains) et arrivee des joueurs.
+local Activite = Package.Require("domain/activite.lua")()
+local Accueil  = Package.Require("domain/accueil.lua")(Log, Characters, Boutique, Activite,
+    { fichier = "accueil.json", traversee = SharedConfig.accueil and SharedConfig.accueil.traversee,
+      spawn = ServerConfig.spawn }, dev_pour)
 
 -- Liar's Bar. Le cablage est explicite et a plat : chaque module recoit ses
 -- dependances, aucune globale ne circule entre eux (R5).
@@ -124,6 +129,21 @@ local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, DB, Ids, Ch
       canaux = ServerConfig.voice.canaux_loup_garou, boutique = Boutique,
       bonus_participation = DuelConfig.bonus_participation })
 LoupGarou.Init()
+Activite.Inscrire("werewolf", LoupGarou.Resume)
+Activite.Inscrire("liars", LiarsBar.Resume)
+Activite.Inscrire("duel", DuelJeu.Resume)
+
+-- Le nom du joueur qui tient ce compte, s'il est en ligne.
+local function nom_du_compte(account)
+    for _, p in pairs(Player.GetPairs()) do
+        local s = p:IsValid() and Characters.SessionByPlayer(p:GetID())
+        if s and s.account and s.account.id == account.id then return p:GetName() end
+    end
+end
+Boutique.SurGain(function(partie, account, montant)
+    local g = Activite.AjouterGain(nom_du_compte(account), partie, montant)
+    if g then Accueil.Gain(g) end
+end)
 Emotes.Init()
 Chutes.Init()
 Pnj.Init()
@@ -401,13 +421,18 @@ do
             if not etat then
                 return Characters.Apparaitre(session, transform, ServerConfig.boutique.perso_defaut)
             end
+            -- Premiere venue : l'apparence tiree au hasard est gardee.
+            if etat.nouveau then
+                etat.nouveau = nil
+                Boutique.Equiper(session.account, "persos", etat.perso, function() end)
+            end
             if not (ServerConfig.vestiaire and ServerConfig.vestiaire.enabled) then
                 return Characters.Apparaitre(session, transform, look_de(etat))
             end
-            Characters.OuvrirVestiaire(session, transform, etat.perso)
-            Events.CallRemote("vestiaire:ouvrir", session.player, Reliability.Reliable, Boutique.Vue(etat))
+            Accueil.Ouvrir(session, transform, etat)
         end)
     end)
+    Accueil.Init(look_de)
 
     -- Apercu : la tenue change sur le personnage du vestiaire, achetee ou non.
     Events.SubscribeRemote("vestiaire:apercu", function(player, look_id)

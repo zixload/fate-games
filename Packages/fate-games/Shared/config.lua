@@ -113,6 +113,21 @@ return {
     -- vers sa gauche pour le mettre a gauche de l'ecran, hauteur des yeux).
     tailleur = { camera = { avant = 300, cote = 190, haut = 0 } },
 
+    -- Ecran d'accueil (Client/accueil, Server/domain/accueil.lua) : duree du
+    -- travelling entre les plans A et B (s) et astuces qui tournent.
+    accueil = {
+        traversee = 40,
+        astuces = {
+            "Le tailleur te laisse essayer avant d'acheter.",
+            "Maj pour courir, Espace pour sauter.",
+            "Espace pour te lever d'une chaise hors partie.",
+            "Au loup-garou, la nuit, seuls les loups se parlent.",
+            "Au Liar's Bar, un mensonge de trop et c'est le barillet.",
+            "La cagnotte d'une partie revient aux gagnants.",
+            "Le crieur, le forain et le barman t'attendent sur la place.",
+        },
+    },
+
     -- PNJ d'ambiance (Server/domain/pnj.lua, Client/pnj.lua), poses en jeu par
     -- /pnj poser <type> (mode dev). look : apparence provisoire
     -- (Shared/appearances.lua) en attendant leurs tenues ; assis : pose au sol
