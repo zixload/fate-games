@@ -19,7 +19,12 @@ return function(Log, Characters, Boutique, Activite, config, dev_pour)
         local texte = f:Read(0)
         f:Close()
         local ok, t = pcall(JSON.parse, texte)
-        return (ok and type(t) == "table") and t or {}
+        if not (ok and type(t) == "table") then return {} end
+        -- Un plan mal forme serait fatal a la camera : on ne garde que les bons.
+        local function valide(p)
+            return type(p) == "table" and type(p.x) == "number" and type(p.y) == "number" and type(p.z) == "number"
+        end
+        return { a = valide(t.a) and t.a or nil, b = valide(t.b) and t.b or nil }
     end
 
     local function ecrire()
@@ -54,6 +59,11 @@ return function(Log, Characters, Boutique, Activite, config, dev_pour)
         Characters.OuvrirVestiaire(session, transform, look_de(etat))
         Characters.MontrerAuVestiaire(session.player_id, false)
         presents[session.player_id] = session.player
+        -- Le serveur pose aussi le plan A : sinon la camera du vestiaire (dans
+        -- le ciel), repliquee apres l'evenement, pourrait l'ecraser.
+        local a = plans.a or plan_defaut()
+        session.player:SetCameraLocation(Vector(a.x, a.y, a.z))
+        session.player:SetCameraRotation(Rotator(a.pitch or 0, a.yaw or 0, a.roll or 0))
         Events.CallRemote("accueil:ouvrir", session.player, Reliability.Reliable, {
             solde = etat.solde,
             plans = { a = plans.a or plan_defaut(), b = plans.b },

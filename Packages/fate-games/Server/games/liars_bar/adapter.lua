@@ -1083,7 +1083,7 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             if ok then return end
             -- La mise prelevee revient a chacun, a parts egales.
             if mise > 0 and Boutique then
-                Boutique.Solder(partie, {}, liste, mise * #liste, 0)
+                Boutique.Rendre(partie, liste, mise)
             end
             annuler(raison, contexte)
         end

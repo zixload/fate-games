@@ -280,6 +280,9 @@ $("action").addEventListener("click", agir);
 $("sortir").addEventListener("click", () => envoyer("sortir"));
 addEventListener("wheel", (e) => choisir(sel[rayon] + (e.deltaY > 0 ? 1 : -1)));
 addEventListener("keydown", (e) => {
+  // E garde enfonce en parlant a l'armurier : la repetition ne doit pas
+  // acheter l'arme selectionnee.
+  if (e.repeat) return;
   const k = e.key.toLowerCase();
   if (k === "arrowright" || k === "d") choisir(sel[rayon] + 1);
   else if (k === "arrowleft" || k === "q" || k === "a") choisir(sel[rayon] - 1);

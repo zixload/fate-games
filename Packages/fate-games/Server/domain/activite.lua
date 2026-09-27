@@ -25,17 +25,23 @@ return function()
     function Activite.Resume(en_ligne)
         local lignes = {}
         for _, j in ipairs(inscrits) do
-            -- Un jeu qui plante ne doit pas vider le tableau des autres.
-            local ok, liste = pcall(j.resume)
-            if ok and type(liste) == "table" then
+            -- Un jeu qui plante, ou rend une ligne mal formee, ne doit pas
+            -- vider le tableau des autres : tout son resume est protege.
+            pcall(function()
+                local liste = j.resume()
+                if type(liste) ~= "table" then return end
+                local siennes = {}
                 for _, l in ipairs(liste) do
-                    lignes[#lignes + 1] = {
-                        jeu = JEUX[j.cle] and JEUX[j.cle].nom or tostring(j.cle),
-                        statut = l.statut, joueurs = l.joueurs or 0, bots = l.bots or 0,
-                        max = l.max, mise = l.mise or 0, detail = l.detail,
-                    }
+                    if type(l) == "table" then
+                        siennes[#siennes + 1] = {
+                            jeu = JEUX[j.cle] and JEUX[j.cle].nom or tostring(j.cle),
+                            statut = l.statut, joueurs = tonumber(l.joueurs) or 0, bots = tonumber(l.bots) or 0,
+                            max = l.max, mise = tonumber(l.mise) or 0, detail = l.detail,
+                        }
+                    end
                 end
-            end
+                for _, l in ipairs(siennes) do lignes[#lignes + 1] = l end
+            end)
         end
         return { lignes = lignes, en_ligne = en_ligne or 0 }
     end

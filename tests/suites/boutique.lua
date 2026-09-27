@@ -239,6 +239,18 @@ return function(H, Stubs)
             H.assert_eq(vus[1][2], A.id, "compte gagnant")
             H.assert_eq(vus[1][3], 100, "montant")
         end)
+
+        H.it("rendre les mises credite chacun sans l'annoncer comme un gain", function()
+            local c = Stubs.reset()
+            local Boutique = build(c)
+            local ea, eb = deux_comptes(c, Boutique, 0, 0)
+            local vus = 0
+            Boutique.SurGain(function() vus = vus + 1 end)
+            Boutique.Rendre("werewolf:9:1", { A, B }, 50, nil)
+            H.assert_eq(ea.solde, 50, "A rembourse")
+            H.assert_eq(eb.solde, 50, "B rembourse")
+            H.assert_eq(vus, 0, "pas un gain")
+        end)
     end)
 
     H.describe("Shared/catalogue", function()

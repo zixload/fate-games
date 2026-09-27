@@ -27,6 +27,15 @@ return function(H)
             H.assert_eq(r.lignes[1].jeu, "Duel", "duel")
         end)
 
+        H.it("une ligne mal formee n'empeche pas les autres jeux", function()
+            local A = make()
+            A.Inscrire("liars", function() return { 42, { statut = "attente" } } end)
+            A.Inscrire("duel", function() return { { statut = "attente", joueurs = 1, max = 4 } } end)
+            local ok, r = pcall(A.Resume, 1)
+            H.assert_true(ok, "pas d'erreur")
+            H.assert_eq(r.lignes[#r.lignes].jeu, "Duel", "le duel reste")
+        end)
+
         H.it("Changement ne rend le resume que s'il a change", function()
             local A = make()
             local n = 2

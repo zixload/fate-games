@@ -170,6 +170,24 @@ return function(Log, DB, Ids, Catalogue, config)
         suivant(1)
     end
 
+    -- Rend sa mise a chacun (partie qui ne demarre pas) : ce n'est pas un gain,
+    -- le fil de l'accueil n'en entend pas parler. callback()
+    function Boutique.Rendre(partie, comptes, montant, cid, callback)
+        callback = callback or function() end
+        local i = 0
+        local function suivant()
+            i = i + 1
+            local account = comptes[i]
+            if not account then return callback() end
+            if montant <= 0 then return suivant() end
+            mouvement(sequestre(partie), compte(account), montant, "mise_rendue", cid, function(ok)
+                if ok and etats[account.id] then etats[account.id].solde = etats[account.id].solde + montant end
+                suivant()
+            end)
+        end
+        suivant()
+    end
+
     local function lire_possessions(account, etat, callback)
         DB.Select(
             "SELECT rayon, article FROM possessions WHERE account_id = :0",

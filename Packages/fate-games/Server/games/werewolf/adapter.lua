@@ -482,7 +482,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         if not (Boutique and mise_partie > 0) then return end
         local liste = {}
         for _, account in pairs(comptes) do liste[#liste + 1] = account end
-        if #liste > 0 then Boutique.Solder(partie_id, liste, liste, mise_partie * #liste, 0, nil) end
+        if #liste > 0 then Boutique.Rendre(partie_id, liste, mise_partie, nil) end
         mise_partie = 0
     end
 
