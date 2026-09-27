@@ -1,10 +1,12 @@
 -- Monter les petites marches sans sauter. nanos n'expose pas la hauteur de
 -- marche du personnage (aucune fonction step height dans l'API Character,
 -- CharacterSimple ni Pawn) : quand on avance vers un rebord bas, on mesure
--- l'obstacle et on donne au personnage la petite poussee qui le pose dessus.
--- AddImpulse est permis a qui a l'autorite reseau (doc Actor) : le joueur qui
--- possede son personnage l'a (doc Authority Concepts), donc sans aller-retour
--- serveur. Trace est cote client (doc Trace).
+-- l'obstacle et on fait glisser le personnage dessus, en un dixieme de
+-- seconde (TranslateTo). Une poussee (AddImpulse) le faisait decoller : il
+-- passait en chute et ca ressemblait a un saut (27/09). TranslateTo est permis
+-- a qui a l'autorite reseau (doc Actor) : le joueur qui possede son
+-- personnage l'a (doc Authority Concepts), donc sans aller-retour serveur.
+-- Trace est cote client (doc Trace).
 --
 -- On n'attend plus d'etre arrete contre la marche : des que le rebord est a
 -- portee du bord de la capsule, on pousse. Les traces visent le decor fixe et
@@ -21,9 +23,9 @@
 return function(config)
     config = config or {}
     local HAUTEUR_MAX = config.hauteur_max or 45   -- cm : au-dela, on saute
-    local POUSSEE = config.poussee or 140          -- cm/s vers l'avant
-    local DELAI = config.delai or 0.25             -- s entre deux marches
-    local PORTEE = config.portee or 14             -- cm devant le bord de la capsule
+    local GLISSE = config.glisse or 0.09           -- s pour monter une marche
+    local DELAI = config.delai or 0.12             -- s entre deux marches
+    local PORTEE = config.portee or 8              -- cm devant le bord de la capsule
     local enfoncees = {}
     local chat_ouvert = false
     local dernier = -math.huge
@@ -103,10 +105,15 @@ return function(config)
             local r = rayon(perso)
             local loin = r + PORTEE
             -- Un obstacle entre la cheville et la hauteur de marche maxi.
-            local obstacle = false
+            local obstacle, a_distance = false, nil
             for z = 3, HAUTEUR_MAX - 3, 7 do
                 local de = Vector(l.X, l.Y, pied + z)
-                if touche(de, de + dir * loin, perso).Success then obstacle = true break end
+                local t = touche(de, de + dir * loin, perso)
+                if t.Success then
+                    obstacle = true
+                    local d = math.sqrt((t.Location.X - l.X) ^ 2 + (t.Location.Y - l.Y) ^ 2)
+                    a_distance = math.min(a_distance or d, d)
+                end
             end
             if not obstacle and not bloque then return end
             -- Rien a hauteur de marche maxi : sinon c'est un mur.
@@ -128,10 +135,11 @@ return function(config)
                 if obstacle then journal(bloque, maintenant, "obstacle mais pas de dessus de marche a portee") end
                 return
             end
-            -- Juste ce qu'il faut pour passer le rebord : v = racine(2 g h).
-            local g = 980 * (perso:GetGravityScale() or 1)
-            local vz = math.sqrt(2 * g * (h + 6))
-            perso:AddImpulse(Vector(dir.X * POUSSEE, dir.Y * POUSSEE, vz), true)
+            -- Monter de la hauteur de la marche (+2 cm de marge) et avancer juste
+            -- assez pour que le bord de la capsule soit au-dessus.
+            local avance = math.max(0, (a_distance or r) - r) + 8
+            local cible = Vector(l.X + dir.X * avance, l.Y + dir.Y * avance, l.Z + h + 2)
+            perso:TranslateTo(cible, GLISSE, 0)
             dernier = maintenant
         end)
         if not ok then Console.Error("[marche] " .. tostring(err)) end

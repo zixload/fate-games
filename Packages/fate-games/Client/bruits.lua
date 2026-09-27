@@ -18,9 +18,9 @@ return function(config)
     local chemin = Package.Require("son.lua")
     local PAS = config.pas or { "pas_1", "pas_2", "pas_3", "pas_4", "pas_5" }
     local CRIS = config.cris or { "saut_cri_1", "saut_cri_2" }
-    local V = config.volumes or { marche = 0.25, course = 0.45, cri = 0.5, reception = 0.5, musique = 0.06 }
-    local FOULEE_MARCHE = config.foulee_marche or 55     -- cm entre deux pas
-    local FOULEE_COURSE = config.foulee_course or 105
+    local V = config.volumes or { marche = 0.07, course = 0.11, cri = 0.4, reception = 0.25, musique = 0.06 }
+    local FOULEE_MARCHE = config.foulee_marche or 85     -- cm entre deux pas
+    local FOULEE_COURSE = config.foulee_course or 170
     local COURSE = config.seuil_course or 300            -- cm/s : au-dela, on court
     local SEUIL_SAUT = config.seuil_saut or 330          -- cm/s vers le haut (saut : 400)
     local SEUIL_CHUTE = config.seuil_chute or 280        -- cm/s vers le bas avant la reception
@@ -48,7 +48,13 @@ return function(config)
         return p and p:GetCameraLocation()
     end
 
+    local avant = nil   -- heure du passage precedent (ms)
+
     Timer.SetInterval(function()
+        -- Le vrai temps ecoule : un minuteur peut tourner moins vite que demande.
+        local t = Client.GetTime()
+        local dt = math.min(0.2, avant and (t - avant) / 1000 or PAS_TEMPS)
+        avant = t
         local oreille = ecoute()
         if not oreille then return end
         for _, classe in ipairs({ CharacterSimple, Character }) do
@@ -75,7 +81,7 @@ return function(config)
                             e.en_l_air, e.chute, e.reste = false, 0, 0
                         end
                         if not e.en_l_air and math.abs(v.Z) < 60 and vitesse > 40 then
-                            e.reste = e.reste + vitesse * PAS_TEMPS
+                            e.reste = e.reste + vitesse * dt
                             local court = vitesse > COURSE
                             if e.reste >= (court and FOULEE_COURSE or FOULEE_MARCHE) then
                                 e.reste = 0

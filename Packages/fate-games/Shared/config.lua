@@ -110,8 +110,9 @@ return {
     -- 1 ; musique = false la coupe.
     bruits = {
         musique = "musique_place",
-        volumes = { marche = 0.25, course = 0.45, cri = 0.5, reception = 0.5, musique = 0.06 },
-        foulee_marche = 55, foulee_course = 105,   -- cm entre deux pas
+        -- Pas discrets : trop forts et trop rapproches le 27/09.
+        volumes = { marche = 0.07, course = 0.11, cri = 0.4, reception = 0.25, musique = 0.06 },
+        foulee_marche = 85, foulee_course = 170,   -- cm entre deux pas
         seuil_saut = 330,                          -- cm/s, le saut part a 400
     },
 
@@ -140,9 +141,9 @@ return {
     pseudos = { portee = 1500, au_dessus = 30, verif_vue_ms = 200 },
 
     -- Petites marches (Client/marche.lua) : hauteur la plus haute montee sans
-    -- sauter (cm), poussee vers l'avant (cm/s), delai entre deux (s), portee
-    -- du rebord devant le bord de la capsule (cm).
-    marche = { hauteur_max = 45, poussee = 140, delai = 0.25, portee = 14 },
+    -- sauter (cm), temps du glissement sur la marche (s), delai entre deux
+    -- (s), portee du rebord devant le bord de la capsule (cm).
+    marche = { hauteur_max = 45, glisse = 0.09, delai = 0.12, portee = 8 },
 
     -- Roue d'emotes (Client/emotes.lua, Server/domain/emotes.lua). T ouvre la
     -- roue, puis 1 a 7 choisit une danse sur QWERTY, AZERTY ou pave numerique.
