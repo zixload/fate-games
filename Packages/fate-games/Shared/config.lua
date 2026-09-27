@@ -144,7 +144,9 @@ return {
     -- sauter (cm), temps du glissement sur la marche (s), delai entre deux
     -- (s), portee du rebord devant le bord de la capsule (cm), marges du
     -- glissement au-dessus de la marche et au-dela du rebord (cm).
-    marche = { hauteur_max = 45, glisse = 0.1, delai = 0.12, portee = 14, marge_haut = 7, marge_avant = 16 },
+    -- Glissement tres court et presque sans marge en hauteur : plus long ou plus
+    -- haut, l'animation de marche repartait a zero a chaque marche (27/09).
+    marche = { hauteur_max = 45, glisse = 0.03, delai = 0.1, portee = 18, marge_haut = 2, marge_avant = 10 },
 
     -- Roue d'emotes (Client/emotes.lua, Server/domain/emotes.lua). T ouvre la
     -- roue, puis 1 a 7 choisit une danse sur QWERTY, AZERTY ou pave numerique.
