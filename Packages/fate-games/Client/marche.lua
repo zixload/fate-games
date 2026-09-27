@@ -25,7 +25,9 @@ return function(config)
     local HAUTEUR_MAX = config.hauteur_max or 45   -- cm : au-dela, on saute
     local GLISSE = config.glisse or 0.09           -- s pour monter une marche
     local DELAI = config.delai or 0.12             -- s entre deux marches
-    local PORTEE = config.portee or 8              -- cm devant le bord de la capsule
+    local PORTEE = config.portee or 14             -- cm devant le bord de la capsule
+    local MARGE_HAUT = config.marge_haut or 7      -- cm au-dessus de la marche
+    local MARGE_AVANT = config.marge_avant or 16   -- cm au-dela du rebord
     local enfoncees = {}
     local chat_ouvert = false
     local dernier = -math.huge
@@ -95,7 +97,8 @@ return function(config)
 
         local v = perso:GetVelocity()
         if math.abs(v.Z) > 40 then return end   -- en l'air : rien a monter
-        local bloque = math.sqrt(v.X * v.X + v.Y * v.Y) < 30
+        -- Bloque, ou presque : sur certaines marches on glisse de cote contre le rebord.
+        local bloque = math.sqrt(v.X * v.X + v.Y * v.Y) < 60
 
         local ok, err = pcall(function()
             local l = perso:GetLocation()
@@ -124,7 +127,7 @@ return function(config)
             -- Le dessus de la marche, juste apres son rebord : le premier
             -- dessus assez haut, de plus pres a plus loin.
             local h
-            for _, d in ipairs({ r + 4, r + 10, r + 18, loin + 6 }) do
+            for _, d in ipairs({ r + 2, r + 7, r + 12, r + 18, r + 25, r + 32, loin + 6 }) do
                 local au_dessus = Vector(l.X, l.Y, pied + HAUTEUR_MAX + 10) + dir * d
                 local dessus = touche(au_dessus, Vector(au_dessus.X, au_dessus.Y, pied - 5), perso)
                 local hd = dessus.Success and (dessus.Location.Z - pied) or nil
@@ -135,10 +138,11 @@ return function(config)
                 if obstacle then journal(bloque, maintenant, "obstacle mais pas de dessus de marche a portee") end
                 return
             end
-            -- Monter de la hauteur de la marche (+2 cm de marge) et avancer juste
-            -- assez pour que le bord de la capsule soit au-dessus.
-            local avance = math.max(0, (a_distance or r) - r) + 8
-            local cible = Vector(l.X + dir.X * avance, l.Y + dir.Y * avance, l.Z + h + 2)
+            -- Monter de la hauteur de la marche, avec de la marge, et avancer assez
+            -- pour que le bord de la capsule soit bien au-dessus (marges
+            -- relevees le 27/09 : certaines marches accrochaient encore).
+            local avance = math.max(0, (a_distance or r) - r) + MARGE_AVANT
+            local cible = Vector(l.X + dir.X * avance, l.Y + dir.Y * avance, l.Z + h + MARGE_HAUT)
             perso:TranslateTo(cible, GLISSE, 0)
             dernier = maintenant
         end)

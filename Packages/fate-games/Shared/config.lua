@@ -142,8 +142,9 @@ return {
 
     -- Petites marches (Client/marche.lua) : hauteur la plus haute montee sans
     -- sauter (cm), temps du glissement sur la marche (s), delai entre deux
-    -- (s), portee du rebord devant le bord de la capsule (cm).
-    marche = { hauteur_max = 45, glisse = 0.09, delai = 0.12, portee = 8 },
+    -- (s), portee du rebord devant le bord de la capsule (cm), marges du
+    -- glissement au-dessus de la marche et au-dela du rebord (cm).
+    marche = { hauteur_max = 45, glisse = 0.1, delai = 0.12, portee = 14, marge_haut = 7, marge_avant = 16 },
 
     -- Roue d'emotes (Client/emotes.lua, Server/domain/emotes.lua). T ouvre la
     -- roue, puis 1 a 7 choisit une danse sur QWERTY, AZERTY ou pave numerique.
