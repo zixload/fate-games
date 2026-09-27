@@ -45,6 +45,10 @@ local ok_marche, err_marche = pcall(function()
 end)
 if not ok_marche then Console.Error("[marche] chargement impossible : " .. tostring(err_marche)) end
 
+-- Ecran d'accueil : titre, activite des jeux, n'importe quelle touche pour jouer.
+local ok_accueil, err_accueil = pcall(function() Package.Require("accueil/accueil.lua")(SharedConfig.accueil) end)
+if not ok_accueil then Console.Error("[accueil] chargement impossible : " .. tostring(err_accueil)) end
+
 -- Boutique du tailleur : grille des pieces, panier, achat (E sur le tailleur).
 local ok_tailleur, err_tailleur = pcall(function() Package.Require("tailleur/tailleur.lua")() end)
 if not ok_tailleur then Console.Error("[tailleur] chargement impossible : " .. tostring(err_tailleur)) end

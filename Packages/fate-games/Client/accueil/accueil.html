@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Accueil</title>
+<style>
+@font-face { font-family: "Lilita One"; src: url("../vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --papier-clair: #f6eedb; --laiton: #d9b56a; --ombre: #070a0b; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent;
+    font-family: "Lilita One", sans-serif; color: var(--encre); user-select: none; cursor: default; }
+body.apercu-navigateur { background: linear-gradient(160deg, #2b3450, #6a5a48 60%, #3a2c22); }
+/* Assombrit les bords pour lire le texte par-dessus la carte. */
+#voile { position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 42%, transparent 35%, rgba(7, 10, 11, .55) 100%); }
+
+.sk { position: relative; isolation: isolate; }
+.sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+.sk-svg .ombre { fill: var(--ombre); }
+.sk-svg .fond { fill: var(--fond, var(--papier)); }
+.sk-svg .trait { fill: none; stroke: var(--bord, var(--encre)); stroke-width: var(--epais, 3.5px); stroke-linejoin: round; }
+.sk-svg .trait2 { fill: none; stroke: var(--bord, var(--encre)); stroke-width: 1.5px; opacity: .4; }
+
+#solde { position: fixed; top: 28px; right: 32px; display: flex; align-items: center; gap: 8px;
+    padding: 8px 18px 8px 12px; font-size: 30px; }
+#titre { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) rotate(-2.5deg);
+    text-align: center; }
+#titre h1 { margin: 0; font-size: clamp(64px, 9vw, 150px); font-weight: 400; line-height: .9; color: var(--papier-clair);
+    -webkit-text-stroke: 5px var(--encre); paint-order: stroke fill;
+    text-shadow: 7px 8px 0 var(--ombre); }
+#jouer { display: inline-block; margin-top: 26px; padding: 10px 22px 8px; font-size: 26px;
+    transform: rotate(1.5deg); animation: respire 1.8s ease-in-out infinite; }
+@keyframes respire { 50% { opacity: .55; transform: rotate(1.5deg) scale(.97); } }
+@media (prefers-reduced-motion: reduce) { #jouer { animation: none; } .gain { animation: none !important; } }
+
+#bas { position: fixed; left: 32px; right: 32px; bottom: 28px; display: flex; flex-direction: column;
+    align-items: flex-start; gap: 10px; }
+#parties { padding: 8px 16px 7px; font-size: 20px; max-width: 70vw; }
+#astuce { display: flex; align-items: center; gap: 8px; color: var(--papier-clair); font-size: 18px;
+    text-shadow: 2px 2px 0 var(--ombre); transition: opacity .4s; }
+#astuce.cache { opacity: 0; }
+
+#gains { position: fixed; right: 32px; top: 110px; display: flex; flex-direction: column; align-items: flex-end;
+    gap: 10px; width: min(360px, 32vw); }
+.gain { padding: 7px 14px 6px; font-size: 17px; animation: glisse .5s ease-out; }
+.gain b { color: #8a6d3b; font-weight: 400; }
+@keyframes glisse { from { opacity: 0; transform: translateX(40px); } }
+</style>
+</head>
+<body>
+<div id="voile"></div>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="pile" viewBox="0 0 48 48">
+    <circle cx="18.5" cy="25.5" r="13.5" fill="#8a6d3b" stroke="#1c2123" stroke-width="2.6"/>
+    <circle cx="16" cy="24" r="13.5" fill="#e3c173" stroke="#1c2123" stroke-width="2.8"/>
+    <path d="M16 17.2l2 4.4 4.7.4-3.6 3.1 1.1 4.6-4.2-2.5-4.2 2.5 1.1-4.6-3.6-3.1 4.7-.4z" fill="#a8843f" stroke="#1c2123" stroke-width="1.6" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="ampoule" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" fill="#f6eedb" stroke="#1c2123" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div id="solde" class="sk" data-graine="11" data-rayon="999"><svg width="34" height="34"><use href="#pile"/></svg><span id="montant">0</span></div>
+<div id="titre">
+  <h1>Fate's Games</h1>
+  <div id="jouer" class="sk" data-graine="5" data-rayon="14">Appuie sur n'importe quelle touche pour jouer</div>
+</div>
+<div id="gains"></div>
+<div id="bas">
+  <div id="parties" class="sk" data-graine="21" data-rayon="12"></div>
+  <div id="astuce"><svg width="22" height="22"><use href="#ampoule"/></svg><span id="astuce-texte"></span></div>
+</div>
+
+<script src="../ui/esquisse.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const nettoyer = (s) => String(s == null ? "" : s).replace(/[<>&"]/g, "");
+let astuces = [], rang = 0;
+
+function texteParties(r) {
+  const lignes = (r && r.lignes) || [];
+  const bouts = lignes.map((l) => {
+    const n = (l.joueurs || 0) + (l.bots || 0);
+    if (l.statut === "attente") return `${l.jeu} : ${n}/${l.max} attendent`;
+    return `${l.jeu} en cours${l.detail ? ` (${l.detail})` : ""}`;
+  });
+  const enLigne = r && r.en_ligne ? `${r.en_ligne} joueur${r.en_ligne > 1 ? "s" : ""} en ligne` : "";
+  if (!bouts.length) return `Personne ne joue encore : assieds-toi à une table pour lancer une partie.${enLigne ? " · " + enLigne : ""}`;
+  return [...bouts, enLigne].filter(Boolean).join(" · ");
+}
+
+function parties(r) { $("parties").textContent = texteParties(r); requestAnimationFrame(habiller); }
+
+function gain(g, anime) {
+  const d = document.createElement("div");
+  d.className = "gain sk";
+  d.dataset.graine = String(30 + Math.floor(Math.random() * 60));
+  d.dataset.rayon = "10";
+  if (!anime) d.style.animation = "none";
+  d.innerHTML = `${nettoyer(g.nom)} a gagné <b>${nettoyer(g.montant)}</b> ${nettoyer(g.dans)}`;
+  $("gains").prepend(d);
+  while ($("gains").children.length > 4) $("gains").lastElementChild.remove();
+  requestAnimationFrame(habiller);
+}
+
+function astuceSuivante() {
+  if (!astuces.length) return;
+  $("astuce").classList.add("cache");
+  setTimeout(() => {
+    $("astuce-texte").textContent = astuces[rang++ % astuces.length];
+    $("astuce").classList.remove("cache");
+  }, 400);
+}
+
+function ouvrir(d, liste) {
+  $("montant").textContent = (d && d.solde) || 0;
+  parties(d && d.parties);
+  $("gains").innerHTML = "";
+  ((d && d.gains) || []).slice(0, 4).reverse().forEach((g) => gain(g, false));
+  astuces = (liste || []).slice().sort(() => Math.random() - 0.5);
+  rang = 0;
+  astuceSuivante();
+  requestAnimationFrame(habiller);
+}
+
+setInterval(astuceSuivante, 6000);
+new ResizeObserver(() => requestAnimationFrame(habiller)).observe(document.body);
+
+if (window.Events) {
+  Events.Subscribe("accueil:ouvrir", ouvrir);
+  Events.Subscribe("accueil:parties", parties);
+  Events.Subscribe("accueil:gain", (g) => gain(g, true));
+  Events.Call("pret");
+} else {
+  // Ouverte dans un navigateur : donnees d'exemple pour regler la page.
+  document.body.classList.add("apercu-navigateur");
+  ouvrir({ solde: 1250,
+    parties: { en_ligne: 12, lignes: [
+      { jeu: "Loup-garou", statut: "attente", joueurs: 3, bots: 2, max: 8 },
+      { jeu: "Liar's Bar", statut: "en_cours" },
+      { jeu: "Duel", statut: "en_cours", detail: "1 – 0" } ] },
+    gains: [ { nom: "Léo", montant: 250, dans: "au Liar's Bar" }, { nom: "Sam", montant: 120, dans: "au loup-garou" } ] },
+    ["Le tailleur te laisse essayer avant d'acheter.", "Maj pour courir, Espace pour sauter."]);
+  setTimeout(() => gain({ nom: "Inès", montant: 400, dans: "en duel" }, true), 2500);
+}
+</script>
+</body>
+</html>
