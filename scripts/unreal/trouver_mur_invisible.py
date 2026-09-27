@@ -40,11 +40,24 @@ for a in acteurs.get_all_level_actors():
 
 trouves.sort(key=lambda t: -t[0])
 print("MUR_CENTRE", round(cx), round(cy), "rayon", RAYON, "acteurs avec collision :", len(trouves))
-for volume, a, comp, taille, maillage, visible in trouves[:25]:
+
+
+def ligne(a, taille, maillage, visible):
     e = a.get_actor_scale3d()
     print("MUR_ACTEUR", a.get_actor_label(), "| classe", a.get_class().get_name(),
           "| taille cm", tuple(round(v) for v in (taille.x, taille.y, taille.z)),
           "| echelle", tuple(round(v, 2) for v in (e.x, e.y, e.z)),
-          "| visible", visible, "| editeur seul", a.is_editor_only(), "|", maillage)
-acteurs.set_selected_level_actors([t[1] for t in trouves[:10]])
-print("MUR_FIN : les 10 plus gros sont selectionnes (touche F pour les cadrer)")
+          "| visible", visible, "|", maillage)
+
+
+# Les decors ajoutes (pack, Fab, imports) d'abord : le coupable est la,
+# pas dans les murs de la carte d'origine.
+ajoutes = [t for t in trouves if "/MyAssetPack/" in t[4] or "/Fab/" in t[4]]
+print("MUR_AJOUTES", len(ajoutes), "decors ajoutes, du plus gros au plus petit :")
+for volume, a, comp, taille, maillage, visible in ajoutes[:20]:
+    ligne(a, taille, maillage, visible)
+print("MUR_AUTRES les 8 plus gros objets de la carte d'origine :")
+for volume, a, comp, taille, maillage, visible in [t for t in trouves if t not in ajoutes][:8]:
+    ligne(a, taille, maillage, visible)
+acteurs.set_selected_level_actors([t[1] for t in ajoutes[:10]])
+print("MUR_FIN : les 10 plus gros decors ajoutes sont selectionnes (touche F pour les cadrer)")
