@@ -37,21 +37,26 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
 
     ---------------------------------------------------------------- voix
 
-    -- La voix d'une partie passe par trois canaux globaux (doc Player :
-    -- SetVOIPGlobalChannelSetting, 1 a 63) ; la voix de proximite est coupee
-    -- pendant la partie. Un reglage par situation (effet voice_channel) :
+    -- Les vivants parlent en proximite : seule voix spatialisee (doc VOIP), on
+    -- entend qui parle et de quel cote du cercle, qui est bien plus petit que
+    -- la portee. Les morts se parlent sur un canal global (doc Player :
+    -- SetVOIPGlobalChannelSetting, 1 a 63). Un reglage par situation (effet
+    -- voice_channel) :
     --   sleep    la nuit, qui n'est pas loup : ni parler ni entendre
-    --   wolves   la nuit, les loups entre eux
-    --   village  le jour, tout le monde, a volume egal quelle que soit la distance
+    --   wolves   la nuit, les loups entre eux (les dormeurs n'entendent rien)
+    --   village  le jour, tous les vivants
     --   dead     les morts entre eux ; ils ecoutent les vivants sans leur parler
     --   normal   hors partie : la proximite, comme partout sur la map
+    -- Contrepartie de la proximite : un passant pres du cercle entend la partie
+    -- et s'y fait entendre (choix du 27/09). Les canaux village et wolves ne
+    -- servent plus ; ils restent coupes.
     local CANAUX = config.canaux or { village = 10, wolves = 11, dead = 12 }
     local N, E, D = VOIPSetting.None, VOIPSetting.ListenOnly, VOIPSetting.Both
     local VOIX = {
         sleep   = { locale = N, village = N, wolves = N, dead = N },
-        wolves  = { locale = N, village = N, wolves = D, dead = N },
-        village = { locale = N, village = D, wolves = N, dead = N },
-        dead    = { locale = N, village = E, wolves = E, dead = D },
+        wolves  = { locale = D, village = N, wolves = N, dead = N },
+        village = { locale = D, village = N, wolves = N, dead = N },
+        dead    = { locale = E, village = N, wolves = N, dead = D },
         normal  = { locale = D, village = N, wolves = N, dead = N },
     }
     local MESSAGES_VOIX = {
