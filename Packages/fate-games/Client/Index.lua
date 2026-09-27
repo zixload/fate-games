@@ -45,6 +45,10 @@ local ok_marche, err_marche = pcall(function()
 end)
 if not ok_marche then Console.Error("[marche] chargement impossible : " .. tostring(err_marche)) end
 
+-- Poses en boucle (PNJ, assis du loup-garou) rejouees chez chaque client.
+local ok_poses, err_poses = pcall(function() Package.Require("poses_boucle.lua")() end)
+if not ok_poses then Console.Error("[poses] chargement impossible : " .. tostring(err_poses)) end
+
 -- Le musicien : bulle "Est-ce que tu aimes bien la musique ?" (E sur lui).
 local ok_musicien, err_musicien = pcall(function() Package.Require("musicien/musicien.lua")() end)
 if not ok_musicien then Console.Error("[musicien] chargement impossible : " .. tostring(err_musicien)) end

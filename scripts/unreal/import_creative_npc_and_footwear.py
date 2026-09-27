@@ -109,12 +109,21 @@ def textured_material(destination, name, texture):
 
 
 def assign_materials(mesh, materials):
-    slots = list(mesh.get_editor_property("materials"))
-    if len(slots) != len(materials):
-        raise RuntimeError(f"{mesh.get_name()}: {len(slots)} slots, expected {len(materials)}")
-    for slot, material in zip(slots, materials):
-        slot.set_editor_property("material_interface", material)
-    mesh.set_editor_property("materials", slots)
+    # StaticMesh (la flute) : "materials" est protege, on passe par
+    # static_materials et set_material (27/09, l'import s'arretait la).
+    if isinstance(mesh, unreal.StaticMesh):
+        count = len(mesh.get_editor_property("static_materials"))
+        if count != len(materials):
+            raise RuntimeError(f"{mesh.get_name()}: {count} slots, expected {len(materials)}")
+        for index, material in enumerate(materials):
+            mesh.set_material(index, material)
+    else:
+        slots = list(mesh.get_editor_property("materials"))
+        if len(slots) != len(materials):
+            raise RuntimeError(f"{mesh.get_name()}: {len(slots)} slots, expected {len(materials)}")
+        for slot, material in zip(slots, materials):
+            slot.set_editor_property("material_interface", material)
+        mesh.set_editor_property("materials", slots)
     if not LIB.save_loaded_asset(mesh):
         raise RuntimeError("Could not save mesh: " + mesh.get_name())
 

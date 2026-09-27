@@ -53,7 +53,6 @@ Cosmetiques.liste = {
     { id = "chaussures_kit_baskets", nom = "Baskets", rarete = "common", emplacement = "chaussures", piece = "SK_Shoe_Sneakers_009" },
     { id = "chaussures_kit_chaussons", nom = "Chaussons", rarete = "common", emplacement = "chaussures", piece = "SK_Shoe_Slippers_002" },
     { id = "chaussures_kit_pantoufles", nom = "Pantoufles", rarete = "common", emplacement = "chaussures", piece = "SK_Shoe_Slippers_005" },
-    { id = "chaussures_kit_chaussettes", nom = "Chaussettes", rarete = "common", emplacement = "chaussures", piece = "SK_Socks_008" },
     { id = "accessoire_kit_casque", nom = "Casque audio", rarete = "common", emplacement = "accessoire", piece = "SK_Headphones_002" },
     { id = "accessoire_kit_nez", nom = "Nez de clown", rarete = "common", emplacement = "accessoire", piece = "SK_Clown_nose_001" },
     { id = "accessoire_kit_tetine", nom = "Tétine", rarete = "common", emplacement = "accessoire", piece = "SK_Pacifier_001" },

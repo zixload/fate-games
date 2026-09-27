@@ -159,7 +159,7 @@ return {
                 anim = "my-asset-pack::ANIM_NPC_Musician_Flute_Idle",
                 objet = { mesh = "my-asset-pack::SM_NPC_Spirit_Flute", os = "RightHandProp" },
                 -- Sa flute, en boucle autour de lui (art/sons/pnj_flute.wav, freesound).
-                musique = { son = "pnj_flute", volume = 0.55, proche = 250, portee = 1600 },
+                musique = { son = "pnj_flute", volume = 0.55, proche = 100, portee = 300 },  -- muet a 4 m (1 + 3)
                 -- E : "Est-ce que tu aimes bien la musique ?" ; un oui rapporte
                 -- le pourboire, une fois par jour et par compte.
                 pourboire = 50,

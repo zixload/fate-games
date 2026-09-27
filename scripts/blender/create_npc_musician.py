@@ -221,6 +221,12 @@ def bind_flute(scene, rig, flute):
     # the Creative armature as a dependency.
     export = flute.copy()
     export.data = flute.data.copy()
+    # Le squelette Creative porte une echelle 0,01 dans Blender : exportee dans
+    # le repere de l'os avec cette echelle, la flute sortait 100 fois trop
+    # grande dans Unreal (27/09). L'export garde position et rotation de l'os,
+    # sans son echelle ; l'apercu Blender, lui, reste parente a l'os.
+    sans_echelle = Matrix.LocRotScale(grip.to_translation(), grip.to_quaternion(), None)
+    export.data.transform(sans_echelle.inverted() @ grip)
     scene.collection.objects.link(export)
     export.name = "SM_NPC_Spirit_Flute_EXPORT"
     export.parent = None

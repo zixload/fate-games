@@ -88,6 +88,9 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
             local anim = def.assis and def.assis.anim or def.anim
             if anim then
                 pcall(function() corps:PlayAnimation(anim, "DefaultSlot", true, 0.2, 0.2, 1.0, true) end)
+                -- Rejouee par chaque client, y compris ceux qui arrivent apres
+                -- (Client/poses_boucle.lua).
+                corps:SetValue("pose_boucle", anim, true)
             end
             corps:SetValue("pnj", p.type, true)
             -- Objet tenu (la flute du musicien) : exporte dans le repere de
