@@ -238,9 +238,11 @@ end
 -- ESSAI : regler la camera assise en direct, "/cam <avant> <haut> [cote]"
 -- en cm (cote positif = vers la droite),
 -- tant que le personnage d'essai est actif. Les bonnes valeurs vont ensuite
--- dans personnage.seated_camera (mode dev).
+-- dans personnage.seated_camera. Les trois commandes de reglage (/cam,
+-- /vitesse, /saut) sont reservees au mode dev ; le reste du bloc (course,
+-- recul, regard assis) sert a tout le monde.
 local essai = ServerConfig.personnage
-if DEV and essai and essai.enabled then
+if essai and essai.enabled then
     Chat.Subscribe("PlayerSubmit", function(message, player)
         local texte = tostring(message)
         local avant, haut, cote = texte:match("^/cam%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s*$")
@@ -248,6 +250,7 @@ if DEV and essai and essai.enabled then
             avant, haut = texte:match("^/cam%s+(%-?[%d%.]+)%s+(%-?[%d%.]+)%s*$")
         end
         if not avant then return end
+        if not DEV then return end
 
         if Characters.SetSeatedCamera(player:GetID(), tonumber(avant), tonumber(haut), tonumber(cote or 0)) then
             Chat.SendMessage(player, ("camera assise : avant %s, haut %s, cote %s"):format(avant, haut, cote or 0))
@@ -269,6 +272,7 @@ if DEV and essai and essai.enabled then
             marche = texte:match(motif .. "([%d%.]+)%s*$")
         end
         if not marche then return end
+        if not DEV then return end
 
         local regler = arriere and Characters.SetVitessesArriere or Characters.SetVitesses
         if regler(player:GetID(), tonumber(marche), tonumber(course)) then
@@ -288,6 +292,7 @@ if DEV and essai and essai.enabled then
         local z, pesanteur = texte:match("^/saut%s+([%d%.]+)%s+([%d%.]+)%s*$")
         if not z then z = texte:match("^/saut%s+([%d%.]+)%s*$") end
         if not z then return end
+        if not DEV then return end
 
         if Characters.SetSaut(player:GetID(), tonumber(z), tonumber(pesanteur)) then
             local p = tonumber(pesanteur) or essai.gravity_scale
