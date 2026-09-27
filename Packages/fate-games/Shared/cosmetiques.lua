@@ -45,6 +45,25 @@ Cosmetiques.liste = {
     { id = "haut_dark", nom = "T-shirt Nuit noire", rarete = "legendary", emplacement = "haut", piece = "SK_COS_TShirt_Rare_Compass", materiau = "MI_COS_TShirt_M_Dark" },
     { id = "haut_galaxie", nom = "T-shirt Galaxie", rarete = "legendary", emplacement = "haut", piece = "SK_COS_TShirt_Rare_Compass", materiau = "MI_COS_TShirt_M_Galaxie" },
     { id = "haut_soleilretro", nom = "T-shirt Soleil rétro", rarete = "legendary", emplacement = "haut", piece = "SK_COS_TShirt_Rare_Compass", materiau = "MI_COS_TShirt_M_SoleilRetro" },
+    -- Tete, chaussures et accessoires du kit Creative
+    { id = "cheveux_kit_010", nom = "Coiffure courte", rarete = "common", emplacement = "cheveux", piece = "SK_Hairstyle_male_010" },
+    { id = "cheveux_kit_012", nom = "Coiffure bouclée", rarete = "common", emplacement = "cheveux", piece = "SK_Hairstyle_male_012" },
+    { id = "visage_kit_usual", nom = "Visage tranquille", rarete = "common", emplacement = "visage", piece = "SK_Male_emotion_usual_001" },
+    { id = "visage_kit_happy", nom = "Visage content", rarete = "common", emplacement = "visage", piece = "SK_Male_emotion_happy_002" },
+    { id = "visage_kit_angry", nom = "Visage ronchon", rarete = "common", emplacement = "visage", piece = "SK_Male_emotion_angry_003" },
+    { id = "chapeau_kit_010", nom = "Chapeau", rarete = "common", emplacement = "chapeau", piece = "SK_Hat_010" },
+    { id = "lunettes_kit_004", nom = "Lunettes rondes", rarete = "common", emplacement = "lunettes", piece = "SK_Glasses_004" },
+    { id = "lunettes_kit_006", nom = "Lunettes carrées", rarete = "common", emplacement = "lunettes", piece = "SK_Glasses_006" },
+    { id = "barbe_kit_001", nom = "Moustache", rarete = "common", emplacement = "barbe", piece = "SK_Moustache_001" },
+    { id = "barbe_kit_002", nom = "Grosse moustache", rarete = "common", emplacement = "barbe", piece = "SK_Moustache_002" },
+    { id = "chaussures_kit_baskets", nom = "Baskets", rarete = "common", emplacement = "chaussures", piece = "SK_Shoe_Sneakers_009" },
+    { id = "chaussures_kit_chaussons", nom = "Chaussons", rarete = "common", emplacement = "chaussures", piece = "SK_Shoe_Slippers_002" },
+    { id = "chaussures_kit_pantoufles", nom = "Pantoufles", rarete = "common", emplacement = "chaussures", piece = "SK_Shoe_Slippers_005" },
+    { id = "chaussures_kit_chaussettes", nom = "Chaussettes", rarete = "common", emplacement = "chaussures", piece = "SK_Socks_008" },
+    { id = "accessoire_kit_casque", nom = "Casque audio", rarete = "common", emplacement = "accessoire", piece = "SK_Headphones_002" },
+    { id = "accessoire_kit_nez", nom = "Nez de clown", rarete = "common", emplacement = "accessoire", piece = "SK_Clown_nose_001" },
+    { id = "accessoire_kit_tetine", nom = "Tétine", rarete = "common", emplacement = "accessoire", piece = "SK_Pacifier_001" },
+    { id = "accessoire_kit_gants", nom = "Gants", rarete = "common", emplacement = "accessoire", piece = "SK_Gloves_006" },
     -- Bas du kit Creative
     { id = "bas_kit_cargo", nom = "Cargo Creative", rarete = "common", emplacement = "bas", piece = "SK_Pants_010" },
     { id = "bas_kit_pantalon", nom = "Pantalon Creative", rarete = "common", emplacement = "bas", piece = "SK_Pants_014" },
@@ -82,6 +101,20 @@ Cosmetiques.liste = {
     { id = "bas_amplemarine", nom = "Ample marine", rarete = "common", emplacement = "bas", piece = "SK_COS_Pants_Ample", materiau = "MI_COS_Pants_AmpleMarine" },
     { id = "bas_ampleolive", nom = "Ample olive", rarete = "common", emplacement = "bas", piece = "SK_COS_Pants_Ample", materiau = "MI_COS_Pants_AmpleOlive" },
     { id = "bas_amplecreme", nom = "Ample crème", rarete = "common", emplacement = "bas", piece = "SK_COS_Pants_Ample", materiau = "MI_COS_Pants_AmpleCreme" },
+}
+
+-- Les categories, dans l'ordre du mannequin et du vestiaire. Une categorie
+-- vide s'affiche "a venir" : les pieces arriveront (accessoires chers...).
+Cosmetiques.emplacements = {
+    { id = "cheveux", nom = "Cheveux" },
+    { id = "visage", nom = "Visage" },
+    { id = "chapeau", nom = "Chapeau" },
+    { id = "lunettes", nom = "Lunettes" },
+    { id = "barbe", nom = "Barbe" },
+    { id = "haut", nom = "Haut" },
+    { id = "bas", nom = "Bas" },
+    { id = "chaussures", nom = "Chaussures" },
+    { id = "accessoire", nom = "Accessoire" },
 }
 
 Cosmetiques.par_emplacement = {}

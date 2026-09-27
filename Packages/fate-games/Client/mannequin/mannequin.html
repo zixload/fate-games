@@ -17,54 +17,57 @@ body.apercu-navigateur { background: radial-gradient(circle at 60% 40%, #6b5a45,
 .sk-svg .trait { fill: none; stroke: var(--encre); stroke-width: 3.5px; stroke-linejoin: round; }
 .sk-svg .trait2 { fill: none; stroke: var(--encre); stroke-width: 1.5px; opacity: .4; }
 
-.touche { display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 6px; box-sizing: border-box;
-    border: 2.5px solid var(--encre); border-bottom-width: 5px; border-radius: 8px; background: #f6eedb; font-size: 15px; }
+.touche { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 5px; box-sizing: border-box;
+    border: 2.5px solid var(--encre); border-bottom-width: 5px; border-radius: 8px; background: #f6eedb; font-size: 14px; }
 
 #panneau { position: absolute; right: 40px; top: 50%; transform: translateY(-50%) rotate(1deg);
-    width: 360px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
-h1 { margin: 0; font-size: 26px; font-weight: 400; }
-.ligne { display: flex; flex-direction: column; gap: 3px; }
-.tete { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--laiton-fonce); }
-.tete .rang { margin-left: auto; font-variant-numeric: tabular-nums; }
-.nom { font-size: 21px; }
-.tech { font-family: "Cascadia Mono", Consolas, monospace; font-size: 11.5px; color: #4a4f52; word-break: break-all; }
-.rarete { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 2px solid var(--encre); }
+    width: 330px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
+.ligne { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 8px; font-size: 16px; }
+.ligne .cat { color: var(--laiton-fonce); font-size: 14px; }
+.ligne .nom { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ligne.choisie { background: var(--laiton); }
+.ligne.choisie .cat { color: var(--encre); }
+.ligne.choisie .nom::before { content: "‹ "; opacity: .6; }
+.ligne.choisie .nom::after { content: " ›"; opacity: .6; }
+.ligne.vide { opacity: .45; }
+.ligne .aucun { opacity: .5; }
+.rarete { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--encre); }
 .common { background: #e6e1d6; } .uncommon { background: #a8d5a2; } .rare { background: #8fb8e8; }
-.epic { background: #c7a2e8; } .legendary { background: var(--laiton); }
-#aide { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 14px; align-items: center; }
-#aide span { display: inline-flex; gap: 5px; align-items: center; }
+.epic { background: #c7a2e8; } .legendary { background: #e0a93b; }
+#aide { display: flex; gap: 14px; font-size: 14px; align-items: center; margin-top: 8px; }
+#aide span { display: inline-flex; gap: 4px; align-items: center; }
 </style>
 </head>
 <body>
 <div id="panneau" class="sk" data-graine="83" data-rayon="16">
-  <h1>Mannequin</h1>
-  <div class="ligne" id="haut"></div>
-  <div class="ligne" id="bas"></div>
+  <div id="lignes"></div>
   <div id="aide">
-    <span><span class="touche">←</span><span class="touche">→</span>haut</span>
-    <span><span class="touche">↑</span><span class="touche">↓</span>bas</span>
-    <span>/mannequin retirer</span>
+    <span><span class="touche">↑</span><span class="touche">↓</span>catégorie</span>
+    <span><span class="touche">←</span><span class="touche">→</span>changer</span>
   </div>
 </div>
 <script src="../ui/esquisse.js"></script>
 <script>
-const RARETES = { common: "commun", uncommon: "peu commun", rare: "rare", epic: "épique", legendary: "légendaire" };
 const nettoyer = (s) => String(s == null ? "" : s).replace(/[<>&]/g, "");
-function ligne(id, titre, v) {
-  const el = document.getElementById(id);
-  if (!v || !v.nom) { el.innerHTML = `<div class="tete">${titre}<span class="rang">0/${v ? v.total : 0}</span></div>`; return; }
-  el.innerHTML = `<div class="tete">${titre}<span class="rarete ${nettoyer(v.rarete)}">${RARETES[v.rarete] || nettoyer(v.rarete)}</span>`
-    + `<span class="rang">${v.rang}/${v.total}</span></div>`
-    + `<div class="nom">${nettoyer(v.nom)}</div>`
-    + `<div class="tech">${nettoyer(v.piece)}<br>${nettoyer(v.materiau)}</div>`;
+function maj(lignes) {
+  document.getElementById("lignes").innerHTML = (lignes || []).map((l) => {
+    const nom = l.vide ? '<span class="nom">à venir</span>'
+      : (l.nom ? `<span class="nom">${nettoyer(l.nom)}</span>` : '<span class="nom aucun">aucun</span>');
+    const rarete = l.rarete ? `<span class="rarete ${nettoyer(l.rarete)}"></span>` : "<span></span>";
+    return `<div class="ligne${l.choisie ? " choisie" : ""}${l.vide ? " vide" : ""}"><span class="cat">${nettoyer(l.categorie)}</span>${nom}${rarete}</div>`;
+  }).join("");
+  requestAnimationFrame(habiller);
 }
-function maj(haut, bas) { ligne("haut", "Haut", haut); ligne("bas", "Bas", bas); requestAnimationFrame(habiller); }
 if (typeof Events !== "undefined") {
   Events.Subscribe("mannequin:maj", maj);
 } else {
   document.body.classList.add("apercu-navigateur");
-  maj({ rang: 12, total: 21, nom: "T-shirt Hawaï", rarete: "epic", piece: "SK_COS_TShirt_Rare_Compass", materiau: "MI_COS_TShirt_M_Hawai" },
-      { rang: 7, total: 35, nom: "Slim tartan", rarete: "rare", piece: "SK_COS_Pants_Slim", materiau: "MI_COS_Pants_Tartan" });
+  maj([{ categorie: "Cheveux", nom: "Coiffure bouclée", rarete: "common" }, { categorie: "Visage" },
+       { categorie: "Chapeau", vide: true }, { categorie: "Lunettes", nom: "Lunettes rondes", rarete: "common" },
+       { categorie: "Barbe" }, { categorie: "Haut", nom: "T-shirt Hawaï", rarete: "epic", choisie: true },
+       { categorie: "Bas", nom: "Slim tartan", rarete: "rare" }, { categorie: "Chaussures", nom: "Baskets", rarete: "common" },
+       { categorie: "Accessoire", vide: true }]);
 }
 </script>
 </body>

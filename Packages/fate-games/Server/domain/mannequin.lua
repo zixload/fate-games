@@ -6,9 +6,9 @@
 --   /mannequin retirer   l'enleve et ferme le HUD
 --   E sur le mannequin   ouvre ou ferme le HUD (le client le ferme a plus de 3 m)
 --
--- Le client choisit haut et bas (fleches, Client/mannequin.lua) ; le serveur
--- habille le mannequin : piece accrochee puis materiau du motif. Un vetement
--- dont le materiau ne prend pas reste en damier, avec son nom affiche.
+-- Le client choisit une piece par categorie (Shared/cosmetiques.lua,
+-- emplacements ; fleches, Client/mannequin.lua), 0 pour aucune ; le serveur
+-- habille le mannequin : piece accrochee puis materiau du motif.
 
 return function(Log, Characters, dev_pour, Interactables)
     local Mannequin = {}
@@ -16,13 +16,14 @@ return function(Log, Characters, dev_pour, Interactables)
     local Cosmetiques = Package.Require("Shared/cosmetiques.lua")
     local corps = nil
     local repere, inter = nil, nil
+    -- Une piece par categorie (rang dans le catalogue, 0 : aucune).
     local choix = { haut = 1, bas = 1 }
 
     local function habiller()
         if not (corps and corps:IsValid()) then return end
         local worn, materiaux = {}, {}
-        for _, emplacement in ipairs({ "haut", "bas" }) do
-            local c = (Cosmetiques.par_emplacement[emplacement] or {})[choix[emplacement]]
+        for _, e in ipairs(Cosmetiques.emplacements) do
+            local c = (Cosmetiques.par_emplacement[e.id] or {})[choix[e.id] or 0]
             if c then
                 worn[#worn + 1] = c.piece_chemin
                 materiaux[#worn] = c.materiau_chemin
@@ -42,8 +43,7 @@ return function(Log, Characters, dev_pour, Interactables)
 
     -- basculer : E sur le mannequin ferme le HUD s'il est deja ouvert.
     local function ouvrir(player, basculer)
-        Events.CallRemote("mannequin:ouvrir", player, Reliability.Reliable, choix.haut, choix.bas, corps:GetID(),
-            basculer == true)
+        Events.CallRemote("mannequin:ouvrir", player, Reliability.Reliable, choix, corps:GetID(), basculer == true)
     end
 
     local function poser(player)
@@ -92,10 +92,12 @@ return function(Log, Characters, dev_pour, Interactables)
 
         Events.SubscribeRemote("mannequin:choix", function(player, emplacement, index)
             if not dev_pour(player) then return end
-            local liste = Cosmetiques.par_emplacement[emplacement]
-            index = tonumber(index)
-            if not (liste and index and liste[math.floor(index)]) then return end
-            choix[emplacement] = math.floor(index)
+            local liste = Cosmetiques.par_emplacement[emplacement] or {}
+            index = math.floor(tonumber(index) or -1)
+            local connu = false
+            for _, e in ipairs(Cosmetiques.emplacements) do connu = connu or e.id == emplacement end
+            if not connu or index < 0 or index > #liste then return end
+            choix[emplacement] = index
             habiller()
         end)
 
