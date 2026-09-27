@@ -38,6 +38,10 @@ pendant tout l'accueil.
 - Serveur, `accueil:jouer` : habille avec la tenue (`look_de(etat)`), puis
   `Characters.QuitterVestiaire` (dernière position ou point d'apparition).
 - Un joueur qui ne touche à rien reste sur l'accueil ; aucune limite de temps.
+- Nouveau joueur (aucune apparence enregistrée) : il reçoit au hasard une
+  des apparences de base des bots (`Apparences.Aleatoire`), enregistrée comme
+  son apparence (`equipement`, rayon `persos`) pour qu'il la retrouve à chaque
+  connexion. Il la change ensuite pièce par pièce chez le tailleur.
 
 ## 2. Caméra vivante
 
