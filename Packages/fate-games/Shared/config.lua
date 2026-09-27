@@ -192,11 +192,13 @@ return {
     -- a regler en jeu avec /lg regard <degres> (mode dev).
     regard_assis = { lacet_max = 70, tangage_max = 35, gain = 1.3, cou = 0.4, tete = 0.6,
         decalage_loup_garou = 0,
+        marge_poses = 50,    -- degres de plus permis au-dela de tangage_max pour ces decalages
         poses_loup_garou = {
             ["my-asset-pack::ANIM_WW_Sitting_Idle"] = 20,
             ["my-asset-pack::ANIM_WW_Sitting_Idle_Glance"] = 20,
-            ["my-asset-pack::ANIM_WW_Sitting_Idle_Lazy"] = -20,   -- adosse en arriere
-            ["my-asset-pack::ANIM_WW_Sitting_Idle_Shift"] = 10,
+            ["my-asset-pack::ANIM_WW_Sitting_Dazed"] = 30,        -- tete tres basse
+            ["my-asset-pack::ANIM_WW_Sitting_Idle_Lazy"] = -40,   -- adosse, tete en arriere
+            ["my-asset-pack::ANIM_WW_Sitting_Idle_Shift"] = -40,  -- meme pose adossee
         },
     },
 

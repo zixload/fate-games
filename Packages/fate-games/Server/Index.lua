@@ -349,7 +349,8 @@ if essai and essai.enabled then
         local R = SharedConfig.regard_assis
         character:SetValue("liars_look", {
             yaw = math.max(-R.lacet_max, math.min(R.lacet_max, yaw)),
-            pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch)),
+            -- Borne elargie de la marge des poses du loup-garou (regard_assis).
+            pitch = math.max(-R.tangage_max - (R.marge_poses or 0), math.min(R.tangage_max + (R.marge_poses or 0), pitch)),
         }, true)
     end)
 end

@@ -471,7 +471,7 @@ return function(config, Interaction)
         return invite
     end
 
-    -- Les votants d'un joueur, "(Moi)" compris, tries ; au-dela de 5, "+n".
+    -- Les votants d'un joueur, "(Moi)" compris, tries, tous affiches.
     -- Chacun : { nom, maire } (la voix du maire compte double).
     local function votants_de(id, mon_id, noms)
         local out, moi = {}, nil
@@ -483,11 +483,6 @@ return function(config, Interaction)
         end
         table.sort(out, function(a, b) return a.nom < b.nom end)
         if moi then table.insert(out, 1, moi) end
-        if #out > 5 then
-            local reste = #out - 4
-            for k = #out, 5, -1 do out[k] = nil end
-            out[5] = { nom = "+" .. reste }
-        end
         return out
     end
 

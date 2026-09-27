@@ -164,13 +164,25 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     local COUSSINS = D.coussins or { "Red", "Blue", "Yellow", "Green", "Purple", "White", "Brown" }
     -- Poses assises (docs/WEREWOLF-ASSETS-IMPORT.md) : hauteur du pivot du
     -- personnage au-dessus du sol sous le tapis (cm, echelle 0,8). Une pose
-    -- tiree au hasard a chaque prise de place.
+    -- tiree a chaque prise de place, selon son poids : les deux poses adossees
+    -- (Lazy, Shift) sont rares, 2 fois sur 10 a elles deux (27/09).
     local POSES = D.poses or {
-        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle", z = 11.0 },
-        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Glance", z = 11.0 },
-        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Lazy", z = 12.8 },
-        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Shift", z = 12.8 },
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle", z = 11.0, poids = 3 },
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Glance", z = 11.0, poids = 3 },
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Dazed", z = 11.6, poids = 2 },
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Lazy", z = 12.8, poids = 1 },
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Shift", z = 12.8, poids = 1 },
     }
+    local function tirer_pose()
+        local total = 0
+        for _, p in ipairs(POSES) do total = total + (p.poids or 1) end
+        local r = math.random() * total
+        for _, p in ipairs(POSES) do
+            r = r - (p.poids or 1)
+            if r <= 0 then return p end
+        end
+        return POSES[#POSES]
+    end
     -- Elimine : un geste agace (GESTES.mort), puis assis un peu en retrait.
     local MORT = D.mort or { anim = "my-asset-pack::ANIM_WW_Seated_Dead_Idle", z = 11.0 }
     -- La nuit, qui ne joue pas dort : tete basse, respiration.
@@ -275,7 +287,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     -- La pose de repos d'un joueur : tiree au hasard a sa prise de place.
     local poses_tirees = {}
     local function pose_de(id)
-        if not poses_tirees[id] then poses_tirees[id] = POSES[math.random(#POSES)] end
+        if not poses_tirees[id] then poses_tirees[id] = tirer_pose() end
         return poses_tirees[id]
     end
 
@@ -941,7 +953,8 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         -- Personne a payer parmi ceux qui ont mise : chacun reprend sa mise.
         if #gagnants == 0 then gagnants = participants end
         local cagnotte = mise_partie * #participants
-        local bonus = next(bots) and 0 or BONUS
+        -- Pas de bonus avec des bots, ni pour une partie arretee de force.
+        local bonus = (next(bots) or resume.raison == "arretee") and 0 or BONUS
         local part = #gagnants > 0 and math.floor(cagnotte / #gagnants) or 0
         local payes = {}
         for _, a in ipairs(gagnants) do payes[a] = true end
@@ -1134,6 +1147,13 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             elseif mots[2] == "bots" and dev_ok(player) then A.AjouterBots(player, mots[3])
             elseif mots[2] == "passer" and dev_ok(player) then A.Passer(player)
             elseif mots[2] == "brume" and dev_ok(player) then A.Brume(player, mots[3], mots[4], mots[5])
+            elseif mots[2] == "fin" and dev_ok(player) then
+                -- Fin de la partie en cours, sans vainqueur : chacun reprend sa mise.
+                local fx, raison = Engine.arreter(s)
+                if not fx then Chat.SendMessage(player, "/lg fin : " .. tostring(raison)) return false end
+                diffuser("ww:annonce", "Partie arrêtée.", true)
+                A.Appliquer(fx)
+                Log.Info("werewolf", "partie arretee par " .. player:GetName())
             else return end
             return false
         end)

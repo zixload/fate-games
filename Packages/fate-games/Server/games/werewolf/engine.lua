@@ -345,6 +345,8 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
             fx[#fx + 1] = Effects.point_at(acteur, pose and cible or nil, "all")
             if pose and id == "day_vote" and Voting.votants(s.vote_jour) >= #Match.vivants(m) then presser(s, fx) end
         elseif id == "day_mayor" then
+            -- Comme au vote du village, on ne vote pas pour soi.
+            if cible == acteur then return nil, "interdit" end
             local pose = voter(s.bulletin, acteur, cible)
             fx[#fx + 1] = Effects.votes(Voting.compte(s.bulletin), "all")
             fx[#fx + 1] = Effects.point_at(acteur, pose and cible or nil, "all")
@@ -373,6 +375,17 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
         local fx = {}
         terminer(s, fx)
         return fx
+    end
+
+    -- Arret force (commande de dev) : fin sans vainqueur, chacun reprend sa
+    -- mise, pas de bonus de participation (raison "arretee").
+    function Engine.arreter(s)
+        if s.statut ~= "partie" then return nil, "aucune_partie" end
+        s.statut = "finie"
+        local roles, vivants = {}, {}
+        for id, j in pairs(s.match.joueurs) do roles[id], vivants[id] = j.role, j.vivant end
+        return { Effects.match_ended("none", { roles = roles, vivants = vivants, nuits = s.nuit,
+            amoureux = s.match.amoureux, raison = "arretee" }) }
     end
 
     -- Un joueur quitte la partie : il est traite comme mort. Sous le minimum

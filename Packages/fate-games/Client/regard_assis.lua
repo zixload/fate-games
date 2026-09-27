@@ -21,7 +21,7 @@ local function cible(character, regard)
     if not (yaw and pitch) then return end
     cibles[character] = {
         yaw = math.max(-R.lacet_max, math.min(R.lacet_max, yaw)),
-        pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch)),
+        pitch = math.max(-R.tangage_max - (R.marge_poses or 0), math.min(R.tangage_max + (R.marge_poses or 0), pitch)),
     }
 end
 

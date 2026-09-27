@@ -130,7 +130,9 @@ Timer.SetInterval(function()
             local par_pose = R.poses_loup_garou or {}
             decalage = par_pose[pose] or R.decalage_loup_garou or 0
         end
-        local regard_pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch * R.gain + decalage))
+        -- Le decalage s'ajoute apres la borne du regard : une pose tres penchee
+        -- doit pouvoir etre ramenee au-dela de tangage_max.
+        local regard_pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch * R.gain)) + decalage
         if not perso:GetValue("liars_dead", false) then
             -- La tete ne doit pas suivre la camera pendant la chute figee.
             -- Tangage inverse : dans le rig, un tangage positif baisse la tete
