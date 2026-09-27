@@ -45,6 +45,10 @@ local ok_marche, err_marche = pcall(function()
 end)
 if not ok_marche then Console.Error("[marche] chargement impossible : " .. tostring(err_marche)) end
 
+-- Le musicien : bulle "Est-ce que tu aimes bien la musique ?" (E sur lui).
+local ok_musicien, err_musicien = pcall(function() Package.Require("musicien/musicien.lua")() end)
+if not ok_musicien then Console.Error("[musicien] chargement impossible : " .. tostring(err_musicien)) end
+
 -- Ecran d'accueil : titre, activite des jeux, n'importe quelle touche pour jouer.
 local ok_accueil, err_accueil = pcall(function() Package.Require("accueil/accueil.lua")(SharedConfig.accueil) end)
 if not ok_accueil then Console.Error("[accueil] chargement impossible : " .. tostring(err_accueil)) end

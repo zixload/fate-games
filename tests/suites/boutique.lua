@@ -240,6 +240,37 @@ return function(H, Stubs)
             H.assert_eq(vus[1][3], 100, "montant")
         end)
 
+        H.it("recompenser verse depuis la banque avec sa raison", function()
+            local c = Stubs.reset()
+            local Boutique = build(c)
+            local etat = charger(c, Boutique, 100, 0)
+            local ok
+            Boutique.Recompenser(ACCOUNT, 50, "musicien", nil, function(r) ok = r end)
+            H.assert_true(ok, "verse")
+            H.assert_eq(etat.solde, 150, "solde credite")
+            local vu = false
+            for _, e in ipairs(c.db.executed) do
+                if e.query:find("INSERT INTO ledger", 1, true) and e.params[2] == "banque" and e.params[5] == "musicien" then vu = true end
+            end
+            H.assert_true(vu, "mouvement banque -> compte, raison musicien")
+        end)
+
+        H.it("derniere recompense : la date du jour de la plus recente, ou nil", function()
+            local c = Stubs.reset()
+            local Boutique = build(c)
+            charger(c, Boutique, 0, 0)
+            c.db.answers = {}
+            c.answer("MAX(created_at)", { { quand = "2026-09-27T18:05:00Z" } })
+            local quand
+            Boutique.DerniereRecompense(ACCOUNT, "musicien", function(q) quand = q end)
+            H.assert_eq(quand, "2026-09-27", "jour")
+            c.db.answers = {}
+            c.answer("MAX(created_at)", { { quand = nil } })
+            local rien = "pas appele"
+            Boutique.DerniereRecompense(ACCOUNT, "musicien", function(q) rien = q end)
+            H.assert_nil(rien, "jamais")
+        end)
+
         H.it("rendre les mises credite chacun sans l'annoncer comme un gain", function()
             local c = Stubs.reset()
             local Boutique = build(c)

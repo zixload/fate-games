@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Le musicien</title>
+<style>
+@font-face { font-family: "Lilita One"; src: url("../vestiaire/fonts/LilitaOne-Regular.ttf") format("truetype"); }
+:root { --encre: #1c2123; --papier: #efe6d2; --papier-clair: #f6eedb; --laiton: #d9b56a; --ombre: #070a0b; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent;
+    font-family: "Lilita One", sans-serif; color: var(--encre); user-select: none; }
+body.apercu-navigateur { background: linear-gradient(160deg, #2b3450, #6a5a48); }
+.sk { position: relative; isolation: isolate; }
+.sk-svg { position: absolute; z-index: -1; overflow: visible; pointer-events: none; }
+.sk-svg .ombre { fill: var(--ombre); }
+.sk-svg .fond { fill: var(--fond, var(--papier)); }
+.sk-svg .trait { fill: none; stroke: var(--bord, var(--encre)); stroke-width: var(--epais, 3.5px); stroke-linejoin: round; }
+.sk-svg .trait2 { fill: none; stroke: var(--bord, var(--encre)); stroke-width: 1.5px; opacity: .4; }
+#bulle { position: fixed; left: 50%; bottom: 16%; transform: translateX(-50%) rotate(-1deg);
+    width: min(520px, 86vw); padding: 16px 22px 18px; display: none; }
+body.ouverte #bulle { display: block; animation: pop .22s ease-out; }
+@keyframes pop { from { opacity: 0; transform: translateX(-50%) translateY(10px) rotate(-1deg); } }
+@media (prefers-reduced-motion: reduce) { body.ouverte #bulle { animation: none; } }
+#qui { font-size: 17px; color: #8a6d3b; margin-bottom: 4px; }
+#texte { font-size: 24px; line-height: 1.2; }
+#choix { display: none; gap: 12px; margin-top: 14px; }
+body.question #choix { display: flex; }
+button { font: inherit; font-size: 20px; color: var(--encre); cursor: pointer; background: var(--papier-clair);
+    border: 2.5px solid var(--encre); border-bottom-width: 5px; border-radius: 8px; padding: 6px 18px 5px; }
+button:hover { background: #fff7e6; }
+button:active { border-bottom-width: 2.5px; transform: translateY(2.5px); }
+button:focus-visible { outline: 3px solid var(--laiton); outline-offset: 2px; }
+#oui { background: var(--laiton); }
+</style>
+</head>
+<body>
+<div id="bulle" class="sk" data-graine="17" data-rayon="14">
+  <div id="qui">Le musicien</div>
+  <div id="texte"></div>
+  <div id="choix">
+    <button id="oui">Oui, j'adore !</button>
+    <button id="non">Bof, non</button>
+  </div>
+</div>
+<script src="../ui/esquisse.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const envoyer = (nom, ...a) => { if (window.Events) Events.Call(nom, ...a); };
+function bulle(texte, question) {
+  $("texte").textContent = texte;
+  document.body.classList.add("ouverte");
+  document.body.classList.toggle("question", !!question);
+  requestAnimationFrame(habiller);
+  if (question) $("oui").focus();
+}
+function repondre(oui) {
+  if (!document.body.classList.contains("question")) return;
+  document.body.classList.remove("question");
+  envoyer("repondre", oui);
+}
+$("oui").addEventListener("click", () => repondre(true));
+$("non").addEventListener("click", () => repondre(false));
+addEventListener("keydown", (e) => { if (e.key === "Escape") repondre(false); });
+if (window.Events) {
+  Events.Subscribe("musicien:bulle", bulle);
+} else {
+  document.body.classList.add("apercu-navigateur");
+  bulle("Est-ce que tu aimes bien la musique ?", true);
+}
+</script>
+</body>
+</html>

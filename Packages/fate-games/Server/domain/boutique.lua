@@ -188,6 +188,28 @@ return function(Log, DB, Ids, Catalogue, config)
         suivant()
     end
 
+    -- Une recompense versee par la banque (le musicien, une fois par jour).
+    -- callback(ok)
+    function Boutique.Recompenser(account, montant, raison, cid, callback)
+        local etat = etats[account.id]
+        if not etat or montant <= 0 then return callback(false) end
+        mouvement("banque", compte(account), montant, raison, cid, function(ok)
+            if ok then etat.solde = etat.solde + montant end
+            callback(ok)
+        end)
+    end
+
+    -- Le jour (UTC, AAAA-MM-JJ) de la derniere recompense de cette raison, ou
+    -- nil si jamais. callback(jour, err)
+    function Boutique.DerniereRecompense(account, raison, callback)
+        DB.Select("SELECT MAX(created_at) AS quand FROM ledger WHERE credit_account = :0 AND reason = :1",
+            function(rows, err)
+                if err then return callback(nil, err) end
+                local q = rows and rows[1] and rows[1].quand
+                callback(q and tostring(q):sub(1, 10) or nil)
+            end, compte(account), raison)
+    end
+
     local function lire_possessions(account, etat, callback)
         DB.Select(
             "SELECT rayon, article FROM possessions WHERE account_id = :0",

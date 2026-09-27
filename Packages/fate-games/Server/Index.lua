@@ -561,6 +561,44 @@ do
         end)
     end
 
+    -- Le musicien : E sur lui, il demande si l'on aime sa musique ; un oui
+    -- rapporte un pourboire, une fois par jour (UTC) et par compte.
+    local questions = {}   -- player_id -> true : question posee, reponse attendue
+    local POURBOIRE = (SharedConfig.pnj.types.musicien or {}).pourboire or 50
+    local function aujourdhui() return os.date("!%Y-%m-%d") end
+
+    PnjActions.musicien = function(player)
+        local session = Characters.SessionByPlayer(player:GetID())
+        if not (session and session.account) then return end
+        Boutique.DerniereRecompense(session.account, "musicien", function(jour)
+            if not player:IsValid() then return end
+            if jour == aujourdhui() then
+                return Events.CallRemote("musicien:deja", player, Reliability.Reliable)
+            end
+            questions[player:GetID()] = true
+            Events.CallRemote("musicien:question", player, Reliability.Reliable, POURBOIRE)
+        end)
+    end
+
+    Events.SubscribeRemote("musicien:reponse", function(player, oui)
+        if not questions[player:GetID()] then return end
+        questions[player:GetID()] = nil
+        local session = Characters.SessionByPlayer(player:GetID())
+        if not (session and session.account) then return end
+        if oui ~= true then return Events.CallRemote("musicien:bof", player, Reliability.Reliable) end
+        -- Le jour est revalide ici : deux questions ouvertes ne paient qu'une fois.
+        Boutique.DerniereRecompense(session.account, "musicien", function(jour)
+            if not player:IsValid() then return end
+            if jour == aujourdhui() then return Events.CallRemote("musicien:deja", player, Reliability.Reliable) end
+            Boutique.Recompenser(session.account, POURBOIRE, "musicien", nil, function(ok)
+                if player:IsValid() then
+                    Events.CallRemote("musicien:merci", player, Reliability.Reliable, ok and POURBOIRE or 0)
+                end
+            end)
+        end)
+    end)
+    Player.Subscribe("Destroy", function(player) questions[player:GetID()] = nil end)
+
     Events.SubscribeRemote("armurerie:sortir", function(player)
         if not Characters.AuVestiaire(player:GetID()) then return end
         Characters.QuitterVestiaire(player:GetID())

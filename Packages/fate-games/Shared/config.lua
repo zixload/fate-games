@@ -157,7 +157,13 @@ return {
             -- la tete suit une musique lente, les genoux flechissent un peu.
             musicien = { nom = "Le musicien", look = "bavard", phrases = {},
                 anim = "my-asset-pack::ANIM_NPC_Musician_Flute_Idle",
-                objet = { mesh = "my-asset-pack::SM_NPC_Spirit_Flute", os = "RightHandProp" } },
+                objet = { mesh = "my-asset-pack::SM_NPC_Spirit_Flute", os = "RightHandProp" },
+                -- Sa flute, en boucle autour de lui (art/sons/pnj_flute.wav, freesound).
+                musique = { son = "pnj_flute", volume = 0.55, proche = 250, portee = 1600 },
+                -- E : "Est-ce que tu aimes bien la musique ?" ; un oui rapporte
+                -- le pourboire, une fois par jour et par compte.
+                pourboire = 50,
+                interaction = { label = "Écouter", kind = "pickup", action = "musicien" } },
             touriste = { nom = "Le touriste", look = "souris", phrases = {} },
         },
     },

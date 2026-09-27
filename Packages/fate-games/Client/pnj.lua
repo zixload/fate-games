@@ -35,6 +35,31 @@ return function(config)
         end)
     end)
 
+    -- Musique jouee par un PNJ (le musicien et sa flute) : un son en boucle,
+    -- en 3D a sa place, cree quand il apparait, detruit avec lui.
+    local musiques = setmetatable({}, { __mode = "k" })
+    Timer.SetInterval(function()
+        for c, s in pairs(musiques) do
+            if not c:IsValid() then
+                if s and s:IsValid() then pcall(function() s:Destroy() end) end
+                musiques[c] = nil
+            end
+        end
+        for _, c in pairs(CharacterSimple.GetAll()) do
+            local type_pnj = c:IsValid() and c:GetValue("pnj", nil)
+            local def = type_pnj and config.types and config.types[type_pnj]
+            local m = def and def.musique
+            if m and not (musiques[c] and musiques[c]:IsValid()) then
+                pcall(function()
+                    local l = c:GetLocation()
+                    musiques[c] = Sound(Vector(l.X, l.Y, l.Z + 40), chemin(m.son), false, false, SoundType.SFX,
+                        m.volume or 0.5, 1, m.proche or 250, m.portee or 1600, AttenuationFunction.Linear, false,
+                        SoundLoopMode.Forever)
+                end)
+            end
+        end
+    end, 1000)
+
     local function appliquer(c, yaw, pitch)
         c:SetAnimationBlueprintPropertyValue("LookNeck", Rotator(yaw * R.cou, 0, -pitch * R.cou))
         c:SetAnimationBlueprintPropertyValue("LookHead", Rotator(yaw * R.tete, 0, -pitch * R.tete))
