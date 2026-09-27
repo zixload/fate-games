@@ -20,8 +20,9 @@ from pathlib import Path
 
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Vector, noise
 from mathutils.bvhtree import BVHTree
+from mathutils.kdtree import KDTree
 
 PROJECT = Path(__file__).resolve().parents[2]
 SOURCE = PROJECT / "art/cosmetics/tshirts/creative_tshirt_rarities.blend"
@@ -73,7 +74,7 @@ def surface_tete(corps):
     return bm
 
 
-def calotte(corps, ligne, decalage, epaisseur=0.012, apres=None):
+def calotte(corps, ligne, decalage, epaisseur=0.012, apres=None, niveaux=2):
     """ligne(p) -> hauteur d'implantation ; decalage(p, n) -> distance au crane."""
     bm = surface_tete(corps)
     # Le maillage de la tete est en deux moities (sommets doubles au milieu) :
@@ -125,7 +126,7 @@ def calotte(corps, ligne, decalage, epaisseur=0.012, apres=None):
     m.use_even_offset = True
     m.use_rim = True
     s = o.modifiers.new("Lisse", "SUBSURF")
-    s.levels = 2
+    s.levels = niveaux
     bpy.ops.object.select_all(action="DESELECT")
     o.select_set(True)
     for mod in list(o.modifiers):
@@ -288,10 +289,93 @@ def lisses():
     return ligne, decalage, apres
 
 
+def afro():
+    """Afro : implantation naturelle (front, tempes, nuque basse), puis un
+    grand volume rond autour du crane, frise en surface. Le volume part de la
+    peau a la ligne d'implantation et s'arrondit vite, comme le bas d'une
+    boule (27/09 : un fondu lent laissait une corniche plate sous la nuque)."""
+    CENTRE = Vector((0.0, 0.015, 1.745))
+
+    def ligne(p):
+        a = angle_arriere(p)
+        return 1.77 - 0.17 * lisse(a) - 0.02 * math.exp(-((a - 0.45) / 0.06) ** 2)
+
+    def decalage(p, n):
+        return 0.008
+
+    bord = {}   # distance de chaque sommet au bord de la coiffure (apres)
+
+    def montee(v):
+        """0 a l'implantation, 1 dans le plein volume, selon la distance au
+        bord (27/09 : mesuree en hauteur, elle faisait une marche la ou la
+        ligne descend, derriere l'oreille). Plus progressif aux tempes."""
+        a = angle_arriere(v.co)
+        longueur = 0.055 + 0.05 * math.exp(-((a - 0.42) / 0.14) ** 2)
+        # Les 1,2 premiers cm restent a plat sur la peau (contour colle au crane).
+        t = min(1.0, max(0.0, (bord[v] - 0.012) / longueur))
+        return 1 - (1 - t) ** 2.2
+
+    def apres(bm, corps):
+        # Assez de sommets pour les boucles, avant de gonfler.
+        bmesh.ops.subdivide_edges(bm, edges=list(bm.edges), cuts=3, use_grid_fill=True)
+        bm.normal_update()
+        aretes = [v for v in bm.verts if v.is_boundary]
+        kd = KDTree(len(aretes))
+        for k, v in enumerate(aretes):
+            kd.insert(v.co, k)
+        kd.balance()
+        for v in bm.verts:
+            bord[v] = kd.find(v.co)[2]
+        for v in bm.verts:
+            d = v.co - CENTRE
+            if d.length < 1e-4:
+                continue
+            u = d.normalized()
+            # Enveloppe : une boule un peu haute, plus profonde derriere.
+            ry = 0.16 if u.y < 0 else 0.18
+            k = 1.0 / math.sqrt((u.x / 0.175) ** 2 + (u.y / ry) ** 2 + (u.z / 0.19) ** 2)
+            monte = montee(v)
+            r = d.length + max(0.0, k - d.length) * monte
+            # Le volume s'ecarte de la peau en pente (au plus 1,7 cm par cm de
+            # hauteur) : pas de corniche sous la nuque, le dessous remonte en biais.
+            h = max(0.0, bord[v] - 0.012)
+            v.co = CENTRE + u * min(r, d.length + 1.7 * h)
+        bmesh.ops.smooth_vert(bm, verts=bm.verts, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+        # Frisure apres le lissage : des boucles serrees en relief.
+        bm.normal_update()
+        for v in bm.verts:
+            t = montee(v)
+            f = noise.turbulence(v.co * 52.0, 2, False) - 0.5
+            f += 0.5 * (noise.turbulence(v.co * 110.0, 1, False) - 0.5)
+            v.co += v.normal * 0.01 * f * t
+        # Le contour sur la peau : pres de l'implantation, chaque sommet est
+        # ramene au point de peau le plus proche, a 3 mm (27/09 : les bords
+        # flottaient au-dessus du front, des tempes et de la nuque).
+        peau = surface_tete(corps)
+        bmesh.ops.remove_doubles(peau, verts=peau.verts, dist=0.0015)
+        arbre = BVHTree.FromBMesh(peau)
+        peau.free()
+        for v in bm.verts:
+            poids = 1 - lisse(montee(v) / 0.25)
+            if poids <= 0:
+                continue
+            hit, n, _, _ = arbre.find_nearest(v.co)
+            if hit is None:
+                continue
+            if n.dot(v.co - CRANE) < 0:
+                n = -n
+            v.co = v.co.lerp(hit + n * 0.003, poids)
+
+    return ligne, decalage, apres
+
+
+NIVEAUX = {"Afro": 1}   # subdivision finale : l'afro est deja dense (apres)
+
 COUPES = {
     # nom : (fabrique, couleur, nom affiche, rarete)
     "Courte": (courte, "brun", "Coupe courte", "common"),
     "Lisses": (lisses, "blond_fonce", "Cheveux lisses", "common"),
+    "Afro": (afro, "brun_fonce", "Afro", "uncommon"),
 }
 
 
@@ -354,7 +438,7 @@ def main(styles):
         fabrique, couleur, affiche, rarete = COUPES[style]
         f = fabrique()
         ligne, decalage, apres = f if len(f) == 3 else (f[0], f[1], None)
-        o = calotte(corps, ligne, decalage, apres=apres)
+        o = calotte(corps, ligne, decalage, apres=apres, niveaux=NIVEAUX.get(style, 2))
         nom = "SK_COS_Cheveux_" + style
         o.name = nom
         colorer_degrade(o, couleur)
