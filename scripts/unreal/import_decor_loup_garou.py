@@ -70,9 +70,9 @@ DECORS = [
         "wickmaterial": {"base": "Wick Texture.png"},
     }},
     # Decor du tailleur : la cabine de Club Penguin Island (OBJ en metres, ~6 m
-    # de large : verifier la taille en la posant). Pas de .mtl dans le zip :
+    # de large ; a l echelle 1 il sortait a 6 cm, 27/09). Pas de .mtl dans le zip :
     # materiaux relies par leur nom (usemtl).
-    {"nom": "ClothingCustomizer", "echelle": 1.0, "materiaux": {
+    {"nom": "ClothingCustomizer", "echelle": 100.0, "materiaux": {
         "clothingdesignerstatic": {"base": "ClothingDesigner.png"},
         "catalogchallengecurtains": {"base": "CatalogChallengeCurtain.png"},
         "lighteffects": {"verre": True, "couleur": (1.0, 0.95, 0.8), "emissif": 2.0},
