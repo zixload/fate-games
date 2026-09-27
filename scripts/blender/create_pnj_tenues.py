@@ -185,6 +185,29 @@ def chemise_retroussee(corps):
     return obj, moyennes
 
 
+def bride_fermee(nom, points, rayon, mat):
+    """Un tube ferme qui passe par `points` (bord arrondi du col)."""
+    curve = bpy.data.curves.new(nom, "CURVE")
+    curve.dimensions = "3D"
+    curve.resolution_u = 4
+    curve.bevel_depth = rayon
+    curve.bevel_resolution = 3
+    spline = curve.splines.new("POLY")
+    spline.points.add(len(points) - 1)
+    for node, co in zip(spline.points, points):
+        node.co = (co.x, co.y, co.z, 1.0)
+    spline.use_cyclic_u = True
+    o = bpy.data.objects.new(nom, curve)
+    bpy.context.collection.objects.link(o)
+    bpy.ops.object.select_all(action="DESELECT")
+    o.select_set(True)
+    bpy.context.view_layer.objects.active = o
+    bpy.ops.object.convert(target="MESH")
+    o.data.materials.clear()
+    o.data.materials.append(mat)
+    return o
+
+
 def gilet_depuis(chemise):
     """Le tronc de la chemise, ouvert en V devant, sans manches ni col, decolle."""
     zc = [v.co.z for v in chemise.data.vertices if abs(v.co.x) < 0.05 and v.co.y > 0]
@@ -202,6 +225,7 @@ def gilet_depuis(chemise):
     # l'emmanchure, en haut, est echancree en biais sous le bras (27/09 : coupe
     # verticale a 1 cm de la couture, la chemise se voyait sur les cotes).
     X_EMM = EMMANCHURE + 0.002
+    R_COL = 0.103                        # le gilet vient toucher le col (27/09)
     X_IN, Z_HAUT, Z_BAS = EMMANCHURE - 0.035, 1.30, 1.16
     K_EMM = (X_EMM - X_IN) / (Z_HAUT - Z_BAS)
     # Le V rejoint la base du col (x = 7,5 cm a z = 1,42) : le gilet vient
@@ -239,7 +263,7 @@ def gilet_depuis(chemise):
     # trous et des pointes au dos (27/09).
     def dans_col(f):
         c = f.calc_center_median()
-        return c.z > 1.39 and math.hypot(c.x, c.y - 0.034) < 0.112
+        return c.z > 1.39 and math.hypot(c.x, c.y - 0.034) < R_COL
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if dans_col(f)], context="FACES")
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
     # Les petits morceaux restes seuls (bord d'emmanchure, col) : dehors.
@@ -268,7 +292,7 @@ def gilet_depuis(chemise):
     for v in bord_col:
         d = Vector((v.co.x, v.co.y - 0.034, 0))
         if d.length > 1e-4 and d.length < 0.13:
-            d = d.normalized() * 0.112
+            d = d.normalized() * R_COL
             v.co.x, v.co.y = d.x, 0.034 + d.y
     # Bord du haut a une hauteur reguliere (les pointes venaient de sommets du
     # bord a des hauteurs differentes) : moyenne avec ses voisins sur le bord,
@@ -493,6 +517,20 @@ def tailleur(corps):
     gilet.data.materials.append(MAT_TAILLEUR["gilet"])
     for p in gilet.data.polygons:
         p.use_smooth = True
+    # Bord du col arrondi : un petit bourrelet le long de son sommet (27/09).
+    anneau_col = []
+    for k in range(48):
+        t = 2 * math.pi * k / 48
+        dx, dy = math.sin(t), math.cos(t)
+        meilleurs = [v.co for v in chemise.data.vertices
+                     if 0.07 < math.hypot(v.co.x, v.co.y - 0.034) < 0.115
+                     and (v.co.x * dx + (v.co.y - 0.034) * dy) > 0.97 * math.hypot(v.co.x, v.co.y - 0.034)]
+        if meilleurs:
+            anneau_col.append(max(meilleurs, key=lambda c: c.z).copy())
+    if len(anneau_col) > 8:
+        roulis_col = bride_fermee("Bord du col", anneau_col, 0.0055, MAT_TAILLEUR["chemise"])
+    else:
+        roulis_col = None
     # Bourrelets des manches retroussees.
     roulis = []
     for cote in (1, -1):
@@ -510,7 +548,7 @@ def tailleur(corps):
         faces += [tuple(base + i for i in poly.vertices) for poly in o.data.polygons]
     arbre_tout = BVHTree.FromPolygons(sommets, faces)
     cacher_sous(chemise, arbre)
-    pieces = [chemise, gilet] + roulis + boutons_et_chaine(arbre) + [metre_ruban(arbre_tout)] + pelote(rayons)
+    pieces = [chemise, gilet] + roulis + ([roulis_col] if roulis_col else []) + boutons_et_chaine(arbre) + [metre_ruban(arbre_tout)] + pelote(rayons)
     for o in pieces:
         for poly in o.data.polygons:
             poly.use_smooth = True
