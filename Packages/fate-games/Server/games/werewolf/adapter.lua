@@ -180,7 +180,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Lazy", z = 12.8, poids = 1 },
         { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Shift", z = 12.8, poids = 1 },
     }
-    local MIROIR_CUIT = D.miroir_cuit or false
+    local MIROIR_CUIT = D.miroir_cuit ~= false   -- cuite le 27/09
     local function tirer_pose()
         local liste = {}
         for _, p in ipairs(POSES) do
@@ -746,6 +746,21 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         envoyer_salon()
     end
 
+    -- Tous les bots quittent le cercle (hors partie : /lg fin d'abord).
+    function A.RetirerBots(player)
+        if s.statut == "partie" then return dire(player, "Une partie est en cours : /lg fin d'abord.") end
+        local n = 0
+        for id, b in pairs(bots) do
+            relever(id)
+            retirer(id)
+            if b.corps and b.corps:IsValid() then pcall(function() b.corps:Destroy() end) end
+            bots[id] = nil
+            n = n + 1
+        end
+        envoyer_salon()
+        dire(player, n > 0 and (n .. " bot(s) retire(s).") or "Aucun bot au cercle.")
+    end
+
     ---------------------------------------------------------------- recit
 
     -- Le recit de la partie, montre a tous a la fin (ecran de resultat).
@@ -1206,7 +1221,9 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             if mots[1] ~= "/lg" then return end
             if mots[2] == "entrer" then A.Rejoindre(player)
             elseif mots[2] == "sortir" then A.Quitter(player)
-            elseif mots[2] == "bots" and dev_ok(player) then A.AjouterBots(player, mots[3])
+            elseif mots[2] == "bots" and dev_ok(player) then
+                -- /lg bots 0 : les retirer tous.
+                if tonumber(mots[3]) == 0 then A.RetirerBots(player) else A.AjouterBots(player, mots[3]) end
             elseif mots[2] == "passer" and dev_ok(player) then A.Passer(player)
             elseif mots[2] == "brume" and dev_ok(player) then A.Brume(player, mots[3], mots[4], mots[5])
             elseif mots[2] == "fin" and dev_ok(player) then
