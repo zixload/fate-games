@@ -45,6 +45,14 @@ body.apercu-navigateur { background: linear-gradient(160deg, #2b3450, #6a5a48 60
 .gain { padding: 7px 14px 6px; font-size: 17px; animation: glisse .5s ease-out; }
 .gain b { color: #8a6d3b; font-weight: 400; }
 @keyframes glisse { from { opacity: 0; transform: translateX(40px); } }
+#stats { position: fixed; left: 32px; top: 110px; width: min(330px, 28vw); padding: 14px 18px 12px; display: none; }
+#stats.plein { display: block; }
+#stats h2 { margin: 0 0 8px; font-size: 22px; font-weight: 400; }
+.jeu { margin: 8px 0 0; font-size: 16px; line-height: 1.25; }
+.jeu b { font-weight: 400; color: #8a6d3b; }
+.role { display: grid; grid-template-columns: 86px 1fr 38px; align-items: center; gap: 6px; font-size: 13px; margin-top: 3px; }
+.barre { height: 8px; border: 2px solid var(--encre); border-radius: 5px; background: var(--papier-clair); overflow: hidden; }
+.barre i { display: block; height: 100%; background: var(--laiton); }
 </style>
 </head>
 <body>
@@ -64,6 +72,7 @@ body.apercu-navigateur { background: linear-gradient(160deg, #2b3450, #6a5a48 60
   <div id="jouer" class="sk" data-graine="5" data-rayon="14">Appuie sur n'importe quelle touche pour jouer</div>
 </div>
 <div id="gains"></div>
+<div id="stats" class="sk" data-graine="61" data-rayon="12"></div>
 <div id="bas">
   <div id="parties" class="sk" data-graine="21" data-rayon="12"></div>
   <div id="astuce"><svg width="22" height="22"><use href="#ampoule"/></svg><span id="astuce-texte"></span></div>
@@ -122,6 +131,35 @@ function ouvrir(d, liste) {
   requestAnimationFrame(habiller);
 }
 
+function stats(s) {
+  const el = $("stats");
+  if (!s) return;
+  const lignes = [];
+  if (s.vide) {
+    lignes.push('<div class="jeu">Ta première partie t\'attend.</div>');
+  }
+  if (s.loup_garou) {
+    const lg = s.loup_garou;
+    lignes.push(`<div class="jeu">Loup-garou : <b>${lg.parties}</b> parties · <b>${lg.victoires}</b> victoires (${lg.taux} %) · <b>${lg.survies}</b> survies</div>`);
+    for (const r of lg.roles || []) {
+      lignes.push(`<div class="role"><span>${nettoyer(r.nom)}</span><span class="barre"><i style="width:${Math.max(0, Math.min(100, Number(r.pourcent) || 0))}%"></i></span><span>${nettoyer(r.pourcent)} %</span></div>`);
+    }
+  }
+  if (s.liars) {
+    const l = s.liars;
+    lignes.push(`<div class="jeu">Liar's Bar : <b>${l.parties}</b> parties · <b>${l.victoires}</b> victoires (${l.taux} %) · place moyenne <b>${String(l.place).replace(".", ",")}</b></div>`);
+  }
+  if (s.duel) {
+    lignes.push(`<div class="jeu">Duel : <b>${s.duel.parties}</b> duels · <b>${s.duel.victoires}</b> gagnés</div>`);
+  }
+  if (s.argent && s.argent.total > 0) {
+    lignes.push(`<div class="jeu">Gagné en tout : <b>${s.argent.total}</b> · meilleure cagnotte <b>${s.argent.meilleur}</b></div>`);
+  }
+  el.innerHTML = `<h2>Tes parties</h2>${lignes.join("")}`;
+  el.classList.add("plein");
+  requestAnimationFrame(habiller);
+}
+
 setInterval(astuceSuivante, 6000);
 new ResizeObserver(() => requestAnimationFrame(habiller)).observe(document.body);
 
@@ -129,6 +167,7 @@ if (window.Events) {
   Events.Subscribe("accueil:ouvrir", ouvrir);
   Events.Subscribe("accueil:parties", parties);
   Events.Subscribe("accueil:gain", (g) => gain(g, true));
+  Events.Subscribe("accueil:stats", stats);
   Events.Call("pret");
 } else {
   // Ouverte dans un navigateur : donnees d'exemple pour regler la page.
@@ -141,6 +180,12 @@ if (window.Events) {
     gains: [ { nom: "Léo", montant: 250, dans: "au Liar's Bar" }, { nom: "Sam", montant: 120, dans: "au loup-garou" } ] },
     ["Le tailleur te laisse essayer avant d'acheter.", "Maj pour courir, Espace pour sauter."]);
   setTimeout(() => gain({ nom: "Inès", montant: 400, dans: "en duel" }, true), 2500);
+  stats({ vide: false,
+    loup_garou: { parties: 10, victoires: 5, taux: 50, survies: 3, roles: [
+      { nom: "Villageois", pourcent: 40 }, { nom: "Loup", pourcent: 30 }, { nom: "Voyante", pourcent: 20 }, { nom: "Sorcière", pourcent: 10 } ] },
+    liars: { parties: 6, victoires: 2, taux: 33, place: 2.3 },
+    duel: { parties: 3, victoires: 2 },
+    argent: { total: 1850, meilleur: 400 } });
 }
 </script>
 </body>

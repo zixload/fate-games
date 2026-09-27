@@ -67,6 +67,7 @@ return function(config)
     end)
     Events.SubscribeRemote("accueil:parties", function(r) vers_page("accueil:parties", r) end)
     Events.SubscribeRemote("accueil:gain", function(g) vers_page("accueil:gain", g) end)
+    Events.SubscribeRemote("accueil:stats", function(s) vers_page("accueil:stats", s) end)
     Events.SubscribeRemote("accueil:fermer", fermer)
 
     -- /accueil a|b (dev) : le serveur demande la camera, on la lui renvoie.
