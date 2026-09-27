@@ -160,7 +160,7 @@ def chemise_retroussee(corps):
     avec un bourrelet retrousse."""
     obj = ML.base_sans_capuche()
     obj.name = "Chemise"
-    # Pas de col (27/09) : le gilet ferme monte jusqu'au cou.
+    ML.col_rond(obj)
     ML.subdiviser(obj)
     # Manches coupees un peu au-dessus du coude (s = 0,27 m depuis l'epaule).
     bm = bmesh.new()
