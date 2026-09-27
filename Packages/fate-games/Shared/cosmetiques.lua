@@ -140,19 +140,66 @@ Cosmetiques.emplacements = {
     { id = "accessoire", nom = "Accessoire" },
 }
 
+-- Un meme modele en plusieurs couleurs = un seul article (27/09) : on
+-- l'achete une fois, puis on choisit sa couleur chez le tailleur. Chaque
+-- couleur garde son identifiant (la tenue enregistree le reference) ;
+-- l'article, lui, porte l'identifiant du groupe, le prix et le numero.
+local GROUPES = {
+    bas_ample = { nom = "Pantalon ample", rarete = "common", couleurs = {
+        bas_amplenoir = { "noir", "#1e1e21" }, bas_amplebeige = { "beige", "#cbb68f" },
+        bas_amplemarron = { "marron", "#5a3b24" }, bas_amplegris = { "gris", "#6e7176" },
+        bas_amplemarine = { "marine", "#1f2a44" }, bas_ampleolive = { "olive", "#4f5a2c" },
+        bas_amplecreme = { "crème", "#ebe4d4" } } },
+    bas_pyjama = { nom = "Pyjama", rarete = "uncommon", couleurs = {
+        bas_pyjamableu = { "bleu ciel", "#7fb3e0" }, bas_pyjamarose = { "rose", "#f2a0b8" },
+        bas_pyjamavert = { "menthe", "#7cc49a" }, bas_pyjamamarine = { "marine", "#23355c" },
+        bas_pyjamarouge = { "rouge", "#c2303b" }, bas_pyjamaviolet = { "violet", "#8e6cc4" } } },
+    haut_ml_tartan = { nom = "Manches longues tartan", rarete = "rare", couleurs = {
+        haut_ml_rouge = { "rouge", "#b3202a" }, haut_ml_foret = { "forêt", "#27543a" },
+        haut_ml_gris = { "gris", "#8d9095" }, haut_ml_moutarde = { "moutarde", "#c99a2e" },
+        haut_ml_ciel = { "ciel", "#6fa9da" }, haut_ml_rose = { "rose", "#dd8fab" } } },
+}
+
 Cosmetiques.par_emplacement = {}
 Cosmetiques.par_id = {}
+Cosmetiques.groupes = {}     -- id du groupe -> { id, nom, rarete, emplacement, numero, variantes }
+local numeros = {}           -- emplacement -> { [id ou groupe] = numero }
 for _, c in ipairs(Cosmetiques.liste) do
     c.piece_chemin = PACK .. "::" .. c.piece
     c.materiau_chemin = c.materiau and (PACK .. "::" .. c.materiau) or nil
     Cosmetiques.par_id[c.id] = c
     local e = Cosmetiques.par_emplacement[c.emplacement] or {}
     e[#e + 1] = c
-    -- Numero dans sa categorie (Cheveux 01, 02...) : le meme au mannequin et
-    -- chez le tailleur, pour retrouver vite une piece reperee. Ajouter les
-    -- nouvelles pieces en fin de categorie garde les numeros existants.
-    c.numero = #e
     Cosmetiques.par_emplacement[c.emplacement] = e
+    for gid, g in pairs(GROUPES) do
+        local couleur = g.couleurs[c.id]
+        if couleur then
+            c.groupe, c.teinte, c.couleur = gid, couleur[1], couleur[2]
+            local groupe = Cosmetiques.groupes[gid] or { id = gid, nom = g.nom, rarete = g.rarete,
+                                                         emplacement = c.emplacement, variantes = {} }
+            groupe.variantes[#groupe.variantes + 1] = c
+            Cosmetiques.groupes[gid] = groupe
+        end
+    end
+    -- Numero dans sa categorie (Cheveux 01, 02...) : le meme au mannequin et
+    -- chez le tailleur, pour retrouver vite une piece reperee. Les couleurs
+    -- d'un meme article partagent son numero. Ajouter les nouvelles pieces en
+    -- fin de liste garde les numeros existants.
+    local n = numeros[c.emplacement] or { _total = 0 }
+    local cle = c.groupe or c.id
+    if not n[cle] then
+        n._total = n._total + 1
+        n[cle] = n._total
+    end
+    c.numero = n[cle]
+    if c.groupe then Cosmetiques.groupes[c.groupe].numero = n[cle] end
+    numeros[c.emplacement] = n
+end
+
+-- L'identifiant qu'on achete pour une piece : son groupe s'il en a un.
+function Cosmetiques.achat_id(id)
+    local c = Cosmetiques.par_id[id]
+    return c and c.groupe or id
 end
 
 -- Accroche une tenue resolue (Shared/appearances.lua) a un corps : tete,

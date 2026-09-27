@@ -336,6 +336,21 @@ return function(Log, DB, Ids, Catalogue, config)
         )
     end
 
+    -- Une piece du tailleur est-elle a lui ? Une couleur l'est des que son
+    -- article (le groupe) l'est ; une couleur achetee seule avant le 27/09
+    -- donne aussi tout l'article.
+    function Boutique.PossedeCosmetique(etat, id)
+        local C = Package.Require("Shared/cosmetiques.lua")
+        local achat = C.achat_id(id)
+        if Boutique.Possede(etat, "cosmetiques", achat) then return true end
+        local g = C.groupes[achat]
+        local a_moi = etat.possede.cosmetiques or {}
+        for _, v in ipairs(g and g.variantes or {}) do
+            if a_moi[v.id] then return true end
+        end
+        return false
+    end
+
     -- A la deconnexion : la base reste la verite, le cache se reconstruit.
     -- Le panier du tailleur : tout ou rien sur le prix total, puis un achat par
     -- piece (Boutique.Acheter revalide chacune). callback(ok, raison).
@@ -346,7 +361,7 @@ return function(Log, DB, Ids, Catalogue, config)
         for _, id in ipairs(ids) do
             local a = Catalogue.article("cosmetiques", id)
             if not a then return callback(false, "inconnu") end
-            if not Boutique.Possede(etat, "cosmetiques", id) then
+            if not Boutique.PossedeCosmetique(etat, id) then
                 total = total + a.prix
                 liste[#liste + 1] = id
             end
@@ -375,7 +390,7 @@ return function(Log, DB, Ids, Catalogue, config)
         if id ~= "aucun" then
             local piece = C.par_id[id]
             if not (piece and piece.emplacement == emplacement) then return callback(false, "inconnu") end
-            if not Boutique.Possede(etat, "cosmetiques", id) then return callback(false, "non_possede") end
+            if not Boutique.PossedeCosmetique(etat, id) then return callback(false, "non_possede") end
         end
         DB.Execute(
             [[INSERT INTO tenue (account_id, emplacement, article, updated_at) VALUES (:0, :1, :2, :3)
@@ -392,18 +407,34 @@ return function(Log, DB, Ids, Catalogue, config)
             account.id, emplacement, id, now())
     end
 
-    -- Ce que la boutique du tailleur affiche : solde, pieces (prix, possedee,
-    -- portee), tenue.
+    -- Ce que la boutique du tailleur affiche : solde, articles (prix, possede,
+    -- porte), tenue. Un article en plusieurs couleurs vient une fois, avec ses
+    -- variantes (identifiant, teinte, couleur) et celle qui est portee.
     function Boutique.VueTailleur(etat)
         local C = Package.Require("Shared/cosmetiques.lua")
         local vue = { solde = etat.solde, tenue = etat.tenue, articles = {} }
+        local vus = {}
         for _, c in ipairs(C.liste) do
-            local a = Catalogue.article("cosmetiques", c.id)
-            vue.articles[#vue.articles + 1] = {
-                id = c.id, nom = c.nom, numero = c.numero, rarete = c.rarete, emplacement = c.emplacement,
-                prix = a and a.prix or 0, possede = Boutique.Possede(etat, "cosmetiques", c.id),
-                porte = etat.tenue[c.emplacement] == c.id,
-            }
+            local id = c.groupe or c.id
+            if not vus[id] then
+                vus[id] = true
+                local a = Catalogue.article("cosmetiques", id)
+                local article = {
+                    id = id, nom = c.nom, numero = c.numero, rarete = c.rarete, emplacement = c.emplacement,
+                    prix = a and a.prix or 0, possede = Boutique.PossedeCosmetique(etat, c.id),
+                    porte = etat.tenue[c.emplacement] == c.id,
+                }
+                local g = c.groupe and C.groupes[c.groupe]
+                if g then
+                    article.nom, article.rarete, article.variantes = g.nom, g.rarete, {}
+                    article.porte = false
+                    for _, v in ipairs(g.variantes) do
+                        article.variantes[#article.variantes + 1] = { id = v.id, teinte = v.teinte, couleur = v.couleur }
+                        if etat.tenue[c.emplacement] == v.id then article.porte, article.porte_id = true, v.id end
+                    end
+                end
+                vue.articles[#vue.articles + 1] = article
+            end
         end
         return vue
     end

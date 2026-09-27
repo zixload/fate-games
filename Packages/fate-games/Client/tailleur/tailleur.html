@@ -49,6 +49,10 @@ button.principal { background: var(--laiton); }
 .carte .image img { width: 100%; height: 100%; object-fit: cover; }
 .carte .image svg { width: 55%; height: 55%; opacity: .45; }
 .carte .nom { font-size: 15px; line-height: 1.1; min-height: 33px; }
+/* Couleurs d'un meme article : une pastille par teinte, la choisie cerclee. */
+.pastilles { display: flex; flex-wrap: wrap; gap: 5px; }
+.pastille { width: 17px; height: 17px; border-radius: 50%; border: 2px solid var(--encre); cursor: pointer; }
+.pastille[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--papier-clair), 0 0 0 4px var(--encre); }
 /* Numero dans la categorie, le meme qu'au mannequin (Shared/cosmetiques.lua). */
 .carte .num { font-weight: 700; font-variant-numeric: tabular-nums; }
 .carte .bas { display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
@@ -121,8 +125,13 @@ const REFUS = { solde: "Solde insuffisant.", non_possede: "Tu ne possèdes pas c
 
 let categories = [], vue = { solde: 0, articles: [], tenue: {} }, onglet = null;
 const panier = new Set();
+const choix = {};   // article en couleurs -> identifiant de la couleur choisie
 
 function article(id) { return vue.articles.find((a) => a.id === id); }
+// La piece a porter ou essayer pour un article : sa couleur choisie, sinon
+// celle qu'on porte, sinon la premiere ; l'article lui-meme s'il n'a qu'une couleur.
+function piece(a) { return a.variantes ? (choix[a.id] || a.porte_id || a.variantes[0].id) : a.id; }
+function teinte(a) { const v = a.variantes && a.variantes.find((x) => x.id === piece(a)); return v ? v.teinte : ""; }
 
 function dessinerOnglets() {
   $("onglets").innerHTML = categories.map((c) =>
@@ -135,8 +144,11 @@ function carte(a) {
     : a.possede ? '<span class="etiquette">à porter</span>'
     : `<span class="prix"><svg width="18" height="18"><use href="#pile"/></svg>${a.prix}</span>`;
   return `<button class="carte ${etat}" data-id="${a.id}" style="--rarete: var(--${nettoyer(a.rarete)})" title="${RARETES[a.rarete] || ""}">
-    <div class="image"><img src="img/${nettoyer(a.id)}.png" alt="" onerror="this.replaceWith(document.createRange().createContextualFragment('<svg><use href=\\'#cintre\\'/></svg>'))"></div>
+    <div class="image"><img src="img/${nettoyer(piece(a))}.png" alt="" onerror="this.replaceWith(document.createRange().createContextualFragment('<svg><use href=\\'#cintre\\'/></svg>'))"></div>
     <div class="nom"><b class="num">${String(a.numero || 0).padStart(2, "0")}</b> ${nettoyer(a.nom)}</div>
+    ${a.variantes ? `<div class="pastilles">${a.variantes.map((v) =>
+      `<span class="pastille" role="button" data-variante="${nettoyer(v.id)}" title="${nettoyer(v.teinte)}" aria-label="${nettoyer(v.teinte)}"
+        aria-pressed="${v.id === piece(a)}" style="background: ${nettoyer(v.couleur)}"></span>`).join("")}</div>` : ""}
     <div class="bas">${bas}<span style="color: var(--${nettoyer(a.rarete)}); font-size: 12px">${RARETES[a.rarete] || ""}</span></div>
   </button>`;
 }
@@ -152,7 +164,7 @@ function dessinerPanier() {
   panier.clear(); ids.forEach((id) => panier.add(id));
   const total = ids.reduce((s, id) => s + article(id).prix, 0);
   $("puces").innerHTML = ids.length ? ids.map((id) =>
-    `<span class="puce">${nettoyer(article(id).nom)} · ${article(id).prix}<button data-retirer="${id}" aria-label="Retirer">×</button></span>`).join("")
+    `<span class="puce">${nettoyer(article(id).nom)}${teinte(article(id)) ? " " + nettoyer(teinte(article(id))) : ""} · ${article(id).prix}<button data-retirer="${id}" aria-label="Retirer">×</button></span>`).join("")
     : '<span class="vide">Clique sur une pièce pour l\'essayer. Ce que tu n\'achètes pas est retiré en sortant.</span>';
   $("total").textContent = total;
   $("acheter").disabled = ids.length === 0 || total > vue.solde;
@@ -169,7 +181,7 @@ function tout() {
 // ajoutee), ou rien. Le serveur habille le personnage avec (tailleur:essayer).
 function essayerCategorie(emplacement) {
   const restes = [...panier].map(article).filter((a) => a && a.emplacement === emplacement);
-  Bus.Call("essayer", emplacement, restes.length ? restes[restes.length - 1].id : "");
+  Bus.Call("essayer", emplacement, restes.length ? piece(restes[restes.length - 1]) : "");
 }
 
 function message(texte, bon) { $("message").textContent = texte || ""; $("message").className = bon ? "bon" : ""; }
@@ -182,8 +194,17 @@ $("grille").addEventListener("click", (e) => {
   const b = e.target.closest("button.carte"); if (!b) return;
   if (b.dataset.aucun) { Bus.Call("porter", onglet, "aucun"); return; }
   const a = article(b.dataset.id); if (!a) return;
-  if (a.porte) { Bus.Call("porter", a.emplacement, "aucun"); return; }
-  if (a.possede) { Bus.Call("porter", a.emplacement, a.id); return; }
+  // Une pastille : cette couleur, portee si l'article est a toi, sinon a l'essai.
+  const pastille = e.target.closest("[data-variante]");
+  if (pastille) {
+    choix[a.id] = pastille.dataset.variante;
+    if (a.possede) Bus.Call("porter", a.emplacement, piece(a));
+    else { panier.delete(a.id); panier.add(a.id); essayerCategorie(a.emplacement); }
+    dessinerGrille(); dessinerPanier();
+    return;
+  }
+  if (a.porte && piece(a) === (a.porte_id || a.id)) { Bus.Call("porter", a.emplacement, "aucun"); return; }
+  if (a.possede) { Bus.Call("porter", a.emplacement, piece(a)); return; }
   // Pas encore a toi : dans le panier et sur toi, a l'essai.
   if (panier.has(a.id)) panier.delete(a.id); else panier.add(a.id);
   essayerCategorie(a.emplacement);

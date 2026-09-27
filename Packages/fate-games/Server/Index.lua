@@ -524,7 +524,13 @@ do
             local i = 0
             local function suivant()
                 i = i + 1
+                -- Un article en couleurs : on porte la couleur essayee, sinon la premiere.
+                local groupe = Cosmetiques.groupes[propres[i] or ""]
                 local piece = Cosmetiques.par_id[propres[i] or ""]
+                if groupe then
+                    local essai = Cosmetiques.par_id[(essais[player:GetID()] or {})[groupe.emplacement] or ""]
+                    piece = (essai and essai.groupe == groupe.id) and essai or groupe.variantes[1]
+                end
                 if not propres[i] then
                     -- Sorti entre-temps : quitter_tailleur a deja remis la tenue.
                     if not (player:IsValid() and chez_tailleur[player:GetID()]) then return end

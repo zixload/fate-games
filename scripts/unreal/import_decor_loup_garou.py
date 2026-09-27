@@ -118,7 +118,10 @@ def texture(dossier_src, fichier, dossier, lineaire=False, normale=False):
 
 def materiau(nom, dossier, dossier_src, spec):
     chemin = f"{dossier}/{nom}"
-    obj = LIB.load_asset(chemin) or TOOLS.create_asset(nom, dossier, unreal.Material, unreal.MaterialFactoryNew())
+    # does_asset_exist d'abord : load_asset sur un materiau absent ecrit une
+    # « Error: LoadAsset failed » dans le journal (et une notification), sans gravite.
+    obj = LIB.load_asset(chemin) if LIB.does_asset_exist(chemin) else \
+        TOOLS.create_asset(nom, dossier, unreal.Material, unreal.MaterialFactoryNew())
     MEL.delete_all_material_expressions(obj)
     y = [-200]
 

@@ -50,12 +50,21 @@ Catalogue.arme_de_base = "revolver"
 -- Pieces a combiner, vendues chez le tailleur (Shared/cosmetiques.lua) : le
 -- prix suit la rarete ; les pieces du kit Creative sont a tout le monde.
 Catalogue.prix_rarete = { common = 150, uncommon = 400, rare = 900, epic = 2000, legendary = 5000 }
+-- Un article en plusieurs couleurs se vend une fois, sous l'identifiant de son
+-- groupe (Cosmetiques.groupes), au prix de la rarete du groupe.
 Catalogue.cosmetiques = {}
-for _, c in ipairs(Package.Require("Shared/cosmetiques.lua").liste) do
+local Cos = Package.Require("Shared/cosmetiques.lua")
+local deja = {}
+for _, c in ipairs(Cos.liste) do
     local du_kit = not c.piece:find("^SK_COS_")
-    Catalogue.cosmetiques[#Catalogue.cosmetiques + 1] = {
-        id = c.id, prix = du_kit and 0 or (Catalogue.prix_rarete[c.rarete] or 500),
-    }
+    local id = c.groupe or c.id
+    if not deja[id] then
+        deja[id] = true
+        local rarete = c.groupe and Cos.groupes[c.groupe].rarete or c.rarete
+        Catalogue.cosmetiques[#Catalogue.cosmetiques + 1] = {
+            id = id, prix = du_kit and 0 or (Catalogue.prix_rarete[rarete] or 500),
+        }
+    end
 end
 
 -- Index : Catalogue.article("persos", "clown") -> { id, prix, rang }
