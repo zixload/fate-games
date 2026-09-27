@@ -189,13 +189,15 @@ def bride(nom, points, rayon, mat):
     """Un cordon ouvert qui passe par `points` (sangles)."""
     curve = bpy.data.curves.new(nom, "CURVE")
     curve.dimensions = "3D"
-    curve.resolution_u = 4
+    curve.resolution_u = 12
     curve.bevel_depth = rayon
     curve.bevel_resolution = 3
-    spline = curve.splines.new("POLY")
-    spline.points.add(len(points) - 1)
-    for node, co in zip(spline.points, points):
-        node.co = (co.x, co.y, co.z, 1.0)
+    # Bezier a poignees automatiques : une courbe souple (27/09).
+    spline = curve.splines.new("BEZIER")
+    spline.bezier_points.add(len(points) - 1)
+    for node, co in zip(spline.bezier_points, points):
+        node.co = co
+        node.handle_left_type = node.handle_right_type = "AUTO"
     o = bpy.data.objects.new(nom, curve)
     bpy.context.collection.objects.link(o)
     bpy.ops.object.select_all(action="DESELECT")
@@ -211,13 +213,15 @@ def bride_fermee(nom, points, rayon, mat):
     """Un tube ferme qui passe par `points` (bord arrondi du col)."""
     curve = bpy.data.curves.new(nom, "CURVE")
     curve.dimensions = "3D"
-    curve.resolution_u = 4
+    curve.resolution_u = 12
     curve.bevel_depth = rayon
     curve.bevel_resolution = 3
-    spline = curve.splines.new("POLY")
-    spline.points.add(len(points) - 1)
-    for node, co in zip(spline.points, points):
-        node.co = (co.x, co.y, co.z, 1.0)
+    # Bezier a poignees automatiques : une courbe souple (27/09).
+    spline = curve.splines.new("BEZIER")
+    spline.bezier_points.add(len(points) - 1)
+    for node, co in zip(spline.bezier_points, points):
+        node.co = co
+        node.handle_left_type = node.handle_right_type = "AUTO"
     spline.use_cyclic_u = True
     o = bpy.data.objects.new(nom, curve)
     bpy.context.collection.objects.link(o)
@@ -634,13 +638,16 @@ def tablier(arbre_devant):
             rang.append(Vector((x, (hit.y if hit else -0.13) - 0.012, z)))
         grille.append(rang)
     # Jupe : plate, au niveau le plus en avant de sa rangee de taille.
+    ref = min(p.y for r in grille if abs(r[0].z - z_taille) < 0.03 for p in r)
     for j, rang in enumerate(grille):
-        if rang[0].z < z_taille:
-            devant = min(p.y for p in grille[j])
-            ref = min(p.y for r in grille if abs(r[0].z - z_taille) < 0.03 for p in r)
-            y_plat = min(devant, ref)
+        z = rang[0].z
+        if z < z_taille + 0.08:
+            y_plat = min(min(p.y for p in rang), ref)
+            # Fondu sur 12 cm autour de la taille : pas de pli au bassin.
+            k = min(1.0, max(0.0, (z_taille + 0.08 - z) / 0.12))
+            k = k * k * (3 - 2 * k)
             for p in rang:
-                p.y = y_plat
+                p.y = p.y + (y_plat - p.y) * k
     bm = bmesh.new()
     vs = [[bm.verts.new(p) for p in rang] for rang in grille]
     for j in range(rangs - 1):
@@ -731,24 +738,21 @@ def armurier(corps):
         pieces.append(objet_depuis_bm(sphere(Vector((x, y_jupe - 0.013, grille[jp][0].z + 0.048)), 0.005,
                                              Vector((1, 0.5, 1))), "Rivet", MAT_FORGE["laiton"]))
     # Pince et marteau qui depassent de la poche.
-    zp = grille[jp][0].z + 0.11
-    pieces.append(objet_depuis_bm(cylindre(Vector((0.035, y_jupe - 0.010, zp - 0.05)),
-                                           Vector((0.042, y_jupe - 0.012, zp + 0.085)), 0.008), "Manche", MAT_FORGE["bois"]))
+    # Outils plantes dans la poche (haut de la poche a z0 + 5,5 cm) : leur
+    # bas est dedans, ils ne flottent plus au-dessus (27/09).
+    z0 = grille[jp][0].z
+    zp = z0 + 0.03
+    pieces.append(objet_depuis_bm(cylindre(Vector((0.035, y_jupe - 0.006, z0 - 0.03)),
+                                           Vector((0.042, y_jupe - 0.008, zp + 0.055)), 0.008), "Manche", MAT_FORGE["bois"]))
     tete = bmesh.new()
     bmesh.ops.create_cube(tete, size=1.0)
     for v in tete.verts:
-        v.co = Vector((0.042 + v.co.x * 0.075, y_jupe - 0.012 + v.co.y * 0.03, zp + 0.10 + v.co.z * 0.03))
+        v.co = Vector((0.042 + v.co.x * 0.075, y_jupe - 0.008 + v.co.y * 0.03, zp + 0.07 + v.co.z * 0.03))
     bmesh.ops.bevel(tete, geom=list(tete.verts) + list(tete.edges), offset=0.004, segments=2, affect="EDGES")
     pieces.append(objet_depuis_bm(tete, "Tete marteau", MAT_FORGE["fer"]))
     for dx in (-0.045, -0.03):
-        pieces.append(objet_depuis_bm(cylindre(Vector((dx, y_jupe - 0.010, zp - 0.04)),
-                                               Vector((dx - 0.008, y_jupe - 0.012, zp + 0.07)), 0.0045), "Pince", MAT_FORGE["fer"]))
-    # Manchettes de forge : cuir epais, evase vers la main.
-    for cote in (1, -1):
-        axe = dir_bras(cote)
-        for s_, r_ in ((0.335, 0.043), (0.36, 0.047), (0.385, 0.052)):
-            pieces.append(objet_depuis_bm(anneau(axe_bras(s_, cote), axe, r_, 0.009, allonge=1.4),
-                                          "Manchette", MAT_FORGE["gant"]))
+        pieces.append(objet_depuis_bm(cylindre(Vector((dx, y_jupe - 0.006, z0 - 0.02)),
+                                               Vector((dx - 0.008, y_jupe - 0.008, z0 + 0.10)), 0.0045), "Pince", MAT_FORGE["fer"]))
     # Rigide sur le bassin : la jupe du tablier et ce qui y pend (sinon elle
     # se tord avec les jambes croisees de sa pose, 27/09).
     for o in pieces:
