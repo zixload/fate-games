@@ -908,5 +908,27 @@ return function(Log, Characters, Boutique, Catalogue, Duel, config, arenes_carte
         suite(A, r)
     end
 
+    -- Pour l'ecran d'accueil (domain/activite.lua) : une ligne par arene
+    -- occupee ; en combat, le score des manches.
+    function Adapter.Resume()
+        local lignes = {}
+        for _, A in ipairs(arenes) do
+            local d = A.d
+            if d and d.phase ~= "vide" then
+                local humains, nb_bots = 0, 0
+                for id in pairs(d.joueurs) do
+                    if bots[id] then nb_bots = nb_bots + 1 else humains = humains + 1 end
+                end
+                local en_cours = d.phase ~= "attente"
+                lignes[#lignes + 1] = {
+                    statut = en_cours and "en_cours" or "attente", joueurs = humains, bots = nb_bots,
+                    max = Duel.Capacite(d), mise = d.mise or 0,
+                    detail = en_cours and ("%d – %d"):format(d.scores[1] or 0, d.scores[2] or 0) or nil,
+                }
+            end
+        end
+        return lignes
+    end
+
     return Adapter
 end

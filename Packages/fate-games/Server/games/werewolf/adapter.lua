@@ -1260,5 +1260,22 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         Log.Info("werewolf", "loup-garou pret : E sur un zabuton pour s'asseoir")
     end
 
+    -- Pour l'ecran d'accueil (domain/activite.lua) : le salon, en attente ou
+    -- en partie. Rien si personne n'est assis.
+    function A.Resume()
+        local humains, nb_bots = 0, 0
+        for _, id in ipairs(salon.ordre) do
+            if id < 0 then nb_bots = nb_bots + 1 else humains = humains + 1 end
+        end
+        local phase = Engine.phase(s)
+        if humains + nb_bots == 0 and not phase then return {} end
+        local ligne = { statut = phase and "en_cours" or "attente", joueurs = humains, bots = nb_bots,
+            max = salon.max, mise = salon.mise }
+        if phase then
+            ligne.detail = (phase:find("^night") and "Nuit " or "Jour ") .. tostring(s.nuit or 1)
+        end
+        return { ligne }
+    end
+
     return A
 end

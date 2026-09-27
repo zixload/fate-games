@@ -1763,5 +1763,19 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
         diffuser_salon()
     end
 
+    -- Pour l'ecran d'accueil (domain/activite.lua) : la table, en attente ou
+    -- en partie. Rien si personne n'est assis.
+    function Adapter.Resume()
+        local humains, nb_bots = 0, 0
+        for _, a in ipairs(seated) do
+            if a.bot then nb_bots = nb_bots + 1 else humains = humains + 1 end
+        end
+        if humains + nb_bots == 0 then return {} end
+        return { {
+            statut = state and "en_cours" or "attente", joueurs = humains, bots = nb_bots,
+            max = config.max_seats, mise = (state and mise_en_cours and mise_en_cours.mise) or salon.mise,
+        } }
+    end
+
     return Adapter
 end
