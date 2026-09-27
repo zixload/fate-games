@@ -76,11 +76,19 @@ return function(Roles, Phases, Match, Voting, Outcome, Effects)
 
     local function poids_maire(s) return s.maire and { [s.maire] = 2 } or nil end
 
+    -- Un role ne joue la nuit que si quelqu'un le porte encore en vie : pas de
+    -- minuteur "la voyante sonde" pour une voyante morte. Les loups jouent
+    -- tant qu'il en reste un, loup blanc compris.
+    local function role_en_vie(s, role)
+        if role == "wolf" then return #Match.loups_vivants(s.match) > 0 end
+        return Match.porteur(s.match, role) ~= nil
+    end
+
     local function commencer_nuit(s, fx)
         s.nuit = s.nuit + 1
         s.file = {}
         for _, p in ipairs(Phases.nuit) do
-            local present = (s.compo[p.role] or 0) > 0
+            local present = (s.compo[p.role] or 0) > 0 and role_en_vie(s, p.role)
             if present and not (p.premiere_seulement and s.nuit > 1)
                 and not (p.une_sur and s.nuit % p.une_sur ~= 0) then
                 s.file[#s.file + 1] = p.id

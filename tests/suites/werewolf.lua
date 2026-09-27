@@ -104,6 +104,31 @@ return function(H)
             H.assert_nil(Engine.phase(s), "toujours en attente")
         end)
 
+        H.it("un role mort ne joue plus la nuit", function()
+            local s = partie(9, { seer = 1, witch = 1, guard = 1 })
+            local voyante, sorciere, gardien = porteur(s, "seer"), porteur(s, "witch"), porteur(s, "guard")
+            for _, id in ipairs({ voyante, sorciere, gardien }) do Match.tuer(s.match, id) end
+            jusqua(s, "dawn")
+            local phases = {}
+            for _ = 1, 900 do
+                for _, e in ipairs(Engine.avancer(s, 1)) do
+                    if e.kind == "phase" then phases[#phases + 1] = e.id end
+                end
+                if Engine.phase(s) == "night_wolves" or Engine.phase(s) == nil then break end
+            end
+            H.assert_eq(Engine.phase(s), "night_wolves", "la nuit suivante commence par les loups")
+            for _ = 1, 900 do
+                for _, e in ipairs(Engine.avancer(s, 1)) do
+                    if e.kind == "phase" then phases[#phases + 1] = e.id end
+                end
+                if Engine.phase(s) == "dawn" or Engine.phase(s) == nil then break end
+            end
+            for _, id in ipairs(phases) do
+                H.assert_true(id ~= "night_seer" and id ~= "night_witch" and id ~= "night_guard",
+                    "phase d'un role mort : " .. id)
+            end
+        end)
+
         H.it("la premiere nuit suit la composition", function()
             H.assert_eq(Engine.phase((partie(5))), "night_wolves", "loups d'abord sans cupidon ni gardien")
             H.assert_eq(Engine.phase((partie(6, { cupid = 1, guard = 1 }))), "night_cupid", "cupidon ouvre la premiere nuit")
