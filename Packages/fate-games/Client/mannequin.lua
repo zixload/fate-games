@@ -9,6 +9,13 @@ return function()
     local actif = false
     local choix = { haut = 1, bas = 1 }
     local chat_ouvert = false
+    local mannequin_id = nil
+    local PORTEE = 600   -- cm : plus loin, le HUD se ferme
+
+    local function fermer()
+        actif = false
+        page:SetVisibility(WidgetVisibility.Hidden)
+    end
 
     local function vue(emplacement)
         local liste = Cosmetiques.par_emplacement[emplacement] or {}
@@ -22,17 +29,27 @@ return function()
         page:CallEvent("mannequin:maj", vue("haut"), vue("bas"))
     end
 
-    Events.SubscribeRemote("mannequin:ouvrir", function(haut, bas)
+    Events.SubscribeRemote("mannequin:ouvrir", function(haut, bas, id)
         actif = true
+        mannequin_id = id
         choix.haut, choix.bas = tonumber(haut) or 1, tonumber(bas) or 1
         page:SetVisibility(WidgetVisibility.VisibleNotHitTestable)
         afficher()
     end)
 
-    Events.SubscribeRemote("mannequin:fermer", function()
-        actif = false
-        page:SetVisibility(WidgetVisibility.Hidden)
-    end)
+    Events.SubscribeRemote("mannequin:fermer", fermer)
+
+    -- S'eloigner du mannequin ferme le HUD (E dessus le rouvre).
+    Timer.SetInterval(function()
+        if not actif then return end
+        local p = Client.GetLocalPlayer()
+        local moi = p and p:GetControlledCharacter()
+        local m
+        for _, c in pairs(CharacterSimple.GetAll()) do
+            if c:IsValid() and c:GetID() == mannequin_id then m = c break end
+        end
+        if not (moi and m) or (moi:GetLocation() - m:GetLocation()):Size() > PORTEE then fermer() end
+    end, 250)
 
     Chat.Subscribe("Open", function() chat_ouvert = true end)
     Chat.Subscribe("Close", function() chat_ouvert = false end)

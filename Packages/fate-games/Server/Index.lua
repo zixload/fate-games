@@ -127,7 +127,7 @@ Emotes.Init()
 Chutes.Init()
 Pnj.Init()
 -- Mannequin d'essayage des vetements (/mannequin, mode dev).
-Package.Require("domain/mannequin.lua")(Log, Characters, dev_pour).Init()
+Package.Require("domain/mannequin.lua")(Log, Characters, dev_pour, Interactables).Init()
 
 -- Systeme de combat (docs/COMBAT.md) : moteur pur combat/, adaptateur sur le
 -- personnage natif. En dev, /pvp pour l'essayer.

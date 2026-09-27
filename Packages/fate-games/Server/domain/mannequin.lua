@@ -4,16 +4,18 @@
 --
 --   /mannequin           le pose devant moi (ou le replace) et ouvre le HUD
 --   /mannequin retirer   l'enleve et ferme le HUD
+--   E sur le mannequin   rouvre le HUD (le client le ferme a plus de 6 m)
 --
 -- Le client choisit haut et bas (fleches, Client/mannequin.lua) ; le serveur
 -- habille le mannequin : piece accrochee puis materiau du motif. Un vetement
 -- dont le materiau ne prend pas reste en damier, avec son nom affiche.
 
-return function(Log, Characters, dev_pour)
+return function(Log, Characters, dev_pour, Interactables)
     local Mannequin = {}
     local Apparences = Package.Require("Shared/appearances.lua")
     local Cosmetiques = Package.Require("Shared/cosmetiques.lua")
     local corps = nil
+    local repere, inter = nil, nil
     local choix = { haut = 1, bas = 1 }
 
     local function habiller()
@@ -32,8 +34,14 @@ return function(Log, Characters, dev_pour)
     end
 
     local function retirer()
+        if inter and Interactables then pcall(Interactables.Unregister, inter) end
+        if repere and repere:IsValid() then pcall(function() repere:Destroy() end) end
         if corps and corps:IsValid() then pcall(function() corps:Destroy() end) end
-        corps = nil
+        corps, repere, inter = nil, nil, nil
+    end
+
+    local function ouvrir(player)
+        Events.CallRemote("mannequin:ouvrir", player, Reliability.Reliable, choix.haut, choix.bas, corps:GetID())
     end
 
     local function poser(player)
@@ -47,6 +55,19 @@ return function(Log, Characters, dev_pour)
         if not corps then return false end
         corps:SetValue("mannequin", true, true)
         habiller()
+        -- E dessus rouvre le HUD : un repere invisible (le client ne vise que des Props).
+        if Interactables then
+            pcall(function()
+                repere = Prop(Vector(x, y, l.Z + 10), Rotator(0, 0, 0), "nanos-world::SM_Cube",
+                    CollisionType.IgnoreOnlyPawn, false, GrabMode.Disabled)
+                repere:SetScale(Vector(0.6, 0.6, 1.4))
+                repere:SetVisibility(false)
+                inter = Interactables.Register(repere, {
+                    label = "Essayer", kind = "vestiaire", max_distance = 300,
+                    on_interact = function(pl) if dev_pour(pl) and corps and corps:IsValid() then ouvrir(pl) end end,
+                })
+            end)
+        end
         return true
     end
 
@@ -60,7 +81,7 @@ return function(Log, Characters, dev_pour)
                 retirer()
                 Events.CallRemote("mannequin:fermer", player, Reliability.Reliable)
             elseif poser(player) then
-                Events.CallRemote("mannequin:ouvrir", player, Reliability.Reliable, choix.haut, choix.bas)
+                ouvrir(player)
             else
                 Chat.SendMessage(player, "Mannequin impossible ici.")
             end
