@@ -115,7 +115,7 @@ return {
     -- fondu de sortie = le relevement. actif = false tant que les animations
     -- ne sont pas cuites (scripts/unreal/import_chutes.py).
     chutes = {
-        actif = false,
+        actif = true,     -- animations cuites le 27/09
         seuil_dure = 900,
         seuil_sol = 1400,
         dure = { anim = "my-asset-pack::ANIM_Chute_Reception", duree = 1.93, fondu_sortie = 0.3 },
