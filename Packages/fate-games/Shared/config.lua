@@ -105,6 +105,10 @@ return {
     -- tant que le fichier n'est pas la (un mp3 se convertit en ogg).
     -- musique : jouee en boucle tant qu'on est assis a la table (salon et
     -- partie), tres bas, en fondu (secondes).
+    -- Cycle jour/nuit accelere hors loup-garou (Client/loup_garou/ciel.lua),
+    -- le meme pour tous : secondes de jour (6h a 20h) et de nuit (20h a 6h).
+    cycle = { jour = 600, nuit = 300, decalage = 0 },
+
     -- Bruits du corps et musique de la place (Client/bruits.lua) : pas, cri au
     -- saut, reception apres une chute, musique hors des jeux. Volumes de 0 a
     -- 1 ; musique = false la coupe.

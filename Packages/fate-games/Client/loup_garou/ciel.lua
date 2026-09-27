@@ -1,9 +1,14 @@
 -- Ciel jour/nuit du loup-garou (Sky de nanos, Ultra Dynamic Sky).
 --
 -- Tout le serveur est sous le ciel de nanos : Sky.Spawn remplace le soleil,
--- le ciel et le brouillard de la map des l'arrivee du joueur, a midi. Seuls
--- les joueurs de la partie recoivent les phases (ww:phase) : chez eux, la
--- nuit tombe et le jour se leve ; a la fin, retour a midi.
+-- le ciel et le brouillard de la map des l'arrivee du joueur. Hors partie,
+-- l'heure suit un cycle accelere commun a tous (horloge du monde, plus bas).
+-- Seuls les joueurs de la partie recoivent les phases (ww:phase) : chez eux,
+-- la nuit tombe et le jour se leve ; a la fin, retour a l'heure du monde.
+--
+-- Horloge du monde : calculee depuis l'heure Unix, la meme chez chaque
+-- client, sans rien envoyer du serveur. Un cycle = `jour` secondes de 6h a
+-- 20h puis `nuit` secondes de 20h a 6h (Shared/config.lua, cycle).
 --
 -- Chaque phase fait passer l'heure par des points (part de la phase ecoulee,
 -- heure), a vitesse constante entre deux points. L'aube, le plus beau moment,
@@ -15,9 +20,13 @@
 --
 -- Apercu sans partie : /lg ciel jour | nuit | aube | soir | <heure>[:<minutes>]
 
-return function()
+return function(cycle)
     local Dev = Package.Require("dev.lua")
     local function hm(h, m) return h * 60 + (m or 0) end
+    cycle = cycle or {}
+    local DUREE_JOUR = cycle.jour or 600     -- s de 6h a 20h
+    local DUREE_NUIT = cycle.nuit or 300     -- s de 20h a 6h
+    local DECALAGE = cycle.decalage or 0     -- s, pour choisir l'heure d'un instant donne
 
     -- Par phase : points { part de la phase (0 a 1), heure }. Sans entree,
     -- l'heure ne bouge pas (tir du chasseur, succession du maire).
@@ -63,6 +72,14 @@ return function()
 
     local function secondes() return Client.GetTime() / 1000 end
 
+    -- L'heure du monde (minutes depuis minuit), identique chez tous.
+    local function heure_monde(avance)
+        local t = (secondes() + (avance or 0) + DECALAGE) % (DUREE_JOUR + DUREE_NUIT)
+        if t < DUREE_JOUR then return hm(6) + (hm(20) - hm(6)) * t / DUREE_JOUR end
+        return (hm(20) + (hm(30) - hm(20)) * (t - DUREE_JOUR) / DUREE_NUIT) % 1440
+    end
+    local en_partie = false
+
     -- Aller de l'heure actuelle au premier point (vite, vers l'avant), puis
     -- d'un point a l'autre sur le reste de `duree` secondes.
     local function programmer(points, duree)
@@ -103,6 +120,15 @@ return function()
     end
 
     Timer.SetInterval(function()
+        -- Hors partie et sans programme en cours : l'heure du monde.
+        if pret and not segments and not en_partie then
+            local minutes = heure_monde()
+            local avant = math.floor(courant + 0.5) % 1440
+            local apres = math.floor(minutes + 0.5) % 1440
+            if apres ~= avant then pousser(minutes, apres < avant and 0 or PAS) end
+            courant = minutes
+            return
+        end
         if not (pret and segments) then return end
         local minutes, fini = heure_a(secondes())
         if not minutes then segments = nil return end
@@ -123,6 +149,7 @@ return function()
     end
 
     Events.SubscribeRemote("ww:phase", function(id, duree)
+        en_partie = true
         local p = PHASES[id]
         -- Les phases de nuit s'enchainent : une seule nuit, qui dure ce qu'elle dure.
         if p == NUIT then
@@ -131,8 +158,16 @@ return function()
             viser(id, p, tonumber(duree) or 10)
         end
     end)
-    Events.SubscribeRemote("ww:fin", function() viser("fin", { { 0, JOUR } }, COURSE + 2) end)
+    -- Fin de partie : on rejoint l'heure du monde (celle qu'il sera a l'arrivee).
+    Events.SubscribeRemote("ww:fin", function()
+        en_partie = false
+        local arrivee = COURSE + 2
+        local cible = heure_monde(arrivee)
+        viser("fin", { { 0, cible } }, arrivee)
+        visee = nil
+    end)
 
+    courant = heure_monde()
     preparer()
 
     Chat.Subscribe("PlayerSubmit", function(message)
