@@ -418,9 +418,12 @@ return function(config, Interaction)
     end
 
     -- En partie, l'invite d'interaction ne propose plus les places du cercle :
-    -- E sert a designer, et on reste assis jusqu'au bout.
+    -- E sert a designer, et on reste assis jusqu'au bout. Hors partie, une
+    -- place deja prise ne propose rien non plus (la sienne comprise : Espace
+    -- pour se lever).
     if Interaction and Interaction.AjouterFiltre then
         Interaction.AjouterFiltre(function(entite)
+            if entite and entite:IsValid() and entite:GetValue("ww_occupe", false) == true then return false end
             if not (etat.phase or etat.role) then return true end
             return not (entite and entite:IsValid() and entite:GetValue("ww_siege", nil))
         end)

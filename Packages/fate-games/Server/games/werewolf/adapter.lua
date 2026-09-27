@@ -261,6 +261,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
                 repere:SetVisibility(false)
                 -- En partie, le client ne propose plus ces places (loup_garou/hud.lua).
                 repere:SetValue("ww_siege", i, true)
+                decor.sieges[i].repere = repere
                 decor.objets[#decor.objets + 1] = repere
                 local numero = i
                 decor.reperes[#decor.reperes + 1] = Interactables.Register(repere, {
@@ -342,6 +343,20 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         decor.siege_de[id] = nil
         poses_tirees[id] = nil
     end
+
+    -- Une place prise est publiee sur son repere ("ww_occupe") : le client
+    -- n'y propose plus "S'asseoir" (loup_garou/hud.lua). Relu deux fois par
+    -- seconde plutot qu'a chaque endroit ou un occupant change.
+    Timer.SetInterval(function()
+        for _, siege in pairs(decor.sieges) do
+            local r = siege.repere
+            local occupe = siege.occupant ~= nil
+            if r and r:IsValid() and siege.occupe_publie ~= occupe then
+                siege.occupe_publie = occupe
+                r:SetValue("ww_occupe", occupe, true)
+            end
+        end
+    end, 500)
 
     -- Pose du moment : elimine, endormi (nuit), ou sa pose de repos.
     local endormis, elimines, gestes = {}, {}, {}
