@@ -498,17 +498,25 @@ do
             chez_tailleur[player:GetID()] = perso
             essais[player:GetID()] = {}
             player:UnPossess()
-            -- Le personnage se tourne dans le sens du tailleur (dos a lui) ; la
-            -- camera se place devant lui, decalee : il tombe a gauche de l'ecran,
-            -- le tailleur en arriere-plan.
-            perso:SetRotation(Rotator(0, p.yaw, 0))
-            local r = math.rad(p.yaw)
+            -- Toujours la meme place d'essayage (27/09 : le cadrage changeait
+            -- selon l'endroit ou l'on se tenait) : celle posee par /pnj cabine,
+            -- sinon 1,50 m devant le tailleur, dos a lui. La camera se place
+            -- devant le joueur, decalee : il tombe a gauche de l'ecran.
+            local r0 = math.rad(p.yaw)
+            local cabine = p.cabine or { x = p.x + math.cos(r0) * 150, y = p.y + math.sin(r0) * 150, z = p.z, yaw = p.yaw }
+            perso:SetLocation(Vector(cabine.x, cabine.y, cabine.z))
+            perso:SetRotation(Rotator(0, cabine.yaw, 0))
+            local r = math.rad(cabine.yaw)
             local avant = Vector(math.cos(r), math.sin(r), 0)
             local gauche = Vector(math.cos(r - math.pi / 2), math.sin(r - math.pi / 2), 0)
-            local cam = perso:GetLocation() + avant * CAM.avant + gauche * CAM.cote + Vector(0, 0, CAM.haut)
+            local cam = Vector(cabine.x, cabine.y, cabine.z) + avant * CAM.avant + gauche * CAM.cote + Vector(0, 0, CAM.haut)
+            local rot = Rotator(-2, cabine.yaw + 180, 0)
             player:SetCameraLocation(cam)
-            player:SetCameraRotation(Rotator(-2, p.yaw + 180, 0))
-            Events.CallRemote("tailleur:ouvrir", player, Reliability.Reliable, Boutique.VueTailleur(etat))
+            player:SetCameraRotation(rot)
+            -- Le client verifie que rien ne bouche la vue (mur, decor : ecran
+            -- noir le 27/09) et rapproche la camera au besoin (Client/tailleur).
+            Events.CallRemote("tailleur:ouvrir", player, Reliability.Reliable, Boutique.VueTailleur(etat),
+                { perso = Vector(cabine.x, cabine.y, cabine.z), camera = cam, rotation = rot })
         end)
     end
 

@@ -7,6 +7,9 @@
 --   /pnj retirer        le plus proche (3 m)
 --   /pnj deplacer <type> ce PNJ vient ici, tourne comme moi (le plus proche
 --                       de moi s'il y en a plusieurs de ce type)
+--   /pnj cabine         ici, tourne comme moi : la place d'essayage du
+--                       tailleur le plus proche (le joueur y est pose, la
+--                       camera le cadre toujours pareil)
 --   /pnj liste          les types connus
 --   /pnj cacher|montrer tous les PNJ caches (en attendant leurs tenues et
 --                       animations) ; leurs interactions restent : E a la place
@@ -173,6 +176,21 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
             ecrire()
             tout_recreer()
             dire(player, ("%s deplace ici"):format(TYPES[t].nom or t))
+        elseif mots[2] == "cabine" then
+            if not c then return false end
+            local l, r = c:GetLocation(), c:GetRotation()
+            local meilleur, d_min = nil, math.huge
+            for i, p in ipairs(places) do
+                if p.type == "tailleur" then
+                    local d = (p.x - l.X) ^ 2 + (p.y - l.Y) ^ 2 + (p.z - l.Z) ^ 2
+                    if d < d_min then meilleur, d_min = i, d end
+                end
+            end
+            if not meilleur then dire(player, "Aucun tailleur pose : /pnj poser tailleur") return false end
+            places[meilleur].cabine = { x = l.X, y = l.Y, z = l.Z, yaw = r.Yaw }
+            ecrire()
+            tout_recreer()
+            dire(player, "Place d'essayage du tailleur enregistree ici.")
         elseif mots[2] == "cacher" or mots[2] == "montrer" then
             caches = mots[2] == "cacher"
             ecrire()
@@ -182,7 +200,7 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
             local noms = {}
             for t in pairs(TYPES) do noms[#noms + 1] = t end
             table.sort(noms)
-            dire(player, "/pnj poser|deplacer <" .. table.concat(noms, "|") .. "> | /pnj retirer | /pnj cacher | /pnj montrer")
+            dire(player, "/pnj poser|deplacer <" .. table.concat(noms, "|") .. "> | /pnj retirer | /pnj cabine | /pnj cacher | /pnj montrer")
         end
         return false
     end

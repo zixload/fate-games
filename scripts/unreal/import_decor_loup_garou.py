@@ -72,7 +72,7 @@ DECORS = [
     # Decor du tailleur : la cabine de Club Penguin Island (OBJ en metres, ~6 m
     # de large ; a l echelle 1 il sortait a 6 cm, 27/09). Pas de .mtl dans le zip :
     # materiaux relies par leur nom (usemtl).
-    {"nom": "ClothingCustomizer", "echelle": 100.0, "materiaux": {
+    {"nom": "ClothingCustomizer", "echelle": 100.0, "collision": "exacte", "materiaux": {
         "clothingdesignerstatic": {"base": "ClothingDesigner.png"},
         "catalogchallengecurtains": {"base": "CatalogChallengeCurtain.png"},
         "lighteffects": {"verre": True, "couleur": (1.0, 0.95, 0.8), "emissif": 2.0},
@@ -194,7 +194,7 @@ def materiau(nom, dossier, dossier_src, spec):
     return obj
 
 
-def options_mesh(echelle):
+def options_mesh(echelle, collision_auto=True):
     o = unreal.FbxImportUI()
     o.automated_import_should_detect_type = False
     o.mesh_type_to_import = unreal.FBXImportType.FBXIT_STATIC_MESH
@@ -203,7 +203,7 @@ def options_mesh(echelle):
     o.import_materials = False
     o.import_textures = False
     o.static_mesh_import_data.combine_meshes = True
-    o.static_mesh_import_data.auto_generate_collision = True
+    o.static_mesh_import_data.auto_generate_collision = collision_auto
     o.static_mesh_import_data.import_uniform_scale = echelle
     return o
 
@@ -213,9 +213,20 @@ def importer_decor(d):
     src = SOURCE / nom
     dossier = f"{DEST}/{nom}"
     LIB.make_directory(dossier)
-    mesh = importer(src / f"{nom}.fbx", f"SM_WW_{nom}", dossier, options_mesh(d["echelle"]))
+    exacte = d.get("collision") == "exacte"
+    mesh = importer(src / f"{nom}.fbx", f"SM_WW_{nom}", dossier, options_mesh(d["echelle"], not exacte))
     if not isinstance(mesh, unreal.StaticMesh):
         raise RuntimeError(f"Pas un StaticMesh : {nom}")
+    # Collision exacte : la forme reelle sert de collision (Use Complex
+    # Collision As Simple) ; les volumes generes a l'import faisaient des murs
+    # invisibles autour du decor Club Penguin (27/09).
+    if exacte:
+        try:
+            unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem).remove_collisions(mesh)
+        except Exception as err:
+            print("WW_DECOR_COLLISION", nom, "volumes non retires :", err)
+        corps = mesh.get_editor_property("body_setup")
+        corps.set_editor_property("collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE)
     slots = mesh.get_editor_property("static_materials")
     for i, slot in enumerate(slots):
         cle = normaliser(slot.get_editor_property("material_slot_name"))
@@ -280,6 +291,15 @@ def importer_carte():
     LIB.save_loaded_asset(mesh)
     print("WW_DECOR RoleCard my-asset-pack::SM_WW_RoleCard")
 
+
+# Pieces decoupees dans le decor Club Penguin (scripts/blender/decoupe_decor.py).
+_decoupe = SOURCE / "decoupe.json"
+if _decoupe.is_file():
+    import json
+    for _piece in json.loads(_decoupe.read_text(encoding="utf-8")):
+        _piece["materiaux"] = {k: (dict(v, couleur=tuple(v["couleur"])) if "couleur" in v else v)
+                               for k, v in _piece["materiaux"].items()}
+        DECORS.append(_piece)
 
 for decor in DECORS:
     try:
