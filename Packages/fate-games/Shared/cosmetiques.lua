@@ -16,7 +16,7 @@ local Cosmetiques = {}
 -- Les pieces SK_COS_* sont-elles cuites dans my-asset-pack ? Tant que non,
 -- les tenues aleatoires ne piochent que dans les pieces du kit (SK_*), deja
 -- cuites : sinon un bot se retrouverait sans vetement.
-Cosmetiques.cuits = false
+Cosmetiques.cuits = true   -- cuites le 27/09
 
 Cosmetiques.liste = {
     -- Hauts du kit Creative et de ChatGPT
