@@ -224,8 +224,6 @@ def gilet_depuis(chemise):
         # En haut, le gilet monte jusqu'a la base du col (rayon ~10 cm autour
         # du cou) au lieu d'une coupe plate a 1,43 m qui laissait une bande
         # blanche au dos et sur les epaules (27/09).
-        if p.z > 1.39 and math.hypot(p.x, p.y - 0.034) < 0.112:
-            return True
         # Sous l'aisselle, le tronc deborde la couture a la taille : seules les
         # manches (bien plus loin) sont coupees ; au-dessus, la couture.
         if abs(p.x) > (X_EMM + 0.0006 if p.z >= Z_BAS else 0.26):
@@ -236,6 +234,14 @@ def gilet_depuis(chemise):
         largeur_v = X0_V + max(0.0, p.z - Z0_V) * PENTE_V
         return p.y < 0 and abs(p.x) < largeur_v - 0.0006 and p.z > Z0_V
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if dehors(v.co)], context="VERTS")
+    # Col : faces dont le centre tombe dans le cylindre du col (rayon 11,2 cm).
+    # Par faces entieres, pas par sommets : supprimer des sommets laissait des
+    # trous et des pointes au dos (27/09).
+    def dans_col(f):
+        c = f.calc_center_median()
+        return c.z > 1.39 and math.hypot(c.x, c.y - 0.034) < 0.112
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if dans_col(f)], context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
     # Les petits morceaux restes seuls (bord d'emmanchure, col) : dehors.
     vus, isoles = set(), []
     for f in bm.faces:
@@ -251,7 +257,7 @@ def gilet_depuis(chemise):
                     if k not in vus:
                         vus.add(k)
                         pile.append(k)
-        if len(groupe) < 40:
+        if len(groupe) < 200:
             isoles += groupe
     bmesh.ops.delete(bm, geom=isoles, context="FACES")
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
@@ -264,6 +270,22 @@ def gilet_depuis(chemise):
         if d.length > 1e-4 and d.length < 0.13:
             d = d.normalized() * 0.112
             v.co.x, v.co.y = d.x, 0.034 + d.y
+    # Bord du haut a une hauteur reguliere (les pointes venaient de sommets du
+    # bord a des hauteurs differentes) : moyenne avec ses voisins sur le bord,
+    # puis les deux rangees suivantes detendues pour suivre sans pli.
+    for _ in range(8):
+        nouveaux_z = {}
+        for v in bord_col:
+            voisins = [e.other_vert(v) for e in v.link_edges if e.other_vert(v) in bord_col]
+            if voisins:
+                nouveaux_z[v] = 0.5 * v.co.z + 0.5 * sum(w.co.z for w in voisins) / len(voisins)
+        for v, z in nouveaux_z.items():
+            v.co.z = z
+    anneau = set(bord_col)
+    for _ in range(2):
+        anneau |= {e.other_vert(v) for v in list(anneau) for e in v.link_edges}
+    interieur = [v for v in anneau if v not in bord_col]
+    bmesh.ops.smooth_vert(bm, verts=interieur, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
     zs_dos = [v.co.z for v in bm.verts if abs(v.co.x) < 0.05 and v.co.y > 0]
     zs_ep = [v.co.z for v in bm.verts if 0.10 < abs(v.co.x) < 0.14]
     print("GILET_HAUT dos", round(max(zs_dos), 3) if zs_dos else None, "epaule", round(max(zs_ep), 3) if zs_ep else None)
