@@ -79,25 +79,24 @@ def import_flute():
 
 
 def place_hands(scene, rig):
-    # Width is about 32 cm. The panpipes sit in front of the mouth; wrists
-    # support their lower outer edges, rather than reaching through the chest.
-    targets = []
-    for side, location, pole_offset in (
-        ("Left", Vector((.085, -.265, 1.365)), Vector((.19, -.10, -.08))),
-        ("Right", Vector((-.220, -.265, 1.365)), Vector((-.22, -.10, -.08))),
-    ):
-        wrist = bpy.data.objects.new(side + " flute wrist", None)
-        pole = bpy.data.objects.new(side + " flute elbow", None)
-        scene.collection.objects.link(wrist)
-        scene.collection.objects.link(pole)
-        wrist.location = location
-        pole.location = point(rig, side + "ForeArm") + pole_offset
-        constraint = rig.pose.bones[side + "ForeArm"].constraints.new("IK")
-        constraint.target = wrist
-        constraint.pole_target = pole
-        constraint.chain_count = 2
-        constraint.use_stretch = False
-        targets.extend((wrist, pole))
+    """Main droite placee par IK et doigts replies, puis tout le bras droit
+    recopie en miroir sur le gauche (epaule, bras, avant-bras, main, doigts).
+
+    27/09 : la flute etait decalee a droite de la bouche et seule la main
+    gauche etait recopiee, avec un decalage de 13,5 cm : le poignet se
+    detachait de l'avant-bras. Flute centree devant la bouche (x = 0), les
+    deux bras symetriques par rapport a l'axe du corps."""
+    wrist = bpy.data.objects.new("Right flute wrist", None)
+    pole = bpy.data.objects.new("Right flute elbow", None)
+    scene.collection.objects.link(wrist)
+    scene.collection.objects.link(pole)
+    wrist.location = Vector((-.1525, -.265, 1.365))
+    pole.location = point(rig, "RightForeArm") + Vector((-.22, -.10, -.08))
+    constraint = rig.pose.bones["RightForeArm"].constraints.new("IK")
+    constraint.target = wrist
+    constraint.pole_target = pole
+    constraint.chain_count = 2
+    constraint.use_stretch = False
     bpy.context.view_layer.update()
     bpy.ops.object.select_all(action="DESELECT")
     rig.select_set(True)
@@ -108,43 +107,39 @@ def place_hands(scene, rig):
                      clear_constraints=True, use_current_action=False,
                      bake_types={"POSE"})
     bpy.ops.object.mode_set(mode="OBJECT")
-    for obj in targets:
+    for obj in (wrist, pole):
         bpy.data.objects.remove(obj, do_unlink=True)
-    # The source Creative idle leaves the left palm flat. Mirror the entire
-    # right grip, including all ten finger joints, into the left chain.
-    # Mirroring the evaluated arm-space matrices also mirrors the elbow bend.
+
+    fingers = ("Index", "Middle", "Ring", "Pinky")
+    chain = ["Shoulder", "Arm", "ForeArm", "Hand",
+             "HandIndex1", "HandIndex2", "HandMiddle1", "HandMiddle2",
+             "HandPinky1", "HandPinky2", "HandRing1", "HandRing2",
+             "HandThumb1", "HandThumb2", "HandProp"]
     reflect = Matrix.Diagonal((-1, 1, 1, 1))
-    left_chain = [
-        "Hand",
-        "HandIndex1", "HandIndex2", "HandMiddle1", "HandMiddle2",
-        "HandPinky1", "HandPinky2", "HandRing1", "HandRing2",
-        "HandThumb1", "HandThumb2", "HandProp",
-    ]
     for frame in (FIRST, 2):
         scene.frame_set(frame)
-        for suffix in left_chain:
+        # Les quatre doigts droits se replient sur les tuyaux exterieurs.
+        for finger in fingers:
+            for joint, degrees in (("1", 72), ("2", 28)):
+                bone = rig.pose.bones["RightHand" + finger + joint]
+                head = rig.matrix_world @ bone.head
+                spin = (Matrix.Translation(head)
+                        @ Matrix.Rotation(radians(degrees), 4, "Y")
+                        @ Matrix.Translation(-head))
+                bone.matrix = rig.matrix_world.inverted() @ spin @ rig.matrix_world @ bone.matrix
+                bpy.context.view_layer.update()
+                bone.keyframe_insert("rotation_quaternion", frame=frame)
+        # Miroir de toute la chaine, de l'epaule aux doigts, par rapport au
+        # plan x = 0 : parents d'abord, pour que chaque os suive le precedent.
+        for suffix in chain:
             right = rig.pose.bones["Right" + suffix]
             left = rig.pose.bones["Left" + suffix]
             left.rotation_mode = "QUATERNION"
-            left.matrix = Matrix.Translation((-.135, 0, 0)) @ reflect @ right.matrix @ reflect
+            left.matrix = reflect @ right.matrix @ reflect
             bpy.context.view_layer.update()
             left.keyframe_insert("location", frame=frame)
             left.keyframe_insert("rotation_quaternion", frame=frame)
             left.keyframe_insert("scale", frame=frame)
-        # Curl all four fingers down over the outer pipes. The thumbs stay
-        # below them, so this reads as a two-sided grip rather than a prayer
-        # pose with straight fingers touching in the middle.
-        for side, sign in (("Right", 1), ("Left", -1)):
-            for finger in ("Index", "Middle", "Ring", "Pinky"):
-                for joint, degrees in (("1", 72), ("2", 28)):
-                    bone = rig.pose.bones[side + "Hand" + finger + joint]
-                    head = rig.matrix_world @ bone.head
-                    spin = (Matrix.Translation(head)
-                            @ Matrix.Rotation(radians(sign * degrees), 4, "Y")
-                            @ Matrix.Translation(-head))
-                    bone.matrix = rig.matrix_world.inverted() @ spin @ rig.matrix_world @ bone.matrix
-                    bpy.context.view_layer.update()
-                    bone.keyframe_insert("rotation_quaternion", frame=frame)
     scene.frame_set(FIRST)
     print("MUSICIAN_HANDS", tuple(round(v, 3) for v in point(rig, "LeftHand")),
           tuple(round(v, 3) for v in point(rig, "RightHand")))
@@ -213,8 +208,8 @@ def bind_flute(scene, rig, flute):
     grip = rig.matrix_world @ rig.pose.bones["RightHandProp"].matrix
     # Keep the top pipes at the mouth while swinging the lower ends toward
     # the spread hands. Moving the whole instrument would miss the lips.
-    world = (Matrix.Translation(Vector((-.035, -.245, 1.405)))
-             @ Matrix.Rotation(radians(15), 4, "Y"))
+    # Centree devant la bouche, entre les deux mains symetriques.
+    world = Matrix.Translation(Vector((0.0, -.245, 1.325)))
     flute.data.transform(grip.inverted() @ world)
     flute.parent = rig
     flute.parent_type = "BONE"
@@ -240,6 +235,9 @@ def bind_flute(scene, rig, flute):
 
 
 def save(scene, rig):
+    # L'import FBX de la flute remet la cadence de la scene a 25 i/s : 181
+    # images duraient alors 7,2 s dans Unreal au lieu de 6 (27/09).
+    scene.render.fps, scene.render.fps_base = FPS, 1.0
     # The camera and lights come from the NPC standing reference blend.
     scene.frame_set(91)
     scene.render.filepath = str(OUT / (NAME + ".png"))
