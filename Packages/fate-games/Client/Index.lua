@@ -45,7 +45,13 @@ local ok_marche, err_marche = pcall(function()
 end)
 if not ok_marche then Console.Error("[marche] chargement impossible : " .. tostring(err_marche)) end
 
--- Roue d'emotes : T, puis 1, 2 ou 3.
+-- Pas, cri au saut, reception, musique de la place hors des jeux.
+local ok_bruits, err_bruits = pcall(function()
+    Package.Require("bruits.lua")(SharedConfig.bruits)
+end)
+if not ok_bruits then Console.Error("[bruits] chargement impossible : " .. tostring(err_bruits)) end
+
+-- Roue d'emotes : T, puis 1 a 7.
 local ok_emotes, err_emotes = pcall(function()
     Package.Require("emotes.lua")(SharedConfig.emotes)
 end)

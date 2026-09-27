@@ -105,6 +105,16 @@ return {
     -- tant que le fichier n'est pas la (un mp3 se convertit en ogg).
     -- musique : jouee en boucle tant qu'on est assis a la table (salon et
     -- partie), tres bas, en fondu (secondes).
+    -- Bruits du corps et musique de la place (Client/bruits.lua) : pas, cri au
+    -- saut, reception apres une chute, musique hors des jeux. Volumes de 0 a
+    -- 1 ; musique = false la coupe.
+    bruits = {
+        musique = "musique_place",
+        volumes = { marche = 0.25, course = 0.45, cri = 0.5, reception = 0.5, musique = 0.06 },
+        foulee_marche = 55, foulee_course = 105,   -- cm entre deux pas
+        seuil_saut = 330,                          -- cm/s, le saut part a 400
+    },
+
     liars_sons = {
         menteur = "", volume_menteur = 0.9,
         musique = "musique_liars.ogg", volume_musique = 0.08,
@@ -130,8 +140,9 @@ return {
     pseudos = { portee = 1500, au_dessus = 30, verif_vue_ms = 200 },
 
     -- Petites marches (Client/marche.lua) : hauteur la plus haute montee sans
-    -- sauter (cm), poussee vers l'avant (cm/s), delai entre deux (s).
-    marche = { hauteur_max = 45, poussee = 140, delai = 0.35 },
+    -- sauter (cm), poussee vers l'avant (cm/s), delai entre deux (s), portee
+    -- du rebord devant le bord de la capsule (cm).
+    marche = { hauteur_max = 45, poussee = 140, delai = 0.25, portee = 14 },
 
     -- Roue d'emotes (Client/emotes.lua, Server/domain/emotes.lua). touche ouvre
     -- la roue, puis 1, 2 ou 3 : noms de la doc Input en QWERTY, en AZERTY (le
