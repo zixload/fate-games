@@ -158,6 +158,9 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
             character:SetScale(Vector(essai.scale, essai.scale, essai.scale))
         end
         character:SetSpeedSettings(essai.walk_speed, essai.walk_speed / 2)
+        if essai.capsule then
+            pcall(function() character:SetCapsuleSize(essai.capsule[1], essai.capsule[2]) end)
+        end
         rotation_debout(character, essai)
         regler_saut(character, essai)
         regler_camera(character, Vector(0, 0, essai.eye_height), essai.arm_length)

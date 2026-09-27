@@ -100,6 +100,10 @@ return {
     -- voir domain/characters.lua).
     personnage = {
         enabled        = true,
+        -- Capsule de collision (cm) : rayon, demi-hauteur passee a SetCapsuleSize.
+        -- Plus fine que celle par defaut, elle monte les marches sans sauter
+        -- (essai /capsule 30 96 du 27/09, valide en jeu).
+        capsule        = { 30, 96 },
         body           = "my-asset-pack::SK_Body_010",
         anim_blueprint = "my-asset-pack::ABP_Creative",
         parts = {
