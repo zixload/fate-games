@@ -74,7 +74,7 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
         local p = places[i]
         local def = p and TYPES[p.type]
         if not def then return end
-        local corps
+        local corps, objet
         if not caches then
             local ok, err = pcall(function()
                 if def.assis then
@@ -90,6 +90,16 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
                 pcall(function() corps:PlayAnimation(anim, "DefaultSlot", true, 0.2, 0.2, 1.0, true) end)
             end
             corps:SetValue("pnj", p.type, true)
+            -- Objet tenu (la flute du musicien) : exporte dans le repere de
+            -- l'os, attache sans decalage, dans la meme frame que la pose.
+            if def.objet then
+                pcall(function()
+                    objet = StaticMesh(Vector(p.x, p.y, p.z), Rotator(0, 0, 0), def.objet.mesh, CollisionType.NoCollision)
+                    objet:AttachTo(corps, AttachmentRule.SnapToTarget, def.objet.os or "RightHandProp", -1)
+                    objet:SetRelativeLocation(Vector(0, 0, 0))
+                    objet:SetRelativeRotation(Rotator(0, 0, 0))
+                end)
+            end
         end
         -- Son interaction : un repere invisible a hauteur de buste (le client
         -- ne vise que des Props, Client/interaction/init.lua).
@@ -114,13 +124,14 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
         end
         -- Le nom au-dessus de la tete (Client/pseudos.lua).
         if corps and def.nom then corps:SetValue("pseudo", def.nom, true) end
-        vivants[i] = { corps = corps, def = def, dernier = 0, repere = repere, inter = inter }
+        vivants[i] = { corps = corps, def = def, dernier = 0, repere = repere, inter = inter, objet = objet }
     end
 
     local function tout_recreer()
         for _, v in pairs(vivants) do
             if v.inter and Interactables then pcall(Interactables.Unregister, v.inter) end
             if v.repere and v.repere:IsValid() then pcall(function() v.repere:Destroy() end) end
+            if v.objet and v.objet:IsValid() then pcall(function() v.objet:Destroy() end) end
             if v.corps and v.corps:IsValid() then pcall(function() v.corps:Destroy() end) end
         end
         vivants = {}

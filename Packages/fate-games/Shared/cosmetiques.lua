@@ -124,6 +124,11 @@ Cosmetiques.liste = {
     { id = "chapeau_officier", nom = "Casquette d'officier", rarete = "rare", emplacement = "chapeau", piece = "SK_COS_Officier", materiau = "MI_COS_Officier" },
     { id = "chapeau_sorciere", nom = "Chapeau de sorcière", rarete = "epic", emplacement = "chapeau", piece = "SK_COS_Sorciere", materiau = "MI_COS_Sorciere" },
     { id = "chapeau_tricorne", nom = "Tricorne", rarete = "epic", emplacement = "chapeau", piece = "SK_COS_Tricorne", materiau = "MI_COS_Tricorne" },
+    -- Chaussures (scripts/blender/create_creative_footwear.py) : materiaux poses a l'import.
+    { id = "chaussures_geta", nom = "Geta en bois", rarete = "rare", emplacement = "chaussures", piece = "SK_COS_Geta_Wood" },
+    { id = "chaussures_chaussettes_ecrues", nom = "Chaussettes écrues", rarete = "common", emplacement = "chaussures", piece = "SK_COS_Socks_Ivory" },
+    { id = "chaussures_chaussettes_anthracite", nom = "Chaussettes anthracite", rarete = "common", emplacement = "chaussures", piece = "SK_COS_Socks_Charcoal" },
+    { id = "chaussures_chaussettes_rayees", nom = "Chaussettes rayées", rarete = "common", emplacement = "chaussures", piece = "SK_COS_Socks_BlackStripe" },
 }
 
 -- Les categories, dans l'ordre du mannequin et du vestiaire. Une categorie
@@ -154,6 +159,10 @@ local GROUPES = {
         bas_pyjamableu = { "bleu ciel", "#7fb3e0" }, bas_pyjamarose = { "rose", "#f2a0b8" },
         bas_pyjamavert = { "menthe", "#7cc49a" }, bas_pyjamamarine = { "marine", "#23355c" },
         bas_pyjamarouge = { "rouge", "#c2303b" }, bas_pyjamaviolet = { "violet", "#8e6cc4" } } },
+    chaussures_chaussettes = { nom = "Chaussettes", rarete = "common", couleurs = {
+        chaussures_chaussettes_ecrues = { "écrues", "#ece3cf" },
+        chaussures_chaussettes_anthracite = { "anthracite", "#3a3b3e" },
+        chaussures_chaussettes_rayees = { "rayées", "#f4f1ea" } } },
     haut_ml_tartan = { nom = "Manches longues tartan", rarete = "rare", couleurs = {
         haut_ml_rouge = { "rouge", "#b3202a" }, haut_ml_foret = { "forêt", "#27543a" },
         haut_ml_gris = { "gris", "#8d9095" }, haut_ml_moutarde = { "moutarde", "#c99a2e" },

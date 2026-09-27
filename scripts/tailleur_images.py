@@ -58,6 +58,12 @@ for m in json.loads((ART / "accessoires/manifeste.json").read_text(encoding="utf
     nom = m["piece"].replace("SK_COS_", "")
     carte(ART / "accessoires" / ("Apercu_" + nom + "_face.png"), (0.0, 0.0, 1.0, 0.85),
           IDS_ACCESSOIRES.get(nom, m["emplacement"] + "_" + nom.lower()))
+# Geta et chaussettes (scripts/blender/create_creative_footwear.py).
+for ident, piece, cadre in (("chaussures_geta", "Geta_Wood", (0.1, 0.45, 0.9, 0.95)),
+                            ("chaussures_chaussettes_ecrues", "Socks_Ivory", (0.1, 0.1, 0.9, 0.95)),
+                            ("chaussures_chaussettes_anthracite", "Socks_Charcoal", (0.1, 0.1, 0.9, 0.95)),
+                            ("chaussures_chaussettes_rayees", "Socks_BlackStripe", (0.1, 0.1, 0.9, 0.95))):
+    carte(ART / "footwear" / ("Preview_SK_COS_" + piece + ".png"), cadre, ident)
 # Pieces du kit (scripts/blender/apercus_kit.py), deja cadrees.
 for source in sorted((ART / "kit").glob("Apercu_*.png")):
     carte(source, (0.0, 0.0, 1.0, 1.0), source.stem.replace("Apercu_", ""))

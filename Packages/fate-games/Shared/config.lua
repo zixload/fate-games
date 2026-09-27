@@ -142,16 +142,22 @@ return {
             crieur   = { nom = "Le crieur", look = "chapeau", phrases = {} },
             -- E sur le tailleur : le vestiaire (plus de touche I).
             tailleur = { nom = "Le tailleur", look = "etudiant", phrases = {},
+                anim = "my-asset-pack::ANIM_NPC_Tailor_Idle",
                 interaction = { label = "Vestiaire", kind = "vestiaire", action = "vestiaire" } },
-            forain   = { nom = "Le forain", look = "clown", phrases = {} },
+            forain   = { nom = "Le forain", look = "clown", phrases = {},
+                anim = "my-asset-pack::ANIM_NPC_Showman_Idle" },
             barman   = { nom = "Le barman", look = "ronchon", phrases = {} },
             -- E sur l'armurier : le rayon des armes (achat, equipement, vitrine).
             armurier = { nom = "L'armurier", look = "casque", phrases = {},
+                anim = "my-asset-pack::ANIM_NPC_Armorer_Idle",
                 interaction = { label = "Armurerie", kind = "pickup", action = "armurerie" } },
             conteuse = { nom = "La conteuse", look = "casque", phrases = {},
                 assis = { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Glance", z = 11 } },
+            -- Debout, flute en main (scripts/blender/create_npc_musician.py) :
+            -- la tete suit une musique lente, les genoux flechissent un peu.
             musicien = { nom = "Le musicien", look = "bavard", phrases = {},
-                assis = { anim = "my-asset-pack::ANIM_WW_Sitting_Idle", z = 11 } },
+                anim = "my-asset-pack::ANIM_NPC_Musician_Flute_Idle",
+                objet = { mesh = "my-asset-pack::SM_NPC_Spirit_Flute", os = "RightHandProp" } },
             touriste = { nom = "Le touriste", look = "souris", phrases = {} },
         },
     },
