@@ -1,4 +1,5 @@
-r"""Importe les vetements (T-shirts, pantalons, shorts) dans my-asset-pack.
+r"""Importe les vetements et accessoires (T-shirts, manches longues, pantalons,
+shorts, coiffures, chapeaux, lunettes) dans my-asset-pack.
 
 A executer dans la console Python de l'editeur ADK deja ouvert :
 
@@ -77,11 +78,27 @@ for m in json.loads((ART / "pantalons/manifeste.json").read_text(encoding="utf-8
     pieces[m["piece"]] = ART / "pantalons" / (m["piece"] + ".fbx")
     textures[m["texture"]] = ART / "pantalons" / (m["texture"] + ".png")
 
-# Pieces de tete : elles utilisent l'atlas du kit Creative, comme ses pieces.
+# Manches longues tartan (scripts/blender/create_manches_longues.py) : une
+# piece, un motif par tartan.
+for m in json.loads((ART / "manches_longues/manifeste.json").read_text(encoding="utf-8")):
+    pieces[m["piece"]] = ART / "manches_longues" / (m["piece"] + ".fbx")
+    textures[m["texture"]] = ART / "manches_longues" / (m["texture"] + ".png")
+
+# Chapeaux et lunettes telecharges (scripts/blender/create_accessoires.py) :
+# une texture cuite par piece.
+for m in json.loads((ART / "accessoires/manifeste.json").read_text(encoding="utf-8")):
+    pieces[m["piece"]] = ART / "accessoires" / (m["piece"] + ".fbx")
+    textures[m["texture"]] = ART / "accessoires" / (m["texture"] + ".png")
+
+# Pieces de tete et coiffures (create_tete.py, create_cheveux.py) : elles
+# utilisent l'atlas du kit Creative, comme ses pieces.
 tete = json.loads((ART / "tete/manifeste.json").read_text(encoding="utf-8"))
+cheveux = json.loads((ART / "cheveux/manifeste.json").read_text(encoding="utf-8"))
 for m in tete:
     pieces[m["piece"]] = ART / "tete" / (m["piece"] + ".fbx")
-PIECES_ATLAS = {m["piece"] for m in tete}
+for m in cheveux:
+    pieces[m["piece"]] = ART / "cheveux" / (m["piece"] + ".fbx")
+PIECES_ATLAS = {m["piece"] for m in tete + cheveux}
 
 # ---------------------------------------------------------------- textures et materiaux
 

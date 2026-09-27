@@ -30,6 +30,8 @@ DECORS = {
     "CrystalBallTable": "witchtember-day-6-crystal-ball.zip",
     "HuntingRifle": "hunting-rifle.zip",
     "Candles": "candles.zip",
+    # Decor du tailleur (27/09) : la cabine de creation de Club Penguin Island.
+    "ClothingCustomizer": "clothing-customizer-club-penguin-island.zip",
 }
 IMAGES = {".png", ".jpg", ".jpeg", ".tga"}
 
@@ -58,6 +60,20 @@ def blend_vers_fbx(blend, fbx):
                    stdout=subprocess.DEVNULL)
 
 
+def obj_vers_fbx(obj, fbx):
+    """Source OBJ (Clothing Customizer, sans son .mtl) : convertie en FBX par
+    Blender, les noms de materiaux (usemtl) gardes pour l'import."""
+    script = (
+        "import bpy\n"
+        "for o in list(bpy.data.objects): bpy.data.objects.remove(o)\n"
+        f"bpy.ops.wm.obj_import(filepath=r'{obj}')\n"
+        f"bpy.ops.export_scene.fbx(filepath=r'{fbx}', apply_scale_options='FBX_SCALE_UNITS', "
+        "object_types={'MESH'}, path_mode='COPY', embed_textures=False)\n"
+    )
+    subprocess.run([str(BLENDER), "-b", "--factory-startup", "--python-expr", script], check=True,
+                   stdout=subprocess.DEVNULL)
+
+
 def preparer(nom, zip_nom):
     zip_path = DOWNLOADS / zip_nom
     if not zip_path.is_file():
@@ -74,8 +90,11 @@ def preparer(nom, zip_nom):
     if dest.exists():
         shutil.rmtree(dest)
     (dest / "textures").mkdir(parents=True)
+    objs = sorted(p for p in brut.rglob("*") if p.suffix.lower() == ".obj")
     if fbx:
         shutil.copy2(fbx[0], dest / f"{nom}.fbx")
+    elif objs:
+        obj_vers_fbx(objs[0], dest / f"{nom}.fbx")
     else:
         blends = sorted(p for p in brut.rglob("*.blend"))
         if not blends:

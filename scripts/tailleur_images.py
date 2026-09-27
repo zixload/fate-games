@@ -46,6 +46,18 @@ for m in json.loads((ART / "pantalons/manifeste.json").read_text(encoding="utf-8
 for m in json.loads((ART / "tete/manifeste.json").read_text(encoding="utf-8")):
     carte(ART / "tete" / ("Apercu_" + m["piece"] + ".png"), (0.08, 0.05, 0.92, 0.9),
           m["piece"].replace("SK_COS_", "").lower())
+# Coiffures, manches longues, chapeaux et lunettes (ajouts du 27/09).
+for m in json.loads((ART / "cheveux/manifeste.json").read_text(encoding="utf-8")):
+    style = m["piece"].replace("SK_COS_Cheveux_", "")
+    carte(ART / "cheveux" / ("Apercu_" + style + "_face.png"), (0.08, 0.05, 0.92, 0.9), "cheveux_" + style.lower())
+for m in json.loads((ART / "manches_longues/manifeste.json").read_text(encoding="utf-8")):
+    suf = m["texture"].replace("T_COS_ML_", "")
+    carte(ART / "manches_longues" / ("Apercu_" + suf + ".png"), (0.1, 0.08, 0.9, 0.72), "haut_ml_" + suf.lower())
+IDS_ACCESSOIRES = {"LunettesCoeur": "lunettes_coeur"}
+for m in json.loads((ART / "accessoires/manifeste.json").read_text(encoding="utf-8")):
+    nom = m["piece"].replace("SK_COS_", "")
+    carte(ART / "accessoires" / ("Apercu_" + nom + "_face.png"), (0.0, 0.0, 1.0, 0.85),
+          IDS_ACCESSOIRES.get(nom, m["emplacement"] + "_" + nom.lower()))
 # Pieces du kit (scripts/blender/apercus_kit.py), deja cadrees.
 for source in sorted((ART / "kit").glob("Apercu_*.png")):
     carte(source, (0.0, 0.0, 1.0, 1.0), source.stem.replace("Apercu_", ""))
