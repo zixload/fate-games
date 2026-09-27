@@ -89,7 +89,10 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     end
 
     local s = Engine.nouveau()
-    local salon = { ordre = {}, pret = {}, createur = nil, max = 10, debat = 180, mise = 0,
+    -- createur : le premier humain assis. regleurs : ceux a qui il a partage
+    -- les reglages (G en visant un joueur assis) ; ils reglent comme lui et
+    -- passent en premier s'il se leve.
+    local salon = { ordre = {}, pret = {}, createur = nil, regleurs = {}, max = 10, debat = 180, mise = 0,
         compo = Roles.par_defaut(6) }
     -- Argent (domain/boutique.lua), comme au duel : mise commune, cagnotte aux
     -- gagnants, bonus de participation. Rien avec des bots.
@@ -167,8 +170,10 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     -- tiree a chaque prise de place, selon son poids : les deux poses adossees
     -- (Lazy, Shift) sont rares, 2 fois sur 10 a elles deux (27/09).
     local POSES = D.poses or {
-        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle", z = 11.0, poids = 3 },
-        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Glance", z = 11.0, poids = 3 },
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle", z = 11.0, poids = 2 },
+        -- Sitting_Idle en miroir (scripts/blender/create_werewolf_mirror.py).
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Mirror", z = 11.0, poids = 2 },
+        { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Glance", z = 11.0, poids = 2 },
         { anim = "my-asset-pack::ANIM_WW_Sitting_Dazed", z = 11.6, poids = 2 },
         { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Lazy", z = 12.8, poids = 1 },
         { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Shift", z = 12.8, poids = 1 },
@@ -450,11 +455,17 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     local function envoyer_salon()
         if s.statut == "partie" then return end
         local joueurs = {}
-        for _, id in ipairs(salon.ordre) do joueurs[#joueurs + 1] = { nom = nom(id), pret = salon.pret[id] == true } end
+        for _, id in ipairs(salon.ordre) do
+            joueurs[#joueurs + 1] = { nom = nom(id), pret = salon.pret[id] == true,
+                chef = id == salon.createur, regleur = salon.regleurs[id] == true }
+        end
         for i, id in ipairs(salon.ordre) do
             local vue = { joueurs = {}, max = salon.max, compo = salon.compo, debat = salon.debat,
-                mise = salon.mise, mises = MISES, createur = id == salon.createur }
-            for k, j in ipairs(joueurs) do vue.joueurs[k] = { nom = j.nom, pret = j.pret, moi = k == i } end
+                mise = salon.mise, mises = MISES, createur = id == salon.createur,
+                regleur = salon.regleurs[id] == true }
+            for k, j in ipairs(joueurs) do
+                vue.joueurs[k] = { nom = j.nom, pret = j.pret, moi = k == i, chef = j.chef, regleur = j.regleur }
+            end
             envoyer(id, "ww:salon", vue)
         end
     end
@@ -589,9 +600,15 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             if m == id then table.remove(salon.ordre, i) break end
         end
         salon.pret[id] = nil
+        salon.regleurs[id] = nil
         if salon.createur == id then
+            -- Un regleur d'abord, sinon le premier humain arrive.
             salon.createur = nil
-            for _, m in ipairs(salon.ordre) do if m > 0 then salon.createur = m break end end
+            for _, m in ipairs(salon.ordre) do if salon.regleurs[m] then salon.createur = m break end end
+            if not salon.createur then
+                for _, m in ipairs(salon.ordre) do if m > 0 then salon.createur = m break end end
+            end
+            if salon.createur then salon.regleurs[salon.createur] = nil end
         end
     end
 
@@ -621,8 +638,30 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
 
     local BORNES_SALON = { max = { Roles.MIN_JOUEURS, Roles.MAX_JOUEURS, 1 }, debat = { 60, 300, 30 } }
 
-    function A.Reglage(player, cle, sens)
+    -- Le createur partage les reglages avec un joueur assis, ou les lui
+    -- reprend (cid : le personnage vise).
+    function A.Partager(player, cid)
         if s.statut == "partie" or player:GetID() ~= salon.createur then return end
+        local cible
+        for _, id in ipairs(salon.ordre) do
+            local c = personnage(id)
+            if id > 0 and id ~= salon.createur and c and c:IsValid() and c:GetID() == cid then cible = id break end
+        end
+        if not cible then return dire(player, "Vise un joueur assis au cercle.") end
+        salon.regleurs[cible] = not salon.regleurs[cible] or nil
+        local oui = salon.regleurs[cible] == true
+        dire(player, oui and (nom(cible) .. " peut régler la partie.") or (nom(cible) .. " ne règle plus la partie."))
+        for _, pl in pairs(Player.GetPairs()) do
+            if pl:GetID() == cible then
+                dire(pl, oui and "Tu peux régler la partie (flèches)." or "Tu ne règles plus la partie.")
+            end
+        end
+        envoyer_salon()
+    end
+
+    function A.Reglage(player, cle, sens)
+        local id_regleur = player:GetID()
+        if s.statut == "partie" or not (id_regleur == salon.createur or salon.regleurs[id_regleur]) then return end
         sens = (tonumber(sens) or 0) > 0 and 1 or -1
         local b = BORNES_SALON[cle]
         if cle == "mise" then
@@ -1144,6 +1183,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
         Events.SubscribeRemote("ww:pret", function(p) A.Pret(p) end)
         Events.SubscribeRemote("ww:renoncer", function(p) A.Renoncer(p) end)
         Events.SubscribeRemote("ww:reglage", function(p, cle, sens) A.Reglage(p, cle, sens) end)
+        Events.SubscribeRemote("ww:partager", function(p, cid) A.Partager(p, tonumber(cid)) end)
         -- Outils de dev : mode dev du serveur, et seulement pour les devs.
         local function dev_ok(p)
             return config.bots and (config.dev_pour == nil or config.dev_pour(p))

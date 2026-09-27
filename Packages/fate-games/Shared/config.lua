@@ -195,6 +195,7 @@ return {
         marge_poses = 50,    -- degres de plus permis au-dela de tangage_max pour ces decalages
         poses_loup_garou = {
             ["my-asset-pack::ANIM_WW_Sitting_Idle"] = 20,
+            ["my-asset-pack::ANIM_WW_Sitting_Idle_Mirror"] = 20,  -- miroir de la precedente
             ["my-asset-pack::ANIM_WW_Sitting_Idle_Glance"] = 20,
             ["my-asset-pack::ANIM_WW_Sitting_Dazed"] = 30,        -- tete tres basse
             ["my-asset-pack::ANIM_WW_Sitting_Idle_Lazy"] = -40,   -- adosse, tete en arriere

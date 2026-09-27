@@ -230,10 +230,35 @@ return function(config, Interaction)
             if r.cle == "debat" then texte = ("%d:%02d"):format(valeur // 60, valeur % 60)
             elseif r.cle == "mise" then texte = valeur > 0 and (valeur .. " pièces") or "aucune" end
             lignes[i] = { nom = r.nom, image = r.image, valeur = texte,
-                choisie = v.createur and i == etat.ligne or false }
+                choisie = (v.createur or v.regleur) and i == etat.ligne or false }
         end
-        appeler("lg:salon", { joueurs = v.joueurs, max = v.max, createur = v.createur, lignes = lignes,
+        -- createur (pour le HUD) : qui peut regler ; chef : qui peut partager.
+        appeler("lg:salon", { joueurs = v.joueurs, max = v.max, createur = v.createur or v.regleur,
+            chef = v.createur, lignes = lignes,
             villageois = math.max(0, #(v.joueurs or {}) - speciaux) })
+    end
+
+    -- Au salon, le joueur assis le plus proche de l'axe du regard (le
+    -- partage des reglages se fait avant la partie, sans la visee du jeu).
+    local function vise_au_salon()
+        local player = Client.GetLocalPlayer()
+        local moi = player and player:GetControlledCharacter()
+        local origine, regard = player and player:GetCameraLocation(), player and player:GetCameraRotation()
+        if not (origine and regard) then return nil end
+        local avant = regard:GetForwardVector()
+        local meilleur, meilleur_cos = nil, 0.96
+        for _, c in pairs(CharacterSimple.GetAll()) do
+            if c:IsValid() and c ~= moi and c:GetValue("ww_pose", nil) then
+                local l = c:GetLocation()
+                local dx, dy, dz = l.X - origine.X, l.Y - origine.Y, l.Z - origine.Z
+                local d = math.sqrt(dx * dx + dy * dy + dz * dz)
+                if d > 0 and d < 2500 then
+                    local cos = (dx * avant.X + dy * avant.Y + dz * avant.Z) / d
+                    if cos > meilleur_cos then meilleur, meilleur_cos = c, cos end
+                end
+            end
+        end
+        return meilleur
     end
 
     local H = {}
@@ -679,7 +704,14 @@ return function(config, Interaction)
             end
             return false
         end
-        if not v.createur then return end
+        -- G : le createur partage les reglages avec le joueur assis qu'il vise.
+        if touche == "G" and v.createur and not etat.demo then
+            local cible = vise_au_salon()
+            if cible then Events.CallRemote("ww:partager", Reliability.Reliable, cible:GetID())
+            else appeler("lg:message", "Vise un joueur assis au cercle, puis [G].", 3) end
+            return false
+        end
+        if not (v.createur or v.regleur) then return end
         if touche == "Up" or touche == "Down" then
             etat.ligne = (etat.ligne - 1 + (touche == "Down" and 1 or -1)) % #REGLAGES + 1
             dessiner_salon()
