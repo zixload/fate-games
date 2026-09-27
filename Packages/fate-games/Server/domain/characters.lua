@@ -284,6 +284,8 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
         else
             vitesse = session.course and e.run_speed or e.walk_speed
         end
+        -- Immobilise (chute, Server/domain/chutes.lua) : ni marche ni course.
+        if session.immobile then vitesse = 0 end
         session.character:SetSpeedSettings(vitesse, e.walk_speed / 2)
     end
 
@@ -307,6 +309,17 @@ return function(Log, DB, Ids, Scheduler, Accounts, config, Appearances)
         if course then e.run_speed = course end
         -- Assis, la vitesse reste nulle : Stand la remettra.
         if not session.assis then appliquer_vitesse(session) end
+        return true
+    end
+
+    -- Le temps d'une chute : le personnage ne marche ni ne saute plus.
+    function Characters.Immobiliser(player_id, oui)
+        local session = peut_regler(player_id)
+        if not session then return false end
+        session.immobile = oui or nil
+        pcall(function() session.character:SetCanJump(not oui) end)
+        if oui then pcall(function() session.character:StopMovement(true) end) end
+        appliquer_vitesse(session)
         return true
     end
 

@@ -109,6 +109,19 @@ return {
     -- le meme pour tous : secondes de jour (6h a 20h) et de nuit (20h a 6h).
     cycle = { jour = 600, nuit = 300, decalage = 0 },
 
+    -- Chutes (Server/domain/chutes.lua) : vitesse de chute a l'arrivee (cm/s)
+    -- qui fait encaisser durement, puis s'ecraser au sol. 900 cm/s, c'est
+    -- ~4,6 m de chute ; 1400, ~11 m. Duree en secondes (immobilise pendant),
+    -- fondu de sortie = le relevement. actif = false tant que les animations
+    -- ne sont pas cuites (scripts/unreal/import_chutes.py).
+    chutes = {
+        actif = false,
+        seuil_dure = 900,
+        seuil_sol = 1400,
+        dure = { anim = "my-asset-pack::ANIM_Chute_Reception", duree = 1.93, fondu_sortie = 0.3 },
+        sol = { anim = "my-asset-pack::ANIM_Chute_Au_Sol", duree = 3.13, fondu_sortie = 0.9 },
+    },
+
     -- Bruits du corps et musique de la place (Client/bruits.lua) : pas, cri au
     -- saut, reception apres une chute, musique hors des jeux. Volumes de 0 a
     -- 1 ; musique = false la coupe.

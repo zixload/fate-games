@@ -71,8 +71,20 @@ return function(config)
     local SEUIL_GROS = config.seuil_gros or 800
     local function grosse(e) return e.crie or e.chute >= SEUIL_GROS end
 
+    -- Sa propre chute : le serveur y joue l'animation d'ecrasement
+    -- (Server/domain/chutes.lua), avec la vitesse de chute.
+    local SEUIL_ANNONCE = (Package.Require("Shared/config.lua").chutes or {}).seuil_dure or 900
+    local function annoncer_chute(ch, e)
+        local p = Client.GetLocalPlayer()
+        local moi = p and p:GetControlledCharacter()
+        if moi and moi == ch and e.chute >= SEUIL_ANNONCE then
+            Events.CallRemote("zix:chute", Reliability.Reliable, e.chute)
+        end
+    end
+
     local function recevoir(ch, e)
         e.recu = true
+        annoncer_chute(ch, e)
         local force = math.min(1, e.chute / 900)
         jouer(grosse(e) and "reception" or "reception_leger", pieds(ch), V.reception * (0.6 + 0.4 * force), 0.95 + math.random() * 0.1)
     end

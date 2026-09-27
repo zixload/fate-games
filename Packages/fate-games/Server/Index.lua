@@ -48,6 +48,7 @@ local Characters    = Package.Require("domain/characters.lua")(Log, DB, Ids, Sch
 local Interactables = Package.Require("domain/interactables.lua")(Log, Intents, Characters, ServerConfig)
 local Boutique      = Package.Require("domain/boutique.lua")(Log, DB, Ids, Catalogue, ServerConfig)
 local Emotes        = Package.Require("domain/emotes.lua")(Log, Characters, SharedConfig.emotes)
+local Chutes        = Package.Require("domain/chutes.lua")(Log, Characters, SharedConfig.chutes)
 
 -- Liar's Bar. Le cablage est explicite et a plat : chaque module recoit ses
 -- dependances, aucune globale ne circule entre eux (R5).
@@ -119,6 +120,7 @@ local LoupGarou = Package.Require("games/werewolf/adapter.lua")(Log, DB, Ids, Ch
       bonus_participation = DuelConfig.bonus_participation })
 LoupGarou.Init()
 Emotes.Init()
+Chutes.Init()
 
 -- Systeme de combat (docs/COMBAT.md) : moteur pur combat/, adaptateur sur le
 -- personnage natif. En dev, /pvp pour l'essayer.
@@ -526,6 +528,7 @@ Player.Subscribe("Destroy", function(player)
         Log.Error("liars", "OnPlayerLeave a leve : " .. tostring(err))
     end
     pcall(Emotes.OnPlayerLeave, player)
+    pcall(Chutes.OnPlayerLeave, player)
     local ok_lg, err_lg = pcall(LoupGarou.OnPlayerLeave, player)
     if not ok_lg then Log.Error("werewolf", "OnPlayerLeave a leve : " .. tostring(err_lg)) end
     local ok_duel, err_duel = pcall(DuelJeu.OnPlayerLeave, player)
