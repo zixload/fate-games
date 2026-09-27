@@ -117,7 +117,10 @@ Timer.SetInterval(function()
         -- lisent le regard de loin. Bornes et gain : Shared/config.lua.
         local yaw = math.max(-R.lacet_max, math.min(R.lacet_max,
             angle(rotation.Yaw - orientation_chaise) * R.gain))
-        local regard_pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch * R.gain))
+        -- Les poses assises du loup-garou penchent deja la tete : sans ce
+        -- decalage, regarder droit devant faisait regarder le sol (27/09).
+        local decalage = perso:GetValue("ww_pose", nil) and (R.decalage_loup_garou or 0) or 0
+        local regard_pitch = math.max(-R.tangage_max, math.min(R.tangage_max, pitch * R.gain + decalage))
         if not perso:GetValue("liars_dead", false) then
             -- La tete ne doit pas suivre la camera pendant la chute figee.
             -- Tangage inverse : dans le rig, un tangage positif baisse la tete

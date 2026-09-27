@@ -184,7 +184,10 @@ return {
     -- Client/regard_assis.lua, borne aussi par le serveur) : bornes en degres,
     -- gain (la tete tourne un peu plus que la camera, pour se lire de loin)
     -- et part du cou et de la tete.
-    regard_assis = { lacet_max = 70, tangage_max = 35, gain = 1.3, cou = 0.4, tete = 0.6 },
+    -- decalage_loup_garou : degres ajoutes vers le haut sur les poses du
+    -- loup-garou, qui penchent la tete (plus grand : la tete se releve).
+    regard_assis = { lacet_max = 70, tangage_max = 35, gain = 1.3, cou = 0.4, tete = 0.6,
+        decalage_loup_garou = 20 },
 
     -- Cartes 3D de Liar's Bar (Client/liars_bar/rendu.lua). L'echelle et les
     -- axes du FBX des cartes sont inconnus : tout se regle en jeu avec /fan,
