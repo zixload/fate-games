@@ -68,6 +68,10 @@ body.armes.vitrine-3d #vitrine { display: none; }
 .secoue { animation: secoue .35s ease; }
 @keyframes secoue { 25% { translate: -6px 0; } 50% { translate: 6px 0; } 75% { translate: -3px 0; } }
 @media (prefers-reduced-motion: reduce) { .secoue { animation: none; } .carte { transition: none; } }
+/* Armurerie (E sur l'armurier) : seul le rayon des armes, et un bouton Sortir. */
+body.armurerie #rayon-persos, body.armurerie #rayon-armes { display: none; }
+#sortir { display: none; position: fixed; top: 28px; left: 32px; font-size: 22px; padding: 8px 16px; }
+body.armurerie #sortir { display: block; }
 </style>
 </head>
 <body>
@@ -125,6 +129,7 @@ body.armes.vitrine-3d #vitrine { display: none; }
   </button>
 </div>
 
+<button id="sortir" class="sk" data-graine="53" data-rayon="999">Sortir</button>
 <script src="../ui/esquisse.js"></script>
 <script>
 // Libelles pour les lecteurs d'ecran seulement : l'ecran n'affiche aucun texte.
@@ -272,18 +277,26 @@ $("cartes").addEventListener("click", (e) => {
 $("rayon-persos").addEventListener("click", () => changerRayon("persos"));
 $("rayon-armes").addEventListener("click", () => changerRayon("armes"));
 $("action").addEventListener("click", agir);
+$("sortir").addEventListener("click", () => envoyer("sortir"));
 addEventListener("wheel", (e) => choisir(sel[rayon] + (e.deltaY > 0 ? 1 : -1)));
 addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   if (k === "arrowright" || k === "d") choisir(sel[rayon] + 1);
   else if (k === "arrowleft" || k === "q" || k === "a") choisir(sel[rayon] - 1);
-  else if (k === "tab") { e.preventDefault(); changerRayon(rayon === "persos" ? "armes" : "persos"); }
+  else if (k === "tab") { e.preventDefault(); if (mode !== "armurerie") changerRayon(rayon === "persos" ? "armes" : "persos"); }
+  else if (k === "escape" && mode === "armurerie") envoyer("sortir");
   else if (k === "e" || k === "enter") agir();
 });
 
+let mode = null;
 function recevoir(nouvelle, refus) {
   const premiere = vue === null;
   vue = nouvelle;
+  // La vue d'ouverture dit le mode ; les suivantes (apres un achat) ne le
+  // redisent pas : on le garde jusqu'a la prochaine ouverture.
+  if (nouvelle.mode) mode = nouvelle.mode;
+  document.body.classList.toggle("armurerie", mode === "armurerie");
+  if (mode === "armurerie" && rayon !== "armes") changerRayon("armes");
   if (premiere) {
     // On ouvre sur la tenue portee et l'arme equipee.
     sel.persos = Math.max(0, vue.persos.findIndex((a) => a.id === vue.perso));
@@ -295,6 +308,7 @@ function recevoir(nouvelle, refus) {
 
 if (window.Events) {
   Events.Subscribe("vestiaire:ouvrir", () => {
+    mode = null;
     document.body.classList.add("ouvert");
     // Nouvelle visite : le serveur a remis le personnage visible, on
     // renvoie l'arme a poser si l'on est reste sur le rayon des armes.

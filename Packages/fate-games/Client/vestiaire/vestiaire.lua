@@ -164,6 +164,10 @@ return function(SharedConfig)
     page:Subscribe("entrer", function(id)
         Events.CallRemote("vestiaire:entrer", Reliability.Reliable, id)
     end)
+    -- Armurerie : Sortir redescend le personnage ou il etait.
+    page:Subscribe("sortir", function()
+        Events.CallRemote("armurerie:sortir", Reliability.Reliable)
+    end)
     -- Rayon des armes : l'arme choisie ("" hors du rayon). Le serveur cache
     -- le personnage pendant ce temps, pour qu'il ne passe pas derriere.
     page:Subscribe("vitrine", function(id)

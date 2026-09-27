@@ -542,6 +542,29 @@ do
         end)
     end
 
+    -- Armurerie : E sur l'armurier. Le personnage remonte au vestiaire (sa
+    -- position est gardee), la page s'ouvre sur le seul rayon des armes ;
+    -- Sortir le redescend ou il etait (armurerie:sortir).
+    PnjActions.armurerie = function(player)
+        local session = Characters.SessionByPlayer(player:GetID())
+        if not (session and session.account and session.character) then return end
+        if session.assis or Characters.AuVestiaire(player:GetID()) or chez_tailleur[player:GetID()] then return end
+        Boutique.Charger(session.account, function(etat)
+            if not etat or not player:IsValid() then return end
+            local ok, raison = Characters.RetournerVestiaire(player:GetID(), look_de(etat))
+            if not ok then return Log.Debug("armurerie", "refus : " .. tostring(raison)) end
+            local vue = Boutique.Vue(etat)
+            vue.mode = "armurerie"
+            Events.CallRemote("vestiaire:ouvrir", player, Reliability.Reliable, vue)
+        end)
+    end
+
+    Events.SubscribeRemote("armurerie:sortir", function(player)
+        if not Characters.AuVestiaire(player:GetID()) then return end
+        Characters.QuitterVestiaire(player:GetID())
+        Events.CallRemote("vestiaire:fermer", player, Reliability.Reliable)
+    end)
+
     Events.SubscribeRemote("tailleur:acheter", function(player, ids)
         local session, etat = session_tailleur(player)
         if not session or type(ids) ~= "table" or #ids == 0 or #ids > 40 then return end

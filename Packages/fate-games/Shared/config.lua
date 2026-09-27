@@ -145,6 +145,9 @@ return {
                 interaction = { label = "Vestiaire", kind = "vestiaire", action = "vestiaire" } },
             forain   = { nom = "Le forain", look = "clown", phrases = {} },
             barman   = { nom = "Le barman", look = "ronchon", phrases = {} },
+            -- E sur l'armurier : le rayon des armes (achat, equipement, vitrine).
+            armurier = { nom = "L'armurier", look = "casque", phrases = {},
+                interaction = { label = "Armurerie", kind = "pickup", action = "armurerie" } },
             conteuse = { nom = "La conteuse", look = "casque", phrases = {},
                 assis = { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Glance", z = 11 } },
             musicien = { nom = "Le musicien", look = "bavard", phrases = {},
