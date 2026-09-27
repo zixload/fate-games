@@ -5,6 +5,8 @@
 -- serveur (File n'ecrit que la, doc File) :
 --   /pnj poser <type>   ici, tourne comme moi
 --   /pnj retirer        le plus proche (3 m)
+--   /pnj deplacer <type> ce PNJ vient ici, tourne comme moi (le plus proche
+--                       de moi s'il y en a plusieurs de ce type)
 --   /pnj liste          les types connus
 --   /pnj cacher|montrer tous les PNJ caches (en attendant leurs tenues et
 --                       animations) ; leurs interactions restent : E a la place
@@ -153,6 +155,24 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
             ecrire()
             tout_recreer()
             dire(player, ("%s retire (%d PNJ)"):format(TYPES[t] and TYPES[t].nom or t, #places))
+        elseif mots[2] == "deplacer" then
+            local t = mots[3]
+            if not (t and TYPES[t]) then dire(player, "/pnj deplacer <type> : /pnj liste pour les types") return false end
+            if not c then return false end
+            local l, r = c:GetLocation(), c:GetRotation()
+            local meilleur, d_min = nil, math.huge
+            for i, p in ipairs(places) do
+                if p.type == t then
+                    local d = (p.x - l.X) ^ 2 + (p.y - l.Y) ^ 2 + (p.z - l.Z) ^ 2
+                    if d < d_min then meilleur, d_min = i, d end
+                end
+            end
+            if not meilleur then dire(player, ("Aucun %s pose : /pnj poser %s"):format(t, t)) return false end
+            local p = places[meilleur]
+            p.x, p.y, p.z, p.yaw = l.X, l.Y, l.Z, r.Yaw
+            ecrire()
+            tout_recreer()
+            dire(player, ("%s deplace ici"):format(TYPES[t].nom or t))
         elseif mots[2] == "cacher" or mots[2] == "montrer" then
             caches = mots[2] == "cacher"
             ecrire()
@@ -162,7 +182,7 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
             local noms = {}
             for t in pairs(TYPES) do noms[#noms + 1] = t end
             table.sort(noms)
-            dire(player, "/pnj poser <" .. table.concat(noms, "|") .. "> | /pnj retirer | /pnj cacher | /pnj montrer")
+            dire(player, "/pnj poser|deplacer <" .. table.concat(noms, "|") .. "> | /pnj retirer | /pnj cacher | /pnj montrer")
         end
         return false
     end
