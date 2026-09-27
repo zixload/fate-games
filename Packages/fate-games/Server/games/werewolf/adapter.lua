@@ -501,7 +501,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             salon.pret = {}
             for id in pairs(bots) do salon.pret[id] = true end
             envoyer_salon()
-            return diffuser("ww:annonce", "Impossible de lancer : " .. tostring(raison))
+            return diffuser("ww:annonce", "Impossible de lancer : " .. raison_lisible(raison))
         end
         Log.Info("werewolf", ("partie lancee a %d joueurs"):format(#ids))
         diffuser("ww:salon", nil)
@@ -645,6 +645,17 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
 
     local BORNES_SALON = { max = { Roles.MIN_JOUEURS, Roles.MAX_JOUEURS, 1 }, debat = { 60, 300, 30 } }
 
+    -- Les raisons de Match.valider, lisibles.
+    local RAISONS = {
+        trop_de_roles = "plus de rôles que de joueurs",
+        trop_de_loups = "trop de loups pour ce nombre de joueurs (il en faut moins que d'autres rôles)",
+        aucun_loup = "il faut au moins un loup",
+        pas_assez_de_joueurs = ("pas assez de joueurs (%d minimum)"):format(Roles.MIN_JOUEURS),
+        trop_de_joueurs = ("trop de joueurs (%d maximum)"):format(Roles.MAX_JOUEURS),
+        reglage_hors_bornes = "réglage hors limites",
+    }
+    local function raison_lisible(r) return RAISONS[r] or tostring(r) end
+
     -- Le createur partage les reglages avec un joueur assis, ou les lui
     -- reprend (cid : le personnage vise).
     function A.Partager(player, cid)
@@ -675,11 +686,30 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             local i = 1
             for k, v in ipairs(MISES) do if v == salon.mise then i = k end end
             salon.mise = MISES[math.max(1, math.min(#MISES, i + sens))]
-        elseif b then
-            salon[cle] = math.max(b[1], math.min(b[2], salon[cle] + sens * b[3]))
-        elseif Roles.bornes[cle] then
-            local r = Roles.bornes[cle]
-            salon.compo[cle] = math.max(r[1], math.min(r[2], (salon.compo[cle] or 0) + sens))
+        elseif b or Roles.bornes[cle] then
+            -- Le reglage propose, verifie avec les regles du lancement
+            -- (Match.valider) contre le nombre de joueurs choisi : pas plus de
+            -- roles que de joueurs, moins de loups que d'autres, un loup au moins.
+            local max, compo = salon.max, {}
+            for k, v in pairs(salon.compo) do compo[k] = v end
+            if b then
+                if cle == "max" then max = math.max(b[1], math.min(b[2], max + sens * b[3]))
+                else salon[cle] = math.max(b[1], math.min(b[2], salon[cle] + sens * b[3])) end
+            else
+                local r = Roles.bornes[cle]
+                compo[cle] = math.max(r[1], math.min(r[2], (compo[cle] or 0) + sens))
+            end
+            if cle == "max" or not b then
+                local ok, raison = Match.valider(compo, max)
+                -- Un reglage qui ne fait qu'aller vers le mieux (moins de roles,
+                -- plus de joueurs) passe toujours : un salon deja faux se corrige.
+                local vers_le_mieux = (cle == "max" and sens > 0) or (not b and sens < 0)
+                if not ok and not vers_le_mieux then
+                    local conseil = cle == "max" and " : retire d'abord un rôle." or "."
+                    return dire(player, "Refusé : " .. raison_lisible(raison) .. conseil)
+                end
+                salon.max, salon.compo = max, compo
+            end
         else
             return
         end
