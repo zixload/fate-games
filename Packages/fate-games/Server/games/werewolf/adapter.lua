@@ -706,7 +706,9 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
                 local vers_le_mieux = (cle == "max" and sens > 0) or (not b and sens < 0)
                 if not ok and not vers_le_mieux then
                     local conseil = cle == "max" and " : retire d'abord un rôle." or "."
-                    return dire(player, "Refusé : " .. raison_lisible(raison) .. conseil)
+                    local texte = "Refusé : " .. raison_lisible(raison) .. conseil
+                    envoyer(player:GetID(), "ww:annonce", texte)
+                    return dire(player, texte)
                 end
                 salon.max, salon.compo = max, compo
             end
