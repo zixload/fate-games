@@ -705,9 +705,9 @@ return function(Log, DB, Ids, Characters, Interactables, Intents, Engine, Bots, 
             end
         end
 
-        if avec_bots then
-            Log.Info("liars", "partie avec bots : resultat non enregistre")
-        else
+        -- Les parties avec bots comptent pour les stats (27/09) : les bots
+        -- sont ecrits avec character_id 0, chacun a sa place.
+        do
             local ok, err = pcall(Adapter.PersistResult, e.winner, e.summary, releve)
             if not ok then
                 Log.Error("liars", "resultat non ecrit : " .. tostring(err))

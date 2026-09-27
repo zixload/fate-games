@@ -99,7 +99,9 @@ return function(H, Stubs)
                 if e.query:find("INTO duel_resultats", 1, true) then lignes[#lignes + 1] = e.params end
             end
             H.assert_count(lignes, 2, "deux lignes")
-            H.assert_eq(lignes[1][1], "duel:Est:3", "partie")
+            -- La cle porte la date : les numeros d'arene repartent de 1 a chaque
+            -- redemarrage du serveur, un ancien duel ne doit pas masquer un nouveau.
+            H.assert_true(tostring(lignes[1][1]):find("^duel:Est:3@") ~= nil, "partie datee")
             H.assert_eq(lignes[1][3], 1, "gagne = 1")
             H.assert_eq(lignes[2][3], 0, "perdu = 0")
         end)

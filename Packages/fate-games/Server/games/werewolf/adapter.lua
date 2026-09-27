@@ -1012,9 +1012,9 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
     end
 
     -- Le resultat d'une partie terminee : donnee transactionnelle, ecrite tout
-    -- de suite (R3). Une partie avec des bots ne compte pas.
+    -- de suite (R3). Les parties avec bots comptent pour les stats (27/09) ;
+    -- chaque bot est ecrit sous son id negatif, ce qui les distingue (rangs).
     local function enregistrer(gagnant, resume)
-        if next(bots) then return Log.Info("werewolf", "partie avec bots : resultat non enregistre") end
         local id_partie = Ids.Next("werewolf_matches")
         local fin = os.date("!%Y-%m-%dT%H:%M:%SZ")
         DB.Execute([[INSERT INTO werewolf_matches (id, started_at, ended_at, nights, winner)
@@ -1026,7 +1026,7 @@ return function(Log, DB, Ids, Characters, Interactables, Engine, Roles, Match, c
             DB.Execute([[INSERT INTO werewolf_participants (match_id, character_id, role, survived, won)
                          VALUES (:0, :1, :2, :3, :4)]],
                 function(_, err) if err then Log.Error("werewolf", "participant non ecrit : " .. tostring(err)) end end,
-                id_partie, session and session.character_id or 0, role,
+                id_partie, (id < 0 and id) or (session and session.character_id) or 0, role,
                 resume.vivants and resume.vivants[id] and 1 or 0,
                 a_gagne(gagnant, id, role, resume.amoureux) and 1 or 0)
         end

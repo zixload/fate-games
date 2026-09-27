@@ -100,7 +100,8 @@ return function(Log, DB)
                 DB.Execute([[INSERT OR IGNORE INTO duel_resultats (partie, character_id, won, created_at)
                              VALUES (:0, :1, :2, :3)]],
                     function(_, err) if err then Log.Error("stats", "duel non ecrit : " .. tostring(err)) end end,
-                    partie, j.character_id, j.won and 1 or 0, quand)
+                    -- Datee : les numeros d'arene repartent de 1 au redemarrage.
+                    tostring(partie) .. "@" .. quand, j.character_id, j.won and 1 or 0, quand)
             end
         end
     end
