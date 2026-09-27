@@ -65,11 +65,16 @@ return function(config)
     -- Le son de reception culmine a ~0,09 s : on le lance un peu avant le
     -- contact, sinon on l'entend en retard (27/09).
     local AVANCE_RECEPTION = config.avance_reception or 0.12
+    -- Deux receptions : le "body fall" pour une grosse chute (elle a fait crier,
+    -- ou plus de SEUIL_GROS cm/s), l'ancien son sec pour un saut normal, joue
+    -- au contact (il frappe des le debut du fichier).
+    local SEUIL_GROS = config.seuil_gros or 800
+    local function grosse(e) return e.crie or e.chute >= SEUIL_GROS end
 
     local function recevoir(ch, e)
         e.recu = true
         local force = math.min(1, e.chute / 900)
-        jouer("reception", pieds(ch), V.reception * (0.6 + 0.4 * force), 0.95 + math.random() * 0.1)
+        jouer(grosse(e) and "reception" or "reception_leger", pieds(ch), V.reception * (0.6 + 0.4 * force), 0.95 + math.random() * 0.1)
     end
 
     -- Un sol juste sous les pieds : au sommet d'un saut la vitesse verticale
@@ -109,7 +114,7 @@ return function(config)
                             e.en_l_air = true
                             e.chute = math.max(e.chute, -v.Z)
                             -- Le sol arrive dans moins de AVANCE_RECEPTION : le son part.
-                            if not e.recu and e.chute >= SEUIL_CHUTE then
+                            if not e.recu and grosse(e) then
                                 local ok, d = pcall(sol_sous, ch, -v.Z * AVANCE_RECEPTION + 5)
                                 if ok and d then recevoir(ch, e) end
                             end
