@@ -110,13 +110,13 @@ return {
     cycle = { jour = 600, nuit = 300, decalage = 0 },
 
     -- Chutes (Server/domain/chutes.lua) : vitesse de chute a l'arrivee (cm/s)
-    -- qui fait encaisser durement, puis s'ecraser au sol. 900 cm/s, c'est
-    -- ~4,6 m de chute ; 1400, ~11 m. Duree en secondes (immobilise pendant),
+    -- qui fait encaisser durement, puis s'ecraser au sol. 750 cm/s, c'est
+    -- ~3,2 m de chute ; 1400, ~11 m. Duree en secondes (immobilise pendant),
     -- fondu de sortie = le relevement. actif = false tant que les animations
     -- ne sont pas cuites (scripts/unreal/import_chutes.py).
     chutes = {
         actif = true,     -- animations cuites le 27/09
-        seuil_dure = 900,
+        seuil_dure = 750,         -- ~3,2 m (900 le 27/09 : trop haut)
         seuil_sol = 1400,
         dure = { anim = "my-asset-pack::ANIM_Chute_Reception", duree = 1.93, fondu_sortie = 0.3 },
         sol = { anim = "my-asset-pack::ANIM_Chute_Au_Sol", duree = 3.13, fondu_sortie = 0.9 },
