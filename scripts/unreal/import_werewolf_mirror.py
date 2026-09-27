@@ -1,4 +1,4 @@
-"""Importe la pose assise en miroir du loup-garou (ANIM_WW_Sitting_Idle_Mirror).
+r"""Importe la pose assise en miroir du loup-garou (ANIM_WW_Sitting_Idle_Mirror).
 
 A executer dans la console Python de l'editeur ADK deja ouvert :
 
