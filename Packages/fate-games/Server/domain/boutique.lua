@@ -133,6 +133,13 @@ return function(Log, DB, Ids, Catalogue, config)
 
     -- Verse la cagnotte aux gagnants (le reste de la division au premier), puis
     -- le bonus de participation a chacun. callback()
+    -- Abonne aux gains (ecran d'accueil, fil des derniers gains) : appele pour
+    -- chaque versement de cagnotte reussi, pas pour les bonus de participation.
+    local sur_gain = nil
+    function Boutique.SurGain(fn)
+        sur_gain = fn
+    end
+
     function Boutique.Solder(partie, participants, gagnants, cagnotte, bonus, cid, callback)
         callback = callback or function() end
         local versements = {}
@@ -156,6 +163,7 @@ return function(Log, DB, Ids, Catalogue, config)
             if v.montant <= 0 then return suivant(i + 1) end
             mouvement(v.de, compte(v.a), v.montant, v.raison, cid, function(ok)
                 if ok and etats[v.a.id] then etats[v.a.id].solde = etats[v.a.id].solde + v.montant end
+                if ok and v.raison == "gain" and sur_gain then pcall(sur_gain, partie, v.a, v.montant) end
                 suivant(i + 1)
             end)
         end
@@ -191,6 +199,18 @@ return function(Log, DB, Ids, Catalogue, config)
                 if row then
                     etat.perso = row.perso
                     etat.arme  = row.arme
+                else
+                    -- Premiere venue : une apparence de base des bots, gratuite
+                    -- donc possedee ; l'accueil l'enregistre (Server/Index.lua).
+                    -- Il la change ensuite piece par piece chez le tailleur.
+                    local gratuits = {}
+                    for _, a in ipairs(Catalogue.persos) do
+                        if a.prix == 0 then gratuits[#gratuits + 1] = a.id end
+                    end
+                    if #gratuits > 0 then
+                        etat.perso = gratuits[(cfg.rng or math.random)(#gratuits)]
+                        etat.nouveau = true
+                    end
                 end
                 -- Un article retire du catalogue, ou plus possede, retombe sur
                 -- le defaut plutot que de laisser le joueur nu.

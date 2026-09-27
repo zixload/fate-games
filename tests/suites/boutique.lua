@@ -16,7 +16,7 @@ return function(H, Stubs)
         Ids.Seed({ "ledger" })
         DB.EndStartup()
         return make_boutique(Log, DB, Ids, Catalogue, {
-            boutique = cfg or { bonus_accueil = 0, perso_defaut = "clown" },
+            boutique = cfg or { bonus_accueil = 0, perso_defaut = "clown", rng = function() return 1 end },
         })
     end
 
@@ -208,6 +208,36 @@ return function(H, Stubs)
             Boutique.Solder("duel:3", { A, B }, { A, B }, 101, 10, nil)
             H.assert_eq(ea.solde, 51 + 10, "A : moitie + reste + bonus")
             H.assert_eq(eb.solde, 50 + 10, "B : moitie + bonus")
+        end)
+
+        H.it("un nouveau joueur recoit un perso gratuit tire au hasard", function()
+            local c = Stubs.reset()
+            local Boutique = build(c, { bonus_accueil = 0, perso_defaut = "clown", rng = function(n) return n end })
+            local etat = charger(c, Boutique, 0, 0, {}, {})
+            H.assert_true(etat.nouveau == true, "marque nouveau")
+            H.assert_true(Catalogue.gratuit("persos", etat.perso), "perso gratuit")
+            H.assert_true(etat.perso ~= "clown", "pas toujours le defaut (dernier gratuit tire)")
+        end)
+
+        H.it("un joueur deja equipe n'est pas nouveau", function()
+            local c = Stubs.reset()
+            local Boutique = build(c)
+            local etat = charger(c, Boutique, 0, 0, {}, { { perso = "souris", arme = Catalogue.arme_de_base } })
+            H.assert_nil(etat.nouveau, "pas nouveau")
+            H.assert_eq(etat.perso, "souris", "garde son perso")
+        end)
+
+        H.it("previent l'abonne des gains, pas des bonus", function()
+            local c = Stubs.reset()
+            local Boutique = build(c)
+            deux_comptes(c, Boutique, 0, 0)
+            local vus = {}
+            Boutique.SurGain(function(partie, account, montant) vus[#vus + 1] = { partie, account.id, montant } end)
+            Boutique.Solder("liars:9:1", { A, B }, { A }, 100, 10, nil)
+            H.assert_count(vus, 1, "un seul gain")
+            H.assert_eq(vus[1][1], "liars:9:1", "partie")
+            H.assert_eq(vus[1][2], A.id, "compte gagnant")
+            H.assert_eq(vus[1][3], 100, "montant")
         end)
     end)
 
