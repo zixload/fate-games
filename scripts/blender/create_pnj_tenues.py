@@ -212,8 +212,7 @@ def gilet_depuis(chemise):
              (Vector((X_IN, 0, Z_HAUT)), Vector((1, 0, K_EMM)).normalized()),
              (Vector((-X_IN, 0, Z_HAUT)), Vector((-1, 0, K_EMM)).normalized()),
              (Vector((0, 0, 0.905)), Vector((0, 0, -1))),
-             (Vector((X0_V, 0, Z0_V)), Vector((-1, 0, PENTE_V)).normalized()),
-             (Vector((-X0_V, 0, Z0_V)), Vector((1, 0, PENTE_V)).normalized())]
+             ]
     for co, no in plans:
         geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
         bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no, dist=0.0005)
@@ -231,8 +230,9 @@ def gilet_depuis(chemise):
         # Emmanchure : au-dessus de la ligne en biais, sous le bras.
         if p.z > Z_BAS and abs(p.x) > X_IN + (Z_HAUT - p.z) * K_EMM + 0.0006:
             return True
-        largeur_v = X0_V + max(0.0, p.z - Z0_V) * PENTE_V
-        return p.y < 0 and abs(p.x) < largeur_v - 0.0006 and p.z > Z0_V
+        # 27/09 : plus d'ouverture en V (le bord sortait en dents de scie) :
+        # le gilet est ferme devant, jusqu'au col.
+        return False
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if dehors(v.co)], context="VERTS")
     # Col : faces dont le centre tombe dans le cylindre du col (rayon 11,2 cm).
     # Par faces entieres, pas par sommets : supprimer des sommets laissait des
