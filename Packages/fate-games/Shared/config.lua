@@ -119,7 +119,7 @@ return {
         seuil_dure = 750,         -- ~3,2 m (900 le 27/09 : trop haut)
         seuil_sol = 1400,
         dure = { anim = "my-asset-pack::ANIM_Chute_Reception", duree = 1.93, fondu_sortie = 0.3 },
-        sol = { anim = "my-asset-pack::ANIM_Chute_Au_Sol", duree = 3.13, fondu_sortie = 0.9 },
+        sol = { anim = "my-asset-pack::ANIM_Chute_Au_Sol", duree = 2.77, fondu_sortie = 0.9 },
     },
 
     -- Bruits du corps et musique de la place (Client/bruits.lua) : pas, cri au

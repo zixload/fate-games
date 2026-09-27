@@ -10,9 +10,10 @@ puis cuits. Sorties dans art/animations/chutes/ (hors depot).
   touchent presque le sol ; le debut en l'air est retire, le jeu la lance a
   l'impact.
 - ANIM_Chute_Au_Sol (Falling Flat Impact) : commence a l'image 9, le corps a
-  ~50 cm du sol, l'impact tombe a l'image 13. La pose allongee finale est
-  tenue jusqu'a 3 s apres l'impact (extrapolation constante des courbes) ; le
-  relevement est le fondu de sortie joue en jeu.
+  ~50 cm du sol, l'impact tombe a l'image 13. Allonge, il regarde a gauche
+  puis a droite (REGARDS), puis la pose est tenue jusqu'a l'image 92
+  (extrapolation constante des courbes) ; le relevement est le fondu de
+  sortie joue en jeu, en attendant une animation "Getting Up".
 Import : scripts/unreal/import_chutes.py.
 """
 
@@ -20,6 +21,8 @@ import json
 from pathlib import Path
 
 import bpy
+from math import cos, pi, radians
+from mathutils import Quaternion
 
 ROOT = Path(__file__).resolve().parents[2]
 DOWNLOADS = Path.home() / "Downloads"
@@ -30,8 +33,44 @@ FPS = 30
 # fichier, asset, premiere image gardee, derniere image (None : la fin du clip)
 CLIPS = (
     ("Hard Landing.fbx", "ANIM_Chute_Reception", 3, None),
-    ("Falling Flat Impact.fbx", "ANIM_Chute_Au_Sol", 9, 13 + 3 * FPS),
+    ("Falling Flat Impact.fbx", "ANIM_Chute_Au_Sol", 9, 92),
 )
+
+# Au sol, il regarde a gauche puis a droite ("quelqu'un m'a vu ?") avant de se
+# relever : (image, angle en degres) ; la tete et le cou tournent autour de
+# l'axe du cou (Y local des os Mixamo), 60 % pour la tete, 40 % pour le cou.
+REGARDS = {"ANIM_Chute_Au_Sol": ((24, 0), (38, 60), (48, 60), (64, -60), (74, -60), (86, 0))}
+
+
+def ease(t):
+    return 0.5 - 0.5 * cos(pi * max(0.0, min(1.0, t)))
+
+
+def angle_a(points, frame):
+    if frame <= points[0][0] or frame >= points[-1][0]:
+        return 0.0
+    for (f0, a0), (f1, a1) in zip(points, points[1:]):
+        if f0 <= frame <= f1:
+            return a0 + (a1 - a0) * ease((frame - f0) / (f1 - f0))
+    return 0.0
+
+
+def regarder(scene, rig, points, fin):
+    debut, dernier = points[0][0], points[-1][0]
+    os_regard = (("Head", 0.6), ("Neck", 0.4))
+    # Les poses d'origine d'abord : une fois une cle posee, l'image suivante
+    # (au-dela de la fin du clip) repartirait de la rotation deja ajoutee.
+    base = {}
+    for frame in range(debut, dernier + 1):
+        scene.frame_set(frame)
+        base[frame] = {nom: rig.pose.bones[nom].rotation_quaternion.copy() for nom, _ in os_regard}
+    for frame in range(debut, dernier + 1):
+        a = angle_a(points, frame)
+        for nom, part in os_regard:
+            bone = rig.pose.bones[nom]
+            bone.rotation_mode = "QUATERNION"
+            bone.rotation_quaternion = base[frame][nom] @ Quaternion((0, 1, 0), radians(a * part))
+            bone.keyframe_insert("rotation_quaternion", frame=frame)
 
 metrics = {}
 for filename, asset, debut, fin in CLIPS:
@@ -69,6 +108,9 @@ for filename, asset, debut, fin in CLIPS:
     creative.animation_data.action.name = asset
     for fc in creative.animation_data.action.fcurves if hasattr(creative.animation_data.action, "fcurves") else []:
         fc.extrapolation = "CONSTANT"
+
+    if asset in REGARDS:
+        regarder(scene, creative, REGARDS[asset], fin)
 
     # Plage exportee : on coupe le debut, et on tient la derniere pose.
     scene.frame_start = debut
