@@ -70,13 +70,17 @@ def import_file(path, destination, name, options):
 
 def flat_material(destination, name, color):
     path = destination + "/" + name
-    material = LIB.load_asset(path)
+    material = LIB.load_asset(path) if LIB.does_asset_exist(path) else None
     if not material:
         material = TOOLS.create_asset(name, destination, unreal.Material,
                                       unreal.MaterialFactoryNew())
     if not isinstance(material, unreal.Material):
         raise RuntimeError("Cannot create material: " + path)
     MATS.delete_all_material_expressions(material)
+    # Pose sur un maillage squelettique (geta, chaussettes) : sans cet usage
+    # enregistre, le jeu cuit affiche un damier gris. L'editeur ne le coche
+    # qu'en memoire, apres la sauvegarde (27/09).
+    material.set_editor_property("used_with_skeletal_mesh", True)
     base = MATS.create_material_expression(
         material, unreal.MaterialExpressionConstant3Vector, -400, 0)
     base.set_editor_property("constant", unreal.LinearColor(*color, 1))
