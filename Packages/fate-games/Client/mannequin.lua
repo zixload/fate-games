@@ -10,7 +10,7 @@ return function()
     local choix = { haut = 1, bas = 1 }
     local chat_ouvert = false
     local mannequin_id = nil
-    local PORTEE = 600   -- cm : plus loin, le HUD se ferme
+    local PORTEE = 300   -- cm : plus loin, le HUD se ferme
 
     local function fermer()
         actif = false
@@ -29,7 +29,9 @@ return function()
         page:CallEvent("mannequin:maj", vue("haut"), vue("bas"))
     end
 
-    Events.SubscribeRemote("mannequin:ouvrir", function(haut, bas, id)
+    Events.SubscribeRemote("mannequin:ouvrir", function(haut, bas, id, basculer)
+        -- E sur le mannequin, HUD deja ouvert : on le ferme.
+        if basculer and actif then return fermer() end
         actif = true
         mannequin_id = id
         choix.haut, choix.bas = tonumber(haut) or 1, tonumber(bas) or 1

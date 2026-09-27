@@ -4,7 +4,7 @@
 --
 --   /mannequin           le pose devant moi (ou le replace) et ouvre le HUD
 --   /mannequin retirer   l'enleve et ferme le HUD
---   E sur le mannequin   rouvre le HUD (le client le ferme a plus de 6 m)
+--   E sur le mannequin   ouvre ou ferme le HUD (le client le ferme a plus de 3 m)
 --
 -- Le client choisit haut et bas (fleches, Client/mannequin.lua) ; le serveur
 -- habille le mannequin : piece accrochee puis materiau du motif. Un vetement
@@ -40,8 +40,10 @@ return function(Log, Characters, dev_pour, Interactables)
         corps, repere, inter = nil, nil, nil
     end
 
-    local function ouvrir(player)
-        Events.CallRemote("mannequin:ouvrir", player, Reliability.Reliable, choix.haut, choix.bas, corps:GetID())
+    -- basculer : E sur le mannequin ferme le HUD s'il est deja ouvert.
+    local function ouvrir(player, basculer)
+        Events.CallRemote("mannequin:ouvrir", player, Reliability.Reliable, choix.haut, choix.bas, corps:GetID(),
+            basculer == true)
     end
 
     local function poser(player)
@@ -64,7 +66,7 @@ return function(Log, Characters, dev_pour, Interactables)
                 repere:SetVisibility(false)
                 inter = Interactables.Register(repere, {
                     label = "Essayer", kind = "vestiaire", max_distance = 300,
-                    on_interact = function(pl) if dev_pour(pl) and corps and corps:IsValid() then ouvrir(pl) end end,
+                    on_interact = function(pl) if dev_pour(pl) and corps and corps:IsValid() then ouvrir(pl, true) end end,
                 })
             end)
         end
