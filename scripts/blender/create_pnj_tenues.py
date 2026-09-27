@@ -752,10 +752,223 @@ def armurier(corps):
     return fusionner(pieces, "SK_PNJ_Armurier_Haut")
 
 
+# ---------------------------------------------------------------- musicien (poncho des Andes)
+
+MAT_MUS = {}
+
+
+def poncho_motif(n):
+    """Poncho andin : fond rouge profond, quelques bandes tissees (moutarde,
+    sarcelle, creme) en zigzag, qui font le tour du corps."""
+    v, x, y, z = n.coords()
+    u = n.mul(n.atan2(x, n.mul(y, -1.0)), 0.15)            # tour du corps, en m
+    zig = n.mul(n.absv(n.sub(n.frac(n.mul(u, 14.0)), 0.5)), 0.03)
+    h = n.frac(n.mul(n.add(z, zig), 6.0))
+    c = n.rampe(h, [(0.0, "#e2b33c"), (0.10, "#1c1a1a"), (0.12, "#1f6f6a"), (0.20, "#f1e6cf"),
+                    (0.235, "#1c1a1a"), (0.25, "#7a171c"), (1.0, "#7a171c")], True)
+    grain = n.add(n.mul(n.sub(n.bruit(v, 180.0, 2.0), 0.5), 0.3), 0.5)
+    return n.melange(n.mul(grain, 0.35), c, "#3a0d0f")
+
+
+def poncho_depuis(chemise):
+    """Poncho : le haut de la chemise, coupe en pointe devant et derriere
+    (bas a 0,98 m au milieu, remonte sur les cotes), sans manches, le bas
+    qui s'ecarte du corps."""
+    g = chemise.copy()
+    g.data = chemise.data.copy()
+    g.name = "Poncho"
+    bpy.context.collection.objects.link(g)
+    bm = bmesh.new()
+    bm.from_mesh(g.data)
+    Z_POINTE, PENTE = 0.98, 0.9           # bas : z = 0,98 + 0,9 |x|
+    for sx in (1, -1):
+        geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
+        bmesh.ops.bisect_plane(bm, geom=geom, plane_co=Vector((0, 0, Z_POINTE)),
+                               plane_no=Vector((sx * PENTE, 0, -1)).normalized(), dist=0.0005)
+
+    def garder(f):
+        c = f.calc_center_median()
+        if c.z < Z_POINTE + PENTE * abs(c.x) - 0.0005:
+            return False
+        if abs(c.x) > EMMANCHURE and ML.le_long(c)[0] > 0.10:
+            return False                       # au-dela du haut des manches
+        if c.z > 1.39 and math.hypot(c.x, c.y - 0.034) < 0.103:
+            return False                       # le col reste visible
+        return True
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if not garder(f)], context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    vus, isoles = set(), []
+    for f in bm.faces:
+        if f in vus:
+            continue
+        pile, groupe = [f], []
+        vus.add(f)
+        while pile:
+            h = pile.pop()
+            groupe.append(h)
+            for e in h.edges:
+                for k in e.link_faces:
+                    if k not in vus:
+                        vus.add(k)
+                        pile.append(k)
+        if len(groupe) < 200:
+            isoles += groupe
+    bmesh.ops.delete(bm, geom=isoles, context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    bm.to_mesh(g.data)
+    bm.free()
+    g.data.update()
+    P.gonfler(g, 0.013)
+    # Le tissu tombe sans coller : il s'ecarte du corps en descendant, plus
+    # encore sur les cotes (un poncho tombe en cloche depuis les epaules).
+    for v in g.data.vertices:
+        ecart = max(0.0, 1.30 - v.co.z) * 0.40 + max(0.0, abs(v.co.x) - 0.10) * 0.25
+        d = Vector((v.co.x, v.co.y - 0.01, 0))
+        if d.length > 1e-4:
+            v.co += d.normalized() * ecart
+    g.data.update()
+    # Le bord du bas, avant l'epaisseur (qui le referme) : pour les franges.
+    bm2 = bmesh.new()
+    bm2.from_mesh(g.data)
+    g["bord_bas"] = [c for v in bm2.verts if v.is_boundary and v.co.z < 1.25 for c in v.co]
+    bm2.free()
+    s = g.modifiers.new("Epaisseur", "SOLIDIFY")
+    s.thickness = 0.007
+    s.offset = -1
+    s.use_rim = True
+    appliquer(g)
+    return g
+
+
+def franges(poncho, mat):
+    """Franges de laine le long du bord du bas, tous les 1,4 cm."""
+    brut = list(poncho["bord_bas"])
+    bas = [Vector(brut[i:i + 3]) for i in range(0, len(brut), 3)]
+    bas.sort(key=lambda c: math.atan2(c.x, -c.y))
+    objets = []
+    dernier = None
+    tout = bmesh.new()
+    for c in bas:
+        if dernier is not None and (c - dernier).length < 0.011:
+            continue
+        dernier = c
+        brin = cylindre(c + Vector((0, 0, 0.003)), c + Vector((0, 0, -0.055)), 0.0032, 5)
+        me = bpy.data.meshes.new("tmp")
+        brin.to_mesh(me)
+        brin.free()
+        tout.from_mesh(me)
+        bpy.data.meshes.remove(me)
+    return objet_depuis_bm(tout, "Franges", mat)
+
+
+def musicien(corps):
+    MAT_MUS.update({
+        "chemise": materiau("Chemise musicien", tissu("#e6dcc4", "#cbbf a3".replace(" ", ""))),
+        "poncho": materiau("Poncho", poncho_motif),
+        "franges": materiau("Franges", uni("#e2b33c")),
+    })
+    chemise, rayons = chemise_retroussee(corps)
+    chemise.data.materials.clear()
+    chemise.data.materials.append(MAT_MUS["chemise"])
+    poncho = poncho_depuis(chemise)
+    poncho.data.materials.clear()
+    poncho.data.materials.append(MAT_MUS["poncho"])
+    bpy.context.view_layer.update()
+    cacher_sous(chemise, BVHTree.FromObject(poncho, bpy.context.evaluated_depsgraph_get()))
+    frange = franges(poncho, MAT_MUS["franges"])
+    # Rigide sur le haut du torse : sinon les bras leves de sa pose tiraient
+    # le bas du poncho vers le haut (27/09). Le dessus des epaules suit les bras.
+    for o in (poncho, frange):
+        rigide(o, "Spine1", lambda v: not (abs(v.co.x) > EMMANCHURE and v.co.z > 1.24))
+    pieces = [chemise, poncho, frange]
+    for cote in (1, -1):
+        c = axe_bras(0.268, cote)
+        pieces.append(objet_depuis_bm(anneau(c, dir_bras(cote), rayons[cote] + 0.006, 0.0085, allonge=1.5),
+                                      "Retrousse", MAT_MUS["chemise"]))
+    for o in pieces:
+        for poly in o.data.polygons:
+            poly.use_smooth = True
+    return fusionner(pieces, "SK_PNJ_Musicien_Haut")
+
+
+
+def pantalon_rapiece(n, reperes_):
+    """Toile beige avec trois pieces cousues (velours brun, jean delave, toile
+    verte) et leurs points de couture, comme reparees a la main."""
+    v, x, y, z = n.coords()
+    grain = n.add(n.mul(n.sub(n.bruit(v, 150.0, 2.0), 0.5), 0.22), 0.5)
+    base = n.melange(grain, "#a8946c", "#cdb98f")
+    devant = n.lt(y, 0.0)
+    derriere = n.gt(y, 0.0)
+    # (centre x, centre z, demi-largeur, demi-hauteur, face, couleur, couleur fonce)
+    pieces = ((0.10, 0.50, 0.055, 0.06, devant, "#6a4a2c", "#4a321d"),     # genou gauche
+              (-0.11, 0.78, 0.05, 0.045, devant, "#5c7ea3", "#3f5c7c"),    # cuisse droite
+              (0.09, 0.25, 0.045, 0.05, derriere, "#5f7a45", "#435733"))   # mollet gauche, derriere
+    for cx, cz, lx, lz, face, c1, c2 in pieces:
+        dx, dz = n.absv(n.sub(x, cx)), n.absv(n.sub(z, cz))
+        dedans = n.mul(n.mul(n.lt(dx, lx), n.lt(dz, lz)), face)
+        texture = n.melange(n.mul(n.lt(n.frac(n.mul(n.add(x, z), 90.0)), 0.5), 0.35), c1, c2)
+        base = n.melange(dedans, base, texture)
+        # Couture : tirets clairs a 6 mm du bord de la piece.
+        bord = n.maxv(n.mul(n.lt(n.absv(n.sub(dx, lx - 0.006)), 0.0016), n.lt(dz, lz - 0.004)),
+                      n.mul(n.lt(n.absv(n.sub(dz, lz - 0.006)), 0.0016), n.lt(dx, lx - 0.004)))
+        tiret = n.lt(n.frac(n.mul(n.add(x, z), 70.0)), 0.55)
+        base = n.melange(n.mul(n.mul(bord, tiret), face), base, "#efe2c0")
+    return P.bandes(n, x, z, base, "#8f7b55", reperes_)
+
+
+def pantalon_pnj(corps, rig, motif, nom):
+    """Pantalon droit du kit (Pants_014, sans genouilleres), motif cuit."""
+    bas = P.importer("Pants_014")
+    P.retirer_genouilleres(bas)
+    P.gonfler(bas)
+    bas.modifiers.new("Lisse", "SUBSURF").levels = 1
+    P.transferer_poids(bas, corps, rig)
+    P.deplier(bas)
+    bas.name = "SK_PNJ_" + nom + "_Bas"
+    rep_ = P.reperes(bas)
+    img = bpy.data.images.new("T_PNJ_" + nom + "_Bas", 2048, 2048, alpha=False)
+    mat = bpy.data.materials.new("M_PNJ_" + nom + "_Bas")
+    mat.use_nodes = True
+    nn = N(mat)
+    nn.sortie(motif(nn, rep_))
+    cible = nn.node("ShaderNodeTexImage")
+    cible.image = img
+    nn.t.nodes.active = cible
+    bas.data.materials.clear()
+    bas.data.materials.append(mat)
+    scene = bpy.context.scene
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = 4
+    scene.render.bake.margin = 8
+    bpy.ops.object.select_all(action="DESELECT")
+    bas.select_set(True)
+    bpy.context.view_layer.objects.active = bas
+    bpy.ops.object.bake(type="EMIT", use_clear=True)
+    img.filepath_raw = str(OUT / (img.name + ".png"))
+    img.file_format = "PNG"
+    img.save()
+    bas.data.materials.clear()
+    bas.data.materials.append(P.materiau_apercu(img))
+    bpy.ops.object.select_all(action="DESELECT")
+    rig.select_set(True)
+    bas.select_set(True)
+    bpy.context.view_layer.objects.active = bas
+    bpy.ops.export_scene.fbx(filepath=str(OUT / (bas.name + ".fbx")), use_selection=True,
+                             object_types={"ARMATURE", "MESH"}, add_leaf_bones=False,
+                             bake_anim=False, use_mesh_modifiers=True, armature_nodetype="NULL")
+    return bas, img
+
+
+# Pantalons des PNJ (nom -> motif) ; les autres gardent un pantalon uni d'apercu.
+BAS_PNJ = {"Musicien": pantalon_rapiece}
+
+
 PNJ = {
     # nom : (fabrique, tete du kit pour les apercus, couleur du pantalon d'apercu)
     "Tailleur": (tailleur, ["Hairstyle_male_012", "Moustache_002", "Glasses_004", "Male_emotion_usual_001"], (0.09, 0.09, 0.1, 1)),
     "Armurier": (armurier, ["Moustache_001", "Male_emotion_angry_003"], (0.16, 0.13, 0.1, 1)),
+    "Musicien": (musicien, ["Hairstyle_male_010", "Male_emotion_happy_002"], (0.2, 0.15, 0.1, 1)),
 }
 
 
@@ -843,13 +1056,17 @@ def main(noms):
         bpy.ops.export_scene.fbx(filepath=str(OUT / (obj.name + ".fbx")), use_selection=True,
                                  object_types={"ARMATURE", "MESH"}, add_leaf_bones=False,
                                  bake_anim=False, use_mesh_modifiers=True, armature_nodetype="NULL")
-        # Apercus : la tenue avec un pantalon, et la tete du kit.
-        bas = P.importer("Pants_014")
-        P.retirer_genouilleres(bas)
-        m = bpy.data.materials.new("Bas")
-        m.use_nodes = True
-        m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = couleur_bas
-        bas.data.materials.append(m)
+        # Apercus : la tenue avec son pantalon (ou un pantalon uni), et la tete du kit.
+        if nom in BAS_PNJ:
+            bas, img_bas = pantalon_pnj(corps, rig, BAS_PNJ[nom], nom)
+            manifeste[bas.name] = {"piece": bas.name, "texture": img_bas.name, "pnj": nom}
+        else:
+            bas = P.importer("Pants_014")
+            P.retirer_genouilleres(bas)
+            m = bpy.data.materials.new("Bas")
+            m.use_nodes = True
+            m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = couleur_bas
+            bas.data.materials.append(m)
         extras = [bas]
         for piece in tete:
             extras += importer_kit(piece)
