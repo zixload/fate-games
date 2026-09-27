@@ -64,13 +64,13 @@ dessus.
 
 ```toml
 [discover]
-    name =             "Fate's Games"
+    name =             "[BETA] Fate's Games"
     description =      "Liar's Bar, Loup-Garou et duels, sur une même place."
     language =         "fr"
     announce =         true          # visible dans la liste des serveurs
     dedicated_server = true
 [general]
-    max_players =      32
+    max_players =      20
     password =         ""            # un mot de passe pour une bêta fermée
 [game]
     map =              "my-asset-pack::MapEgypt"
