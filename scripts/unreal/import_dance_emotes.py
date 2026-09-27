@@ -1,37 +1,40 @@
-"""Reimport only the revised Werewolf elimination and final-vote gestures.
+"""Import seven Creative-skeleton dance emotes into the open Nanos World ADK.
 
-Execute in the Python console of the ADK editor that is already open. Save
-and cook my-asset-pack afterward. No level or Werewolf Lua is changed.
+Run from the existing editor's Python console, then Save All and cook
+my-asset-pack. This script does not start another editor or change a map.
 """
 
+import json
 from pathlib import Path
 
 import unreal
 
 
-SOURCE = (Path("C:/Users/ingam/OneDrive/Documents/fate-games")
-          / "art/werewolf")
+ROOT = Path("C:/Users/ingam/OneDrive/Documents/fate-games")
+SOURCE = ROOT / "art/animations/dances"
 DEST = "/Game/MyAssetPack/Creative_Characters_FREE/Animations"
 SKELETON = ("/Game/MyAssetPack/Creative_Characters_FREE/"
             "Skeleton_Meshes/SKEL_Animations_Skeleton")
-CLIPS = (
-    "ANIM_WW_Seated_Death",
-    "ANIM_WW_Seated_Dead_Idle",
-    "ANIM_WW_Seated_Vote_Point",
+NAMES = (
+    "ANIM_Dance_StepHipHop",
+    "ANIM_Dance_Chicken",
+    "ANIM_Dance_WaveHipHop",
+    "ANIM_Dance_TutHipHop",
+    "ANIM_Dance_BootyHipHop",
+    "ANIM_Dance_Salsa",
+    "ANIM_Dance_Jazz",
 )
-if globals().get("WW_DEATH_ONLY", False):
-    CLIPS = CLIPS[:2]
 
 library = unreal.EditorAssetLibrary
 tools = unreal.AssetToolsHelpers.get_asset_tools()
 skeleton = library.load_asset(SKELETON)
 if not skeleton:
     raise RuntimeError("Creative skeleton missing: " + SKELETON)
-
-for name in CLIPS:
-    source = SOURCE / (name + ".fbx")
-    if not source.is_file():
-        raise FileNotFoundError(source)
+metrics = json.loads((SOURCE / "metrics.json").read_text(encoding="utf-8"))
+for name in NAMES:
+    filename = SOURCE / (name + ".fbx")
+    if not filename.is_file():
+        raise FileNotFoundError(filename)
     options = unreal.FbxImportUI()
     options.automated_import_should_detect_type = False
     options.mesh_type_to_import = unreal.FBXImportType.FBXIT_ANIMATION
@@ -41,7 +44,7 @@ for name in CLIPS:
     options.skeleton = skeleton
 
     task = unreal.AssetImportTask()
-    task.filename = str(source)
+    task.filename = str(filename)
     task.destination_path = DEST
     task.destination_name = name
     task.automated = True
@@ -51,7 +54,7 @@ for name in CLIPS:
     task.factory = unreal.FbxFactory()
     tools.import_asset_tasks([task])
     if not task.imported_object_paths:
-        raise RuntimeError("Animation import failed: " + str(source))
+        raise RuntimeError("Dance import failed: " + str(filename))
 
     sequence = library.load_asset(DEST + "/" + name)
     if not isinstance(sequence, unreal.AnimSequence):
@@ -60,9 +63,13 @@ for name in CLIPS:
         raise RuntimeError("Wrong Creative skeleton: " + name)
     sequence.set_editor_property("enable_root_motion", False)
     if not library.save_loaded_asset(sequence):
-        raise RuntimeError("Could not save imported animation: " + name)
-    print("WW_UPDATED", name, "seconds",
-          round(sequence.get_play_length(), 4))
+        raise RuntimeError("Could not save imported dance: " + name)
+    duration = sequence.get_play_length()
+    expected = metrics[name]["seconds"]
+    if abs(duration - expected) > .15:
+        raise RuntimeError(
+            f"{name} duration {duration:.3f}s differs from Blender "
+            f"{expected:.3f}s")
+    print("DANCE_IMPORTED", name, "seconds", round(duration, 3))
 
-print("WW_DEATH_IMPORT_COMPLETE" if len(CLIPS) == 2
-      else "WW_DEATH_AND_POINT_IMPORT_COMPLETE", len(CLIPS))
+print("DANCE_IMPORT_COMPLETE", len(NAMES))

@@ -1,4 +1,4 @@
--- Roue d'emotes : T l'ouvre, puis 1, 2 ou 3 joue l'emote (et referme la
+-- Roue d'emotes : T l'ouvre, puis 1 a 7 joue l'emote (et referme la
 -- roue). T ou Echap referment ; elle se referme seule apres config.fenetre
 -- secondes. Bouger arrete l'emote en cours. Le serveur joue l'animation
 -- (Server/domain/emotes.lua).

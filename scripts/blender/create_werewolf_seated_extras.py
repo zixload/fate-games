@@ -1,8 +1,8 @@
 """Bake additional seated Creative animations for the Werewolf game.
 
 Uses the fitted idle and gesture clips in ignored art/werewolf/. Outputs stay
-there. The elimination reaction ends at the first frame of Dead_Idle, whose
-pelvis moves 8 cm backwards in bone space while the actor root stays fixed.
+there. The elimination reaction ends at the first frame of Dead_Idle. The
+character reclines behind the cushion while the actor root stays fixed.
 """
 
 import os
@@ -201,6 +201,21 @@ def ease(t):
     return t * t * (3 - 2 * t)
 
 
+def recline(rig, frame=None):
+    """Keep the pelvis on the cushion and let the upper body fall backwards."""
+    move_hips_back(rig, .10, frame)
+    for bone, axis, angle in (
+        ("Spine", "X", -95),
+        ("Spine1", "X", -20),
+        ("Neck", "X", -20),
+        ("RightArm", "X", 50),
+        ("RightArm", "Z", -20),
+        ("LeftArm", "X", 80),
+        ("LeftArm", "Z", 40),
+    ):
+        turn(rig, bone, axis, angle, frame)
+
+
 def make_death():
     scene, rig = open_clip("ANIM_WW_Sitting_Idle")
     scene.frame_set(1)
@@ -247,8 +262,8 @@ def make_death():
     strike = snapshot(rig)
 
     apply_snapshot(rig, idle)
-    move_hips_back(rig, .08)
-    retreat = snapshot(rig)
+    recline(rig)
+    reclined = snapshot(rig)
 
     # Copy the idle action to retain the exact Creative action slot and bones.
     base = bpy.data.actions.get("ANIM_WW_Sitting_Idle")
@@ -263,7 +278,7 @@ def make_death():
         curve.update()
 
     controls = ((1, idle), (6, idle), (14, raised), (17, raised),
-                (24, strike), (32, idle), (55, retreat), (61, retreat))
+                (24, strike), (32, idle), (56, reclined), (61, reclined))
     scene.frame_start, scene.frame_end = 1, 61
     for frame in range(1, 62):
         scene.frame_set(frame)
@@ -285,7 +300,7 @@ def make_death():
                              for n, p in final.items()})
     export(scene, rig, "ANIM_WW_Seated_Death")
 
-    # After the reaction, sit normally a little further from the circle.
+    # The reclined pose loops until the eliminated player is reset.
     scene, rig = open_clip("ANIM_WW_Sitting_Idle")
     action = rig.animation_data.action.copy()
     action.name = "ANIM_WW_Seated_Dead_Idle"
@@ -293,7 +308,7 @@ def make_death():
     rig.animation_data.action_slot = action.slots[0]
     for frame in range(scene.frame_start, scene.frame_end + 1):
         scene.frame_set(frame)
-        move_hips_back(rig, .08, frame)
+        recline(rig, frame)
     scene.frame_set(1)
     start = {n: point(rig, n).copy() for n in final}
     match = max((start[n] - final[n]).length for n in final) * 100

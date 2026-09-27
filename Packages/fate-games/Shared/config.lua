@@ -144,23 +144,29 @@ return {
     -- du rebord devant le bord de la capsule (cm).
     marche = { hauteur_max = 45, poussee = 140, delai = 0.25, portee = 14 },
 
-    -- Roue d'emotes (Client/emotes.lua, Server/domain/emotes.lua). touche ouvre
-    -- la roue, puis 1, 2 ou 3 : noms de la doc Input en QWERTY, en AZERTY (le
-    -- caractere tape) et au pave numerique. anim vide : l'emplacement attend
-    -- son animation (importee par ChatGPT/Codex). apercu : Client/emotes/img/<nom>.png,
-    -- rendu a l'encre dans Blender (hors depot).
+    -- Roue d'emotes (Client/emotes.lua, Server/domain/emotes.lua). T ouvre la
+    -- roue, puis 1 a 7 choisit une danse sur QWERTY, AZERTY ou pave numerique.
+    -- Les apercus sont dans Client/emotes/img/, hors depot.
     emotes = {
         touche = "T",
         chiffres = {
             { "One", "Ampersand", "NumPadOne" },
             { "Two", "E_AccentAigu", "NumPadTwo" },
             { "Three", "Quote", "NumPadThree" },
+            { "Four", "Apostrophe", "NumPadFour" },
+            { "Five", "LeftParantheses", "NumPadFive" },
+            { "Six", "Hyphen", "NumPadSix" },
+            { "Seven", "E_AccentGrave", "NumPadSeven" },
         },
         fenetre = 4,   -- secondes avant que la roue se referme seule
         liste = {
-            { titre = "Salsa",   anim = "", apercu = "salsa",   boucle = true },
-            { titre = "Danse 2", anim = "", apercu = "danse_2", boucle = true },
-            { titre = "Danse 3", anim = "", apercu = "danse_3", boucle = true },
+            { titre = "Step Hip Hop", anim = "my-asset-pack::ANIM_Dance_StepHipHop", apercu = "step", boucle = true },
+            { titre = "Chicken",      anim = "my-asset-pack::ANIM_Dance_Chicken", apercu = "chicken", boucle = true },
+            { titre = "Wave Hip Hop", anim = "my-asset-pack::ANIM_Dance_WaveHipHop", apercu = "wave", boucle = true },
+            { titre = "Tut Hip Hop",  anim = "my-asset-pack::ANIM_Dance_TutHipHop", apercu = "tut", boucle = true },
+            { titre = "Booty Hip Hop",anim = "my-asset-pack::ANIM_Dance_BootyHipHop", apercu = "booty", boucle = true },
+            { titre = "Salsa",        anim = "my-asset-pack::ANIM_Dance_Salsa", apercu = "salsa", boucle = true },
+            { titre = "Jazz",         anim = "my-asset-pack::ANIM_Dance_Jazz", apercu = "jazz", boucle = true },
         },
     },
 

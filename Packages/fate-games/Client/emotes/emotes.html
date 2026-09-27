@@ -20,19 +20,19 @@ body.apercu-navigateur { background: radial-gradient(circle at 50% 40%, #6d8aa6,
 .touche { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; box-sizing: border-box;
     border: 2.5px solid var(--encre); border-bottom-width: 5px; border-radius: 8px; background: #f6eedb; font-size: 17px; line-height: 1; }
 
-/* Trois cartes en arc, en bas au centre : l'apercu a l'encre, le titre, la touche. */
-#roue { position: absolute; left: 50%; bottom: 13%; display: flex; gap: 22px; align-items: flex-end;
+/* Les sept danses restent lisibles sur les ecrans etroits. */
+#roue { position: absolute; left: 50%; bottom: 10%; display: flex; gap: clamp(4px, 1vw, 12px); align-items: flex-end;
     transform: translateX(-50%) translateY(16px); opacity: 0; transition: opacity .14s ease, transform .14s ease; }
 #roue.ouverte { opacity: 1; transform: translateX(-50%) translateY(0); }
-.emote { width: 150px; padding: 12px 12px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.emote:nth-child(1) { transform: rotate(-5deg) translateY(10px); }
-.emote:nth-child(3) { transform: rotate(5deg) translateY(10px); }
+.emote { width: clamp(78px, 11vw, 120px); padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.emote:nth-child(odd) { transform: rotate(-1.5deg) translateY(4px); }
+.emote:nth-child(even) { transform: rotate(1.5deg); }
 .emote.choisie { --bord: var(--laiton-fonce); }
 .emote.choisie .cadre { background: var(--laiton); }
-.cadre { width: 126px; height: 126px; border-radius: 10px; background: #f6eedb; display: grid; place-items: center; overflow: hidden; }
+.cadre { width: 100%; aspect-ratio: 1; border-radius: 10px; background: #f6eedb; display: grid; place-items: center; overflow: hidden; }
 .cadre img { width: 100%; height: 100%; object-fit: contain; }
 .cadre svg { width: 70px; height: 90px; opacity: .35; }
-.titre { font-size: 21px; line-height: 1; text-align: center; }
+.titre { min-height: 34px; font-size: clamp(13px, 1.5vw, 17px); line-height: 1; text-align: center; }
 .emote.vide { opacity: .55; }
 .emote.vide .titre::after { content: " · bientôt"; font-size: 13px; color: var(--laiton-fonce); }
 </style>
@@ -45,7 +45,6 @@ const roue = document.getElementById("roue");
 // Silhouette a l'encre tant que l'apercu Blender n'est pas rendu.
 const SILHOUETTE = '<svg viewBox="0 0 70 90" aria-hidden="true"><circle cx="35" cy="14" r="10" fill="none" stroke="#1c2123" stroke-width="4"/>'
   + '<path d="M35 26v30M35 34l-18 -10M35 34l20 8M35 56l-14 28M35 56l16 26" fill="none" stroke="#1c2123" stroke-width="4" stroke-linecap="round"/></svg>';
-const TOUCHES = ["1", "2", "3"];
 const nettoyer = (s) => String(s).replace(/[<>&"]/g, "");
 
 function montrer(oui, liste) {
@@ -53,7 +52,7 @@ function montrer(oui, liste) {
     roue.innerHTML = liste.map((e, i) => {
       const img = e.apercu ? `<img src="img/${nettoyer(e.apercu)}.png" alt="" onerror="this.replaceWith(document.createRange().createContextualFragment(SILHOUETTE))">` : SILHOUETTE;
       return `<div class="emote sk${e.pret ? "" : " vide"}" data-graine="${71 + i}" data-rayon="16">`
-        + `<div class="cadre">${img}</div><div class="titre">${nettoyer(e.titre)}</div><span class="touche">${TOUCHES[i]}</span></div>`;
+        + `<div class="cadre">${img}</div><div class="titre">${nettoyer(e.titre)}</div><span class="touche">${i + 1}</span></div>`;
     }).join("");
     requestAnimationFrame(habiller);
   }
@@ -71,7 +70,8 @@ if (typeof Events !== "undefined") {
   Events.Call("pret");
 } else {
   document.body.classList.add("apercu-navigateur");
-  montrer(true, [{ titre: "Salsa", apercu: "salsa", pret: true }, { titre: "Danse 2", apercu: "", pret: false }, { titre: "Danse 3", apercu: "", pret: false }]);
+  montrer(true, ["Step Hip Hop", "Chicken", "Wave Hip Hop", "Tut Hip Hop", "Booty Hip Hop", "Salsa", "Jazz"]
+    .map((titre, i) => ({ titre, apercu: ["step", "chicken", "wave", "tut", "booty", "salsa", "jazz"][i], pret: true })));
 }
 </script>
 </body>
