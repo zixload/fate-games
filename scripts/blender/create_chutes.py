@@ -34,13 +34,14 @@ FPS = 30
 # fichier, asset, premiere image gardee, derniere image (None : la fin du clip)
 CLIPS = (
     ("Hard Landing.fbx", "ANIM_Chute_Reception", 3, None),
-    ("Falling Flat Impact.fbx", "ANIM_Chute_Au_Sol", 1, 92),
+    ("Falling Flat Impact.fbx", "ANIM_Chute_Au_Sol", 1, 42),
 )
 
 # Au sol, il regarde a gauche puis a droite ("quelqu'un m'a vu ?") avant de se
 # relever : (image, angle en degres) ; la tete et le cou tournent autour de
 # l'axe du cou (Y local des os Mixamo), 60 % pour la tete, 40 % pour le cou.
-REGARDS = {"ANIM_Chute_Au_Sol": ((24, 0), (38, 60), (48, 60), (64, -60), (74, -60), (86, 0))}
+# ~1 s au sol (27/09 : 3 s, c'etait long) : un coup d'oeil rapide des deux cotes.
+REGARDS = {"ANIM_Chute_Au_Sol": ((16, 0), (22, 55), (26, 55), (33, -55), (36, -55), (41, 0))}
 
 
 def hanches(rig):

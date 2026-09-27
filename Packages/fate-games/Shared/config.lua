@@ -126,7 +126,7 @@ return {
         dure = { anim = "my-asset-pack::ANIM_Chute_Reception", duree = 1.93, avance = 0.03,
             fondu_entree = 0.08, fondu_sortie = 0.3 },
         -- chute (le corps bascule en l'air, impact a 0,4 s), regards, relevement
-        sol = { anim = "my-asset-pack::ANIM_Chute_Au_Sol", duree = 8.23, avance = 0.4,
+        sol = { anim = "my-asset-pack::ANIM_Chute_Au_Sol", duree = 6.57, avance = 0.4,
             fondu_entree = 0.4, fondu_sortie = 0.4 },
     },
 
