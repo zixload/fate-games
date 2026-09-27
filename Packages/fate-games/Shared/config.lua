@@ -137,13 +137,13 @@ return {
     -- Chutes (Server/domain/chutes.lua) : hauteur de chute (cm, du point le
     -- plus haut du saut au sol d'arrivee) qui fait encaisser durement, puis
     -- s'ecraser au sol. Un saut sur place monte de ~90 cm : 135, c'est un saut
-    -- depuis un rebord a hauteur de genou ; 230, a peu pres un mur. Duree en secondes (immobilise pendant),
+    -- depuis un rebord a hauteur de genou ; 400, une chute de ~4 m. Duree en secondes (immobilise pendant),
     -- fondu de sortie = le relevement. actif = false tant que les animations
     -- ne sont pas cuites (scripts/unreal/import_chutes.py).
     chutes = {
         actif = true,     -- animations cuites le 27/09
         seuil_dure = 135,
-        seuil_sol = 230,
+        seuil_sol = 400,          -- ~4 m (230 le 27/09 : trop bas)
         -- avance : l'animation part tant de secondes avant l'impact (celui du
         -- clip tombe alors a l'arrivee) ; annonce : le client previent jusqu'a
         -- tant de secondes avant de toucher le sol.
