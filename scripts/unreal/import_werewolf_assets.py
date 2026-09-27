@@ -24,7 +24,16 @@ LIB = unreal.EditorAssetLibrary
 LIB.make_directory(DEST)
 
 
+# 27/09 : chaque lancement reimportait tout et ecrasait les reglages faits a
+# la main (taille, materiaux). Un asset deja present est garde tel quel ;
+# mettre son nom dans FORCER pour le reimporter, ex. FORCER = ["SM_WW_Carpet"].
+FORCER = []
+
+
 def import_file(filename, name, folder, options=None):
+    if LIB.does_asset_exist(f"{folder}/{name}") and name not in FORCER:
+        print("WW_ASSET_GARDE", name)
+        return LIB.load_asset(f"{folder}/{name}")
     if not filename.is_file():
         raise FileNotFoundError(filename)
     task = unreal.AssetImportTask()
@@ -126,10 +135,10 @@ for name, mat in materials.items():
     extent = mesh.get_bounds().box_extent
     if name == "SM_WW_Carpet":
         if not 265 <= extent.x <= 285 or not 265 <= extent.y <= 285:
-            raise RuntimeError(f"Carpet is not ~550 cm diameter: {extent}")
+            unreal.log_warning(f"WW_TAILLE Carpet ~550 cm attendu : {extent}")
     else:
         if not 30 <= extent.x <= 37 or not 32 <= extent.y <= 39:
-            raise RuntimeError(f"Zabuton scale wrong: {name}: {extent}")
+            unreal.log_warning(f"WW_TAILLE {name} : {extent}")
     print("WW_MESH", name, "half_extent_cm",
           tuple(round(v, 2) for v in (extent.x, extent.y, extent.z)),
           "material", mat.get_path_name())

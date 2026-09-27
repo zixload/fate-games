@@ -301,13 +301,31 @@ if _decoupe.is_file():
                                for k, v in _piece["materiaux"].items()}
         DECORS.append(_piece)
 
+# 27/09 : le script reimportait TOUS les decors a chaque fois, et chaque
+# reimport ecrasait les reglages faits a la main dans l'editeur (taille,
+# collision, materiaux ; la carte de role redevenait minuscule). Desormais,
+# seuls les decors absents sont importes. Pour en reimporter un exprès,
+# mettre son nom dans FORCER, par exemple FORCER = ["ClothingCustomizer"].
+FORCER = []
+
+
+def deja_la(nom):
+    return LIB.does_asset_exist(f"{DEST}/{nom}/SM_WW_{nom}")
+
+
 for decor in DECORS:
+    if deja_la(decor["nom"]) and decor["nom"] not in FORCER:
+        print("WW_DECOR_GARDE", decor["nom"], "(deja importe, FORCER pour le refaire)")
+        continue
     try:
         importer_decor(decor)
     except Exception as err:  # un decor rate ne doit pas empecher les autres
         print("WW_DECOR_ECHEC", decor["nom"], err)
-try:
-    importer_carte()
-except Exception as err:
-    print("WW_DECOR_ECHEC RoleCard", err)
+if deja_la("RoleCard") and "RoleCard" not in FORCER:
+    print("WW_DECOR_GARDE RoleCard (deja importee, FORCER pour la refaire)")
+else:
+    try:
+        importer_carte()
+    except Exception as err:
+        print("WW_DECOR_ECHEC RoleCard", err)
 print("WW_DECOR_COMPLETE")
