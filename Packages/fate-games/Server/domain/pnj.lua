@@ -59,7 +59,22 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
         f:Close()
     end
 
-    local function habiller(corps, look_id)
+    -- Tenue propre au PNJ (Shared/config.lua, pnj.types.<type>.tenue) : pieces
+    -- de tete du kit et habits (piece, materiau) de my-asset-pack.
+    local function habiller_tenue(corps, look_id, tenue)
+        local base = Apparences.Resolve(look_id or Apparences.default_id)
+        local function chemin(nom) return "my-asset-pack::" .. nom end
+        local look = { body = base and base.body, head = {}, worn = {}, materiaux = {} }
+        for _, nom in ipairs(tenue.tete or {}) do look.head[#look.head + 1] = chemin(nom) end
+        for i, h in ipairs(tenue.habits or {}) do
+            look.worn[i] = chemin(h[1])
+            look.materiaux[i] = h[2] and chemin(h[2]) or nil
+        end
+        pcall(function() Package.Require("Shared/cosmetiques.lua").Habiller(corps, look, "pnj") end)
+    end
+
+    local function habiller(corps, look_id, tenue)
+        if tenue then return habiller_tenue(corps, look_id, tenue) end
         local look = look_id and Apparences.Resolve(look_id)
         if not look then return end
         pcall(function()
@@ -84,7 +99,7 @@ return function(Log, Characters, config, dev_pour, Interactables, actions)
                 end
             end)
             if not (ok and corps) then return Log.Warn("pnj", ("%s : corps impossible (%s)"):format(p.type, tostring(err))) end
-            habiller(corps, def.look)
+            habiller(corps, def.look, def.tenue)
             local anim = def.assis and def.assis.anim or def.anim
             if anim then
                 pcall(function() corps:PlayAnimation(anim, "DefaultSlot", true, 0.2, 0.2, 1.0, true) end)

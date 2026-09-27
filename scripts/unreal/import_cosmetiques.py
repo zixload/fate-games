@@ -90,6 +90,14 @@ for m in json.loads((ART / "accessoires/manifeste.json").read_text(encoding="utf
     pieces[m["piece"]] = ART / "accessoires" / (m["piece"] + ".fbx")
     textures[m["texture"]] = ART / "accessoires" / (m["texture"] + ".png")
 
+# Tenues des PNJ (scripts/blender/create_pnj_tenues.py) : une texture cuite
+# par piece, portee par le PNJ avec son materiau (Shared/config.lua, pnj.types).
+_pnj = ART / "pnj/manifeste.json"
+if _pnj.is_file():
+    for m in json.loads(_pnj.read_text(encoding="utf-8")):
+        pieces[m["piece"]] = ART / "pnj" / (m["piece"] + ".fbx")
+        textures[m["texture"]] = ART / "pnj" / (m["texture"] + ".png")
+
 # Pieces de tete et coiffures (create_tete.py, create_cheveux.py) : elles
 # utilisent l'atlas du kit Creative, comme ses pieces.
 tete = json.loads((ART / "tete/manifeste.json").read_text(encoding="utf-8"))

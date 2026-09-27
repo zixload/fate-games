@@ -143,6 +143,8 @@ return {
             -- E sur le tailleur : le vestiaire (plus de touche I).
             tailleur = { nom = "Le tailleur", look = "etudiant", phrases = {},
                 anim = "my-asset-pack::ANIM_NPC_Tailor_Idle",
+                tenue = { tete = { "SK_Hairstyle_male_012", "SK_Moustache_002", "SK_Glasses_004", "SK_Male_emotion_usual_001" },
+                          habits = { { "SK_PNJ_Tailleur_Haut", "MI_PNJ_Tailleur_Haut" }, { "SK_Pants_014" }, { "SK_Shoe_Sneakers_009" } } },
                 interaction = { label = "Vestiaire", kind = "vestiaire", action = "vestiaire" } },
             forain   = { nom = "Le forain", look = "clown", phrases = {},
                 anim = "my-asset-pack::ANIM_NPC_Showman_Idle" },
@@ -150,6 +152,8 @@ return {
             -- E sur l'armurier : le rayon des armes (achat, equipement, vitrine).
             armurier = { nom = "L'armurier", look = "casque", phrases = {},
                 anim = "my-asset-pack::ANIM_NPC_Armorer_Idle",
+                tenue = { tete = { "SK_Moustache_001", "SK_Male_emotion_angry_003" },
+                          habits = { { "SK_PNJ_Armurier_Haut", "MI_PNJ_Armurier_Haut" }, { "SK_Pants_010" }, { "SK_Shoe_Sneakers_009" } } },
                 interaction = { label = "Armurerie", kind = "pickup", action = "armurerie" } },
             conteuse = { nom = "La conteuse", look = "casque", phrases = {},
                 assis = { anim = "my-asset-pack::ANIM_WW_Sitting_Idle_Glance", z = 11 } },
@@ -157,6 +161,9 @@ return {
             -- la tete suit une musique lente, les genoux flechissent un peu.
             musicien = { nom = "Le musicien", look = "bavard", phrases = {},
                 anim = "my-asset-pack::ANIM_NPC_Musician_Flute_Idle",
+                tenue = { tete = { "SK_Hairstyle_male_010", "SK_Male_emotion_happy_002" },
+                          habits = { { "SK_PNJ_Musicien_Haut", "MI_PNJ_Musicien_Haut" },
+                                     { "SK_PNJ_Musicien_Bas", "MI_PNJ_Musicien_Bas" }, { "SK_Shoe_Slippers_002" } } },
                 objet = { mesh = "my-asset-pack::SM_NPC_Spirit_Flute", os = "RightHandProp" },
                 -- Sa flute, en boucle autour de lui (art/sons/pnj_flute.wav, freesound).
                 musique = { son = "pnj_flute", volume = 0.55, proche = 100, portee = 300 },  -- muet a 4 m (1 + 3)
